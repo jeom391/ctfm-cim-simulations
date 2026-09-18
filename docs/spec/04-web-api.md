@@ -2,6 +2,10 @@
 
 버전 `1.0.0` · [개발 시작](README.md)
 
+## 구현 위치
+
+단일 웹 앱은 apps/web, FastAPI는 apps/api, 장기 작업은 apps/worker에 둔다. 페이지는 /, /measurements, /simulator로 나눈다. [전체 저장소 구조](06-repository-structure.md)를 따른다.
+
 ## 구현 구조
 
 프론트엔드 React+TypeScript, 백엔드 Python FastAPI, 단일 Linux 실행 worker로 시작한다. SQLite에 메타데이터/작업 상태, 서버 관리 디렉터리에 업로드와 artifact를 저장한다. API는 장기 학습을 request thread에서 실행하지 않는다. 분석·실험 작업을 DB queue에 넣고 worker가 처리한다. 모델/엔진 실행은 worker subprocess로 격리한다. v1은 팀 로컬 또는 접근 제한된 내부 배포이며 공개 인증·다중 조직 서비스는 범위 밖이다.

@@ -37,3 +37,11 @@ checkpoints/
 # Local team measurement materials and review intermediates
 관련 자료/
 tmp/
+
+# Unified web build and runtime files
+node_modules/
+dist/
+coverage/
+*.egg-info/
+/runtime/*
+!/runtime/README.md

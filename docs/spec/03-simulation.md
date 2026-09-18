@@ -40,7 +40,9 @@ Program fit만 추론에 사용한다. `t_ref=10 s`, `t_target=10+years*365.25*8
 
 실측 시간 범위를 넘으면 `extrapolated=true`; n년 값은 장기 실측 정확도가 아니라 외삽 민감도 결과로 표시한다. 기준/목표 fit 전류나 배율이 비양수·비유한이면 해당 시간점은 invalid로 처리하며 임의 clipping하지 않는다. 유한하지만 큰 양의 외삽은 값과 범위 경고를 공개한다. 정확도 증가도 그대로 보고한다.
 
-## 실행 단계와 기본값
+## 사용자 선택과 추천 실험
+
+ADC bits와 tile_size는 사용자 입력/선택값이다. 아래 H1/H2 수치는 시작용 비교 preset이며 고정 조건이 아니다. 단일 조건 또는 사용자가 선택한 조건 목록으로 실행한다. 지원 값/조합은 capabilities로 공개하고 모든 adapter의 effective config에 요청값이 실제 반영됐는지 검증한다. 추가 회로 선택 항목은 [검토 문서](../neurosim-user-controls-review.md)의 제안이며 지원 검증 전 활성화하지 않는다.
 
 | ID | 효과 | 반복 |
 |---|---|---|
@@ -56,7 +58,7 @@ ALL 기본 추천은 D2D+Retention이며 회로 옵션은 별도 활성화한다
 
 ## ADC와 타일 계약
 
-H 실험에서만 타일링/ADC를 켠다. 타일 크기는 논리적 weight 행/열의 최대값이며 차동 구현은 두 physical array plane을 필요로 한다. 레이어 입력 차원은 row 방향으로 나누고 각 부분합을 ADC 후 디지털 합산한다. 다음 레이어 입력과 bias는 digital float다. DAC는 ideal로 유지한다.
+effects.adc가 켜진 H 또는 ALL 실험에서 사용자 선택 타일링/ADC 조건을 적용한다. 타일 크기는 논리적 weight 행/열의 최대값이며 차동 구현은 두 physical array plane을 필요로 한다. 레이어 입력 차원은 row 방향으로 나누고 각 부분합을 ADC 후 디지털 합산한다. 다음 레이어 입력과 bias는 digital float다. DAC는 ideal로 유지한다.
 
 기본 정확도 모델은 차동 부분합을 먼저 계산한 뒤 bipolar ADC를 적용하는 이상적 구조다. 검증셋 전체의 명목 M0 타일 출력에서 레이어별 `B=max(abs(partial_sum))`를 구하고 같은 레이어 타일들에 공유한다. B=0이면 zero 출력으로 처리한다. 타일 크기별 calibration은 각각 수행하되 같은 크기의 모든 ADC bit·D2D·시간 실험에서는 B를 고정한다.
 
@@ -68,9 +70,9 @@ AIHWKit adapter는 이상 forward와 명시적 타일/ADC wrapper로 위 계약�
 
 NeuroSim `2DInferenceV1.4` 계열을 Linux worker에서 빌드하고 실제 commit SHA와 compiler를 pin한다. AIHWKit 버전도 환경 lock으로 고정한다. 구현 시 capability 검증 후 공개하며 설치/지원 오류는 `unsupported` 또는 `failed`로 반환한다. 기본 환경을 조용히 바꾸지 않는다.
 
-NeuroSim은 PPA만 담당한다. 같은 checkpoint, 선택 풀, nominal Gplus/Gminus, row/column 분할, ADC bits, Vread=0.1 V, trace hash를 전달한다. Ron=1/Gmax, Roff=1/Gmin을 SI 단위로 전달하고 binary cell의 bit수를 후보 개수에서 자동 계산하지 않는다. 첫 PPA는 1 analog cell/plane/weight, 두 plane 차동 표현의 등가 모델로 평가한다.
+NeuroSim은 PPA만 담당한다. 같은 checkpoint, 선택 풀, nominal Gplus/Gminus, row/column 분할, ADC bits, 측정 VDS=0.1 V와 별도 엔진 읽기 전압 메타데이터, trace hash를 전달한다. Ron=1/Gmax, Roff=1/Gmin을 SI 단위로 전달하고 binary cell의 bit수를 후보 개수에서 자동 계산하지 않는다. 첫 PPA는 1 analog cell/plane/weight, 두 plane 차동 표현의 등가 모델로 평가한다.
 
-기술 노드, read pulse width, ADC 구조, parallel rows, 배선/주변회로 설정은 측정값으로 얻지 못했으므로 실행 preset에 **모두 구체값과 assumed 출처를 저장**해야 한다. 초기 preset은 pin된 엔진의 upstream 기본값을 export한 JSON이며 숨겨진 C++ default를 남기지 않는다. 1 ms write width를 read latency로 복사하지 않는다. preset 파일/hash 없는 PPA 실행은 거부한다.
+기술 노드, read pulse width, ADC 구조, parallel rows, 배선/주변회로 설정은 측정값으로 얻지 못했으므로 실행 preset에 **모두 구체값과 assumed 출처를 저장**해야 한다. upstream 기본값은 참고 시작점일 뿐 CTFM preset으로 자동 채택하지 않는다. V1.4의 기본 SRAM 선택과 노드별 readVoltage/ADC 모델을 확인한 뒤 CTFM 등가 모델의 유효성을 검증해야 한다. 측정 0.1 V를 engine readVoltage에 단순 대입하지 않는다. 검증된 topology/전압 전이 및 모든 effective 설정이 기록된 preset만 실행 가능하게 하며, 그 전에는 PPA를 unsupported로 표시한다. 1 ms write width를 read latency로 복사하지 않는다. preset 파일/hash 없는 PPA 실행은 거부한다.
 
 NeuroSim의 ADC 위치·차동 표현·nonuniform state 지원이 정확도 모델과 같지 않으면 차이를 `model_mismatches`에 기록한다. 구조 대응 자체가 불가능하면 unsupported다. 근사 사용 시 `assumed_equivalent_circuit`으로 표시한다. CTFM 트랜지스터 회로의 실측 PPA로 표현하지 않는다. 시간별 PPA는 v1에서 재계산하지 않으며 nominal/t_ref 기반임을 명시한다.
 

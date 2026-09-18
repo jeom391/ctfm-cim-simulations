@@ -24,3 +24,7 @@
 개발은 P0 계약/환경 → P1 분석 → P2 프로필·기준 추론 → P3 비이상성 → P4 엔진 → P5 웹 통합 순서입니다. 프론트는 P0 합성 계약으로 먼저 작업할 수 있습니다. 원본 측정 파일·runtime DB·실험 결과는 Git에 올리지 않습니다.
 
 01_current-design-handoff.md는 과거 기록입니다. 본문의 이전 경로나 구현 중지 지시보다 현재 docs/spec를 우선하세요.
+
+## ADC·NeuroSim 후속 정정 (문서 v1.0.2)
+
+ADC bits/배열 크기는 사용자가 선택하는 실행 입력이며 추천 preset 수치를 고정하지 않는다. [설정 검토](../docs/neurosim-user-controls-review.md)를 확인한다. upstream SRAM 기본 설정 또는 0.1 V 단순 대입으로 CTFM PPA를 구현하지 않는다. 실제 등가 회로/전압 모델 검증 전 PPA는 unsupported이고 정확도 실험은 별도로 진행한다. SAR/MLSA·공유 ADC·노드 등은 검토된 추가 후보이며 아직 API 지원 완료가 아니다.

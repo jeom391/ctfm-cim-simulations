@@ -4,7 +4,7 @@ CTFM 소자의 측정 데이터 분석과 실측 전도도 상태 기반 CIM 추
 
 ## 개발 시작
 
-**최신 확정 설계: [docs/spec/README.md](docs/spec/README.md), v1.0.0 (2026-09-18).**
+**최신 확정 설계: [docs/spec/README.md](docs/spec/README.md), 문서 v1.0.2 / 계산·API schema v1.0.0 (2026-09-18).**
 
 - [측정 분석 계산 규칙](docs/spec/01-measurement-analysis.md)
 - [Device Profile 계약](docs/spec/02-device-profile.md)

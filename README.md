@@ -4,7 +4,7 @@ CTFM 소자의 측정 데이터 분석과 실측 전도도 상태 기반 CIM 추
 
 ## 개발 시작
 
-**최신 확정 설계: [docs/spec/README.md](docs/spec/README.md), 문서 v1.0.2 / 계산·API schema v1.0.0 (2026-09-18).**
+**최신 확정 설계: [docs/spec/README.md](docs/spec/README.md), 문서·실험 요청 v1.1.0 / Device Profile v1.0.0 (2026-09-18).**
 
 - [측정 분석 계산 규칙](docs/spec/01-measurement-analysis.md)
 - [Device Profile 계약](docs/spec/02-device-profile.md)
@@ -13,6 +13,8 @@ CTFM 소자의 측정 데이터 분석과 실측 전도도 상태 기반 CIM 추
 - [구현 순서와 인수 기준](docs/spec/05-implementation.md)
 
 홈에서 측정 데이터 분석과 CIM 시뮬레이션을 별도 기능으로 제공합니다. A1~A5를 각각 평가하며, 초기 R3 중심의 세 시뮬레이터 구조는 폐기했습니다. 현재 확정한 것은 설계이며 전체 서비스 구현이나 실제 정확도 평가가 완료된 상태는 아닙니다.
+
+- [1차 사용자 선택 조건·요청 스키마](docs/spec/07-first-release-controls.md)
 
 ## 통합 웹 구조
 

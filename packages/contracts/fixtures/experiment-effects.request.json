@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.1.0",
+  "profile_refs": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "revision": 1
+    }
+  ],
+  "model_id": "mnist_mlp_v1",
+  "checkpoint_id": null,
+  "pools": [
+    "combined"
+  ],
+  "mappings": [
+    "fixed_reference"
+  ],
+  "effects": {
+    "d2d": true,
+    "retention": true,
+    "adc": true,
+    "c2c": false
+  },
+  "arrays": 30,
+  "n_reprogram": 1,
+  "years": [
+    0,
+    1,
+    5
+  ],
+  "seed": 20260917,
+  "hardware": {
+    "tile_size": 128,
+    "adc_bits": 6,
+    "range_policy": "validation_max_abs",
+    "preset_id": null
+  },
+  "engines": {
+    "accuracy": "torch_reference",
+    "ppa": "off"
+  }
+}

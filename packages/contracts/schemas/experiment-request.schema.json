@@ -1,0 +1,305 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "profile_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "revision"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 5,
+      "uniqueItems": true
+    },
+    "model_id": {
+      "const": "mnist_mlp_v1"
+    },
+    "checkpoint_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "pools": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "combined",
+          "ltp",
+          "ltd",
+          "common"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "fixed_reference",
+          "pair_search"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "effects": {
+      "type": "object",
+      "properties": {
+        "d2d": {
+          "type": "boolean"
+        },
+        "retention": {
+          "type": "boolean"
+        },
+        "adc": {
+          "type": "boolean"
+        },
+        "c2c": {
+          "const": false
+        }
+      },
+      "required": [
+        "d2d",
+        "retention",
+        "adc",
+        "c2c"
+      ],
+      "additionalProperties": false
+    },
+    "arrays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "n_reprogram": {
+      "const": 1
+    },
+    "years": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100
+      },
+      "minItems": 1,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "contains": {
+        "const": 0
+      }
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "hardware": {
+      "type": "object",
+      "properties": {
+        "tile_size": {
+          "enum": [
+            null,
+            64,
+            128,
+            256
+          ]
+        },
+        "adc_bits": {
+          "enum": [
+            null,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        "range_policy": {
+          "enum": [
+            null,
+            "validation_max_abs"
+          ]
+        },
+        "preset_id": {
+          "const": null
+        }
+      },
+      "required": [
+        "tile_size",
+        "adc_bits",
+        "range_policy",
+        "preset_id"
+      ],
+      "additionalProperties": false
+    },
+    "engines": {
+      "type": "object",
+      "properties": {
+        "accuracy": {
+          "enum": [
+            "torch_reference",
+            "aihwkit_ideal"
+          ]
+        },
+        "ppa": {
+          "const": "off"
+        }
+      },
+      "required": [
+        "accuracy",
+        "ppa"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile_refs",
+    "model_id",
+    "checkpoint_id",
+    "pools",
+    "mappings",
+    "effects",
+    "arrays",
+    "n_reprogram",
+    "years",
+    "seed",
+    "hardware",
+    "engines"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CTFM first-release experiment request v1.1.0",
+  "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden.",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "effects": {
+            "properties": {
+              "d2d": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arrays": {
+            "const": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "effects": {
+            "properties": {
+              "retention": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "years": {
+            "const": [
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "effects": {
+            "properties": {
+              "adc": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "hardware": {
+            "type": "object",
+            "properties": {
+              "tile_size": {
+                "enum": [
+                  64,
+                  128,
+                  256
+                ]
+              },
+              "adc_bits": {
+                "enum": [
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8
+                ]
+              },
+              "range_policy": {
+                "const": "validation_max_abs"
+              },
+              "preset_id": {
+                "const": null
+              }
+            },
+            "required": [
+              "tile_size",
+              "adc_bits",
+              "range_policy",
+              "preset_id"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "hardware": {
+            "const": {
+              "tile_size": null,
+              "adc_bits": null,
+              "range_policy": null,
+              "preset_id": null
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -28,3 +28,7 @@
 ## ADC·NeuroSim 후속 정정 (문서 v1.0.2)
 
 ADC bits/배열 크기는 사용자가 선택하는 실행 입력이며 추천 preset 수치를 고정하지 않는다. [설정 검토](../docs/neurosim-user-controls-review.md)를 확인한다. upstream SRAM 기본 설정 또는 0.1 V 단순 대입으로 CTFM PPA를 구현하지 않는다. 실제 등가 회로/전압 모델 검증 전 PPA는 unsupported이고 정확도 실험은 별도로 진행한다. SAR/MLSA·공유 ADC·노드 등은 검토된 추가 후보이며 아직 API 지원 완료가 아니다.
+
+## 현재 착수 기준: v1.1.0
+
+[1차 사용자 선택 명세](../docs/spec/07-first-release-controls.md)를 추가로 읽는다. ADC on/off·3~8 bit·타일 64/128/256, 풀/매핑, D2D 반복, Retention 연수를 실행 입력으로 연결한다. [공유 계약](../packages/contracts/README.md)에 schema와 합성 예시·검증 명령이 있다. schema_version=1.1.0이며 과거 실험 요청 shape보다 우선한다. 검증기는 inference를 수행하지 않는다. 개발 담당은 form→API→resolved config→실행기→결과의 선택값 일치와 실제 중간 계산 변화를 테스트한다. C2C 및 PPA는 아직 비활성화한다.

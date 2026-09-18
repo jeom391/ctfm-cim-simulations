@@ -1,5 +1,6 @@
 # CIM 시뮬레이션 명세
 
+> 1차 구현 업데이트: 사용자 선택 항목·실험 요청은 [07-first-release-controls.md](07-first-release-controls.md)의 v1.1.0을 우선합니다. PPA/C2C는 현재 비활성이고 기존 계산 규칙은 유지합니다.
 버전 `1.0.0` · [개발 시작](README.md)
 
 ## 기준 모델과 데이터

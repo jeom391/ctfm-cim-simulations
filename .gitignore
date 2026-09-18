@@ -33,3 +33,7 @@ checkpoints/
 *.pth
 *.ckpt
 
+
+# Local team measurement materials and review intermediates
+관련 자료/
+tmp/

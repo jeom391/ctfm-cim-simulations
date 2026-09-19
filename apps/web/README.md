@@ -1,13 +1,42 @@
-# 통합 웹 프론트엔드
+# CTFM CIM web application
 
-React + TypeScript 단일 앱을 구현할 위치입니다. 현재는 디렉터리 골격이며 실행 가능한 앱은 아직 없습니다.
+React + TypeScript research workspace. Routes: `/`, `/measurements`, `/simulator`.
+All calculations use the real `/api/v1` API; the browser never synthesizes accuracy or reimplements scientific extraction.
 
-| URL | 페이지 | 소스 |
-|---|---|---|
-| / | 홈, 기능 선택 | src/pages/home/ |
-| /measurements | 측정 분석과 프로필 검토·발행 | src/pages/measurements/ |
-| /simulator | 실험 설정·진행·결과 비교 | src/pages/simulator/ |
+## Run
 
-src/components는 공통 UI, src/lib/api는 API 호출 계층입니다. 분석/시뮬레이션 계산은 서버 책임이며 프론트에서 중복 구현하지 않습니다. 시뮬레이터 내부 모델·ADC·Retention 비교는 같은 페이지의 탭/설정으로 제공하며 별도 앱으로 분리하지 않습니다.
+```powershell
+cd apps/web
+npm install
+npm run dev
+```
 
-구현 기준: [화면/API](../../docs/spec/04-web-api.md), [프로필](../../docs/spec/02-device-profile.md). API 타입의 원본은 packages/contracts이며 실제 타입 생성은 P0에서 수행합니다.
+Vite proxies `/api` to `http://127.0.0.1:8000`. Start the repository API and worker separately. The API serves the production `apps/web/dist` after a build and must provide SPA fallback for the three routes.
+
+```powershell
+npm test
+npm run build
+```
+
+Tests use Node 22.6+ native TypeScript stripping, with no test framework dependency. They verify baseline normalization, effect choices, bounds, resource budget, unavailable measurements/engines, supported ADC pairs, and explicit measurement mapping confirmation.
+
+## Workflow
+
+1. Upload CSV/XLSX, inspect sheet/first 50 original rows, explicitly map canonical columns and units, set device/condition and branch/direction metadata. Duplicate a dataset to split a source by original row bounds. Confirm each dataset before calculation.
+2. Poll/cancel actual jobs. Inspect returned tables, exclusions, warnings, applied settings and artifact downloads. Advanced JSON settings allow explicit `crossing_segments` choices after reviewing ambiguous crossings.
+3. Select measured pulse state IDs to create a draft. Optional linked D2D and Retention analyses are restricted to succeeded analyses with matching condition. Inspect pools/assumptions, record reviewer and review note, and explicitly confirm review to publish. Import/export ZIP and create a draft revision by changing selected state IDs/name.
+4. Choose up to five published profiles and explicit pools/mappings/effects. The payload builder enforces request v1.1.0. Disabled effects become arrays=1, years=[0], null hardware; C2C/PPA remain unavailable. Retention requires actual Program fit and D2D actual CV. ADC support and engine availability come from capabilities. The server is authoritative for all validation.
+5. Review actual run accuracy, signed losses, metrics, invalid/skipped runs, summary counts and reproducibility artifacts. Null is displayed as unavailable, never converted to zero. Checkpoint IDs can be reused.
+
+The typed client is `src/lib/api/index.ts`. API errors show actionable messages/request IDs, without stack traces. No external font, UI kit, telemetry, authentication assumption or mocked production data is included.
+
+## API type generation
+
+After regenerating the server OpenAPI snapshot, run:
+
+```powershell
+npm run generate:api
+npm run build
+```
+
+`src/lib/api/generated.ts` is generated from `../../packages/contracts/openapi/openapi.json`. The client and scientific request builder use the generated `ProfileManifest`, `ExperimentRequest`, and queued response types directly. Flexible result-table rows remain `Record<string, unknown>` because scientific result tables vary by analysis kind.

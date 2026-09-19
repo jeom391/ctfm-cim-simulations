@@ -1,0 +1,795 @@
+{
+  "$defs": {
+    "Assumption": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_kind": {
+          "enum": [
+            "measured",
+            "derived",
+            "assumed"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Ref"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "evidence_kind",
+        "source_ref"
+      ],
+      "title": "Assumption",
+      "type": "object"
+    },
+    "C2C": {
+      "additionalProperties": false,
+      "properties": {
+        "cv": {
+          "title": "Cv",
+          "type": "null"
+        },
+        "reason": {
+          "const": "not_provided",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "const": "unavailable",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "cv",
+        "reason"
+      ],
+      "title": "C2C",
+      "type": "object"
+    },
+    "D2D": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Analysis Id"
+        },
+        "assumption_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumption Ids",
+          "type": "array"
+        },
+        "cv": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cv"
+        },
+        "distribution": {
+          "const": "assumed_lognormal",
+          "title": "Distribution",
+          "type": "string"
+        },
+        "matched_conditions": {
+          "minimum": 0,
+          "title": "Matched Conditions",
+          "type": "integer"
+        },
+        "physical_device_count": {
+          "const": 2,
+          "title": "Physical Device Count",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "source_kind": {
+          "const": "iv_proxy",
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "cv",
+        "analysis_id",
+        "source_kind",
+        "distribution",
+        "physical_device_count",
+        "matched_conditions",
+        "assumption_ids"
+      ],
+      "title": "D2D",
+      "type": "object"
+    },
+    "Extraction": {
+      "additionalProperties": false,
+      "properties": {
+        "crossing_segments": {
+          "additionalProperties": true,
+          "title": "Crossing Segments",
+          "type": "object"
+        },
+        "excluded_conditions": {
+          "additionalProperties": true,
+          "title": "Excluded Conditions",
+          "type": "object"
+        },
+        "exclusions": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Exclusions",
+          "type": "array"
+        },
+        "import_origin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImportOrigin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "iref_a": {
+          "exclusiveMinimum": 0,
+          "title": "Iref A",
+          "type": "number"
+        },
+        "parser_version": {
+          "const": "1.0.0",
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "read_tolerance_v": {
+          "minimum": 0,
+          "title": "Read Tolerance V",
+          "type": "number"
+        },
+        "read_vgs_v": {
+          "title": "Read Vgs V",
+          "type": "number"
+        },
+        "retention_start_time_s": {
+          "minimum": 10,
+          "title": "Retention Start Time S",
+          "type": "number"
+        },
+        "sample_offset_rows": {
+          "const": 2,
+          "title": "Sample Offset Rows",
+          "type": "integer"
+        },
+        "start_time_s": {
+          "minimum": 0,
+          "title": "Start Time S",
+          "type": "number"
+        },
+        "vds_v": {
+          "title": "Vds V",
+          "type": "number"
+        },
+        "write_threshold_v": {
+          "exclusiveMinimum": 0,
+          "title": "Write Threshold V",
+          "type": "number"
+        }
+      },
+      "required": [
+        "parser_version",
+        "read_tolerance_v",
+        "write_threshold_v",
+        "start_time_s",
+        "sample_offset_rows",
+        "iref_a",
+        "vds_v",
+        "read_vgs_v",
+        "retention_start_time_s",
+        "crossing_segments",
+        "excluded_conditions",
+        "exclusions"
+      ],
+      "title": "Extraction",
+      "type": "object"
+    },
+    "ImportOrigin": {
+      "additionalProperties": false,
+      "properties": {
+        "profile_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Profile Hash",
+          "type": "string"
+        },
+        "profile_id": {
+          "format": "uuid",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "published"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_id",
+        "revision",
+        "profile_hash",
+        "status"
+      ],
+      "title": "ImportOrigin",
+      "type": "object"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "properties": {
+        "applied_pulse_count": {
+          "default": 512,
+          "title": "Applied Pulse Count",
+          "type": "integer"
+        },
+        "interval_s": {
+          "default": 0.001,
+          "title": "Interval S",
+          "type": "number"
+        },
+        "pulse_width_s": {
+          "default": 0.001,
+          "title": "Pulse Width S",
+          "type": "number"
+        },
+        "read_vgs_v": {
+          "default": 0,
+          "title": "Read Vgs V",
+          "type": "number"
+        },
+        "saturation_verified": {
+          "default": false,
+          "title": "Saturation Verified",
+          "type": "boolean"
+        },
+        "vds_v": {
+          "default": 0.1,
+          "title": "Vds V",
+          "type": "number"
+        }
+      },
+      "title": "Measurement",
+      "type": "object"
+    },
+    "Pool": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        },
+        "common_hi_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Common Hi S"
+        },
+        "common_lo_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Common Lo S"
+        },
+        "g_max_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "G Max S"
+        },
+        "g_min_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "G Min S"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "state_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "State Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "state_ids",
+        "available",
+        "reason",
+        "g_min_s",
+        "g_max_s"
+      ],
+      "title": "Pool",
+      "type": "object"
+    },
+    "Retention": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Analysis Id"
+        },
+        "current_basis": {
+          "anyOf": [
+            {
+              "const": "raw",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Basis"
+        },
+        "erase_fit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetentionFit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "program_fit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetentionFit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "program_reference_current_a": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Program Reference Current A"
+        },
+        "read_vgs_v": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Read Vgs V"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "reference_time_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Time S"
+        },
+        "simulation_available": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Simulation Available"
+        },
+        "source_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Label"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "vds_v": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Vds V"
+        }
+      },
+      "required": [
+        "status",
+        "analysis_id",
+        "source_label",
+        "vds_v",
+        "read_vgs_v",
+        "program_fit",
+        "erase_fit"
+      ],
+      "title": "Retention",
+      "type": "object"
+    },
+    "RetentionFit": {
+      "additionalProperties": false,
+      "properties": {
+        "a": {
+          "title": "A",
+          "type": "number"
+        },
+        "a_unit": {
+          "const": "A",
+          "default": "A",
+          "title": "A Unit",
+          "type": "string"
+        },
+        "b": {
+          "title": "B",
+          "type": "number"
+        },
+        "b_unit": {
+          "const": "A/decade",
+          "default": "A/decade",
+          "title": "B Unit",
+          "type": "string"
+        },
+        "n": {
+          "minimum": 3,
+          "title": "N",
+          "type": "integer"
+        },
+        "r_squared": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "R Squared"
+        },
+        "rmse": {
+          "minimum": 0,
+          "title": "Rmse",
+          "type": "number"
+        },
+        "time_max_s": {
+          "minimum": 10,
+          "title": "Time Max S",
+          "type": "number"
+        },
+        "time_min_s": {
+          "minimum": 10,
+          "title": "Time Min S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "rmse",
+        "r_squared",
+        "n",
+        "time_min_s",
+        "time_max_s"
+      ],
+      "title": "RetentionFit",
+      "type": "object"
+    },
+    "Review": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "reviewed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewed At"
+        },
+        "reviewer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewer"
+        }
+      },
+      "title": "Review",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assumptions": {
+      "items": {
+        "$ref": "#/$defs/Assumption"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "c2c": {
+      "$ref": "#/$defs/C2C"
+    },
+    "condition_id": {
+      "minLength": 1,
+      "title": "Condition Id",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "d2d": {
+      "$ref": "#/$defs/D2D"
+    },
+    "display_name": {
+      "minLength": 1,
+      "title": "Display Name",
+      "type": "string"
+    },
+    "extraction": {
+      "$ref": "#/$defs/Extraction"
+    },
+    "measurement": {
+      "$ref": "#/$defs/Measurement"
+    },
+    "pools": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Pool"
+      },
+      "title": "Pools",
+      "type": "object"
+    },
+    "profile_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Profile Hash",
+      "type": "string"
+    },
+    "profile_id": {
+      "format": "uuid",
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "published_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Published At"
+    },
+    "retention": {
+      "$ref": "#/$defs/Retention"
+    },
+    "review": {
+      "$ref": "#/$defs/Review"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "states_file": {
+      "const": "states.csv",
+      "title": "States File",
+      "type": "string"
+    },
+    "states_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "States Sha256",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "published"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile_id",
+    "revision",
+    "profile_hash",
+    "condition_id",
+    "display_name",
+    "status",
+    "created_at",
+    "published_at",
+    "measurement",
+    "sources",
+    "extraction",
+    "states_file",
+    "states_sha256",
+    "pools",
+    "d2d",
+    "c2c",
+    "retention",
+    "assumptions",
+    "review"
+  ],
+  "title": "ProfileManifest",
+  "type": "object"
+}

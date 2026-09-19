@@ -1,0 +1,12 @@
+# Without this Git normalizes line endings on checkout and corrupts binaries.
+*.pdf   -text
+*.png   -text
+*.jpg   -text
+*.xlsx  -text
+*.xls   -text
+*.npz   -text
+*.pt    -text
+*.pth   -text
+
+# Keep shell scripts LF so they stay runnable from WSL/Linux.
+*.sh    text eol=lf

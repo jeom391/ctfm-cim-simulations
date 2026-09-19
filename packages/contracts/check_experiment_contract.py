@@ -4,8 +4,19 @@ import copy
 import json
 import math
 from pathlib import Path
+from uuid import UUID
 
 from jsonschema import Draft202012Validator, FormatChecker
+
+MAX_REQUESTED_RUNS = 2000
+
+
+class ContractError(ValueError):
+    def __init__(self, message, field=None, code='invalid_request'):
+        super().__init__(message)
+        self.field = field
+        self.code = code
+
 
 ROOT = Path(__file__).resolve().parent
 SCHEMA = json.loads((ROOT / "schemas/experiment-request.schema.json").read_text(encoding="utf-8"))
@@ -15,24 +26,28 @@ VALIDATOR = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
 
 def validate_request(request):
     """Structural validation only; profile/engine availability needs server checks."""
-    def check_finite(value):
+    pending = [(request, 0)]
+    while pending:
+        value, depth = pending.pop()
+        # Valid requests are shallow; bound traversal before jsonschema formats
+        # invalid values, which can also recurse while constructing an error.
+        if depth > 32:
+            raise ContractError("Request nesting exceeds the supported depth")
         if isinstance(value, float) and not math.isfinite(value):
-            raise ValueError("Non-finite numbers are not allowed")
+            raise ContractError("Non-finite numbers are not allowed")
         if isinstance(value, dict):
-            for child in value.values():
-                check_finite(child)
+            pending.extend((child, depth + 1) for child in value.values())
         elif isinstance(value, list):
-            for child in value:
-                check_finite(child)
-    check_finite(request)
+            pending.extend((child, depth + 1) for child in value)
+
     VALIDATOR.validate(request)
-    ids = [ref["id"] for ref in request["profile_refs"]]
+    ids = [UUID(ref["id"]) for ref in request["profile_refs"]]
     if len(ids) != len(set(ids)):
-        raise ValueError("Only one revision per profile is allowed in one request")
+        raise ContractError("Only one revision per profile is allowed in one request", "profile_refs")
     count = (len(ids) * len(request["pools"]) * len(request["mappings"])
              * request["arrays"] * len(request["years"]))
-    if count > 2000:
-        raise ValueError("Requested inference run count exceeds 2000")
+    if count > MAX_REQUESTED_RUNS:
+        raise ContractError("Requested inference run count exceeds 2000", code="run_budget_exceeded")
     return count
 
 

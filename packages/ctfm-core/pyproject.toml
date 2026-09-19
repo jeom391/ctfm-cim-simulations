@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=77,<83"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctfm-core"
+version = "0.1.0"
+requires-python = ">=3.11,<3.14"
+dependencies = ["numpy>=2,<3", "pydantic>=2.11,<3", "openpyxl>=3.1,<4"]
+
+[project.optional-dependencies]
+torch = ["torch>=2.6,<3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

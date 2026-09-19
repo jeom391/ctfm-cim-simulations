@@ -1,0 +1,113 @@
+{
+  "_README": [
+    "NeuroSim PPA를 실행하려면 채워야 하는 값들입니다. 모든 값이 null이 아니고",
+    "validated_for_ctfm 이 true 여야 gate가 열립니다.",
+    "이 템플릿 자체는 CTFM 값이 아닙니다. example 필드는 NeuroSim upstream 기본값이며",
+    "SRAM/22 nm 기준이라 CTFM 등가값으로 그대로 쓰면 안 됩니다.",
+    "필드 목록의 권위는 ctfm.adapters.neurosim.REQUIRED_PRESET_FIELDS 이고,",
+    "판정은 preset_decision() 이 수행합니다. 결정 배경은 docs/정해야할것.pdf 를 보세요."
+  ],
+  "preset_id": null,
+  "validated_for_ctfm": false,
+  "assumed_equivalent_circuit": true,
+
+  "technode_nm": {
+    "value": null,
+    "decision": "A4",
+    "example_upstream": 22,
+    "note": "주변회로 PPA 전체를 좌우합니다. RRAM은 14 nm 이하 거부, HP roadmap도 14 nm 이하 거부, 14 nm 이하는 300 K만 허용."
+  },
+  "read_voltage_v": {
+    "value": null,
+    "decision": "A6",
+    "example_upstream": 0.55,
+    "note": "NeuroSim이 technode 표에서 내부 결정하며 바꿀 수 없습니다(Param.cpp 351-363행). 측정 VDS 0.1 V를 대입하면 엔진의 ADC 모델 가정이 무효가 됩니다. measurement_vds_v 와 반드시 분리 기록."
+  },
+  "read_pulse_width_s": {
+    "value": null,
+    "decision": "A7",
+    "example_upstream": 1e-08,
+    "note": "1 ms write pulse 를 여기에 넣으면 gate 가 거부합니다."
+  },
+  "cell_bit": {
+    "value": null,
+    "decision": "A5",
+    "example_upstream": 1,
+    "note": "실측 상태 개수에서 ceil(log2(N)) 으로 유도하지 않습니다."
+  },
+  "synapse_bit": {
+    "value": null,
+    "decision": "A5",
+    "example_upstream": 8,
+    "note": "NeuroSim 은 weight 당 ceil(synapse_bit/cell_bit) 컬럼을 씁니다. 명세의 'plane당 analog cell 1개'와 다른 지점."
+  },
+  "sub_array": {
+    "value": null,
+    "decision": "B",
+    "example_upstream": 128,
+    "note": "정사각 subarray. 정확도 경로의 논리 tile 과 대응 검증 필요."
+  },
+  "parallel_rows": {
+    "value": null,
+    "decision": "B4",
+    "example_upstream": 128,
+    "note": "upstream README 는 partial parallel 을 single-level cell 로 한정합니다."
+  },
+  "adc_architecture": {
+    "value": null,
+    "decision": "B1",
+    "example_upstream": "MLSA current mode",
+    "note": "SAR 또는 MLSA(전류/전압 모드). levelOutput = 2^bits 는 Param.cpp 컴파일 타임 상수라 재빌드가 필요합니다(결정 C1)."
+  },
+  "columns_per_adc": {
+    "value": null,
+    "decision": "B2",
+    "example_upstream": 8,
+    "note": "numColMuxed."
+  },
+  "interconnect": {
+    "value": null,
+    "decision": "B3",
+    "example_upstream": "XY bus",
+    "note": "H-tree 또는 XY bus."
+  },
+  "memcell_type": {
+    "value": null,
+    "decision": "A1",
+    "example_upstream": "SRAM",
+    "note": "native 선택지는 SRAM/RRAM/FeFET 뿐이며 CTFM 분기는 없습니다. CTFM 은 전하 포획 트랜지스터이고 FeFET 는 강유전체라 같은 1-TR 이라는 이유로 동일시할 수 없습니다."
+  },
+  "input_precision_bits": {
+    "value": null,
+    "decision": "B5",
+    "example_upstream": 8,
+    "note": "활성화 인코딩 정밀도."
+  },
+
+  "cell_geometry": {
+    "height_in_feature_size": {"value": null, "decision": "A2", "example_upstream": 4},
+    "width_in_feature_size": {"value": null, "decision": "A2", "example_upstream": 12},
+    "note": "upstream 1T1R 기본값입니다. crossbar 는 2x2. CTFM 실측 치수가 필요합니다."
+  },
+  "access": {
+    "structure": {"value": null, "decision": "A3", "example_upstream": "1T1R CMOS access"},
+    "access_voltage_v": {"value": null, "decision": "A3", "example_upstream": 1.1}
+  },
+  "write": {
+    "voltage_v": {"value": null, "decision": "A7", "example_upstream": 2.0},
+    "note": "read latency 로 전용하지 않습니다."
+  },
+  "calibration": {
+    "validated_flag": {"value": false, "decision": "B6"},
+    "note": "NeuroSim 의 post-layout 보정(alpha~zeta)입니다. CTFM 검증이 아니므로 기본 off 권장."
+  },
+
+  "measurement_vds_v": 0.1,
+  "measurement_note": "측정 읽기 조건입니다. 엔진 read_voltage_v 와 별개로 보존합니다.",
+
+  "unresolved": [
+    "차동 2 plane 비용 모델 (결정 A5). NeuroSim 에 두-plane 차동 배열이 없어 두 번째 plane 의 면적/에너지/지연 근사가 필요합니다.",
+    "mnist_mlp_v1(784-128-10) 은 출력층 10 때문에 현재 엔진 빌드에서 SIGSEGV 입니다 (결정 C2).",
+    "preset 변경은 Param.cpp 재빌드를 요구합니다 (결정 C1)."
+  ]
+}

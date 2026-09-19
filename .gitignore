@@ -45,3 +45,10 @@ coverage/
 *.egg-info/
 /runtime/*
 !/runtime/README.md
+
+# Python package build output
+build/
+
+# Agent tooling session state
+.omc/
+docs/superpowers/

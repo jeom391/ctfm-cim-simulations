@@ -1,0 +1,31 @@
+[project]
+name = "ctfm-cim-workspace"
+version = "0.1.0"
+requires-python = ">=3.11,<3.14"
+dependencies = ["ctfm-api", "ctfm-contracts", "ctfm-core[torch]", "ctfm-worker"]
+
+[dependency-groups]
+dev = ["httpx>=0.28,<0.29", "pytest>=8,<9"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/api", "apps/worker", "packages/ctfm-core", "packages/contracts"]
+
+[tool.uv.sources]
+ctfm-api = { workspace = true }
+ctfm-contracts = { workspace = true }
+ctfm-core = { workspace = true }
+ctfm-worker = { workspace = true }
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests", "apps/worker/tests", "packages/ctfm-core/tests", "tests/contract", "tests/e2e"]
+addopts = "-ra"
+markers = ["integration: actual dataset or engine integration tests"]

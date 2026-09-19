@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=77,<83"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctfm-api"
+version = "0.1.0"
+requires-python = ">=3.11,<3.14"
+dependencies = ["ctfm-contracts==1.1.0", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "ctfm-core==0.1.0", "python-multipart>=0.0.20,<1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

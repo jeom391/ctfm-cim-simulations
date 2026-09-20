@@ -56,9 +56,11 @@ Throughput TOPS (Layer-by-Layer Process): 0.281308
 STOCK_PRESET = {
     "preset_id": "neurosim-stock-sram-22nm",
     "technode_nm": 22, "read_voltage_v": 0.55, "read_pulse_width_s": 10e-9,
+    "read_pulse_width_source": "engine_baseline_22nm",
     "cell_bit": 1, "synapse_bit": 8, "sub_array": 128, "parallel_rows": 128,
     "adc_architecture": "MLSA current mode", "columns_per_adc": 8,
     "interconnect": "XY bus", "memcell_type": "SRAM", "input_precision_bits": 8,
+    "access_type": "CMOS_access",
 }
 
 
@@ -115,11 +117,50 @@ class PresetGateTests(unittest.TestCase):
         self.assertEqual(decision["missing_fields"], [])
         self.assertTrue(any("validated_for_ctfm" in p for p in decision["problems"]))
 
-    def test_write_pulse_cannot_be_reused_as_read_latency(self):
-        decision = neurosim.preset_decision(dict(STOCK_PRESET, validated_for_ctfm=True,
-                                                 read_pulse_width_s=1e-3))
+    def test_write_sourced_read_window_is_refused_whatever_its_magnitude(self):
+        for width in (1e-3, 10e-9):
+            decision = neurosim.preset_decision(
+                dict(STOCK_PRESET, validated_for_ctfm=True, read_pulse_width_s=width,
+                     read_pulse_width_source="write_pulse"))
+            self.assertEqual(decision["status"], "unsupported")
+            self.assertTrue(any("write" in p for p in decision["problems"]))
+
+    def test_read_window_equal_to_the_declared_write_pulse_is_refused(self):
+        decision = neurosim.preset_decision(
+            dict(STOCK_PRESET, validated_for_ctfm=True, read_pulse_width_s=1e-3,
+                 write_pulse_width_s=1e-3, read_pulse_width_source="bench_read"))
         self.assertEqual(decision["status"], "unsupported")
-        self.assertTrue(any("write pulse" in p for p in decision["problems"]))
+        self.assertTrue(any("write_pulse_width_s" in p for p in decision["problems"]))
+
+    def test_one_millisecond_is_admissible_when_it_is_sourced_as_a_read(self):
+        """docs/spec/08 section 3: check the value's source and meaning, do not
+        ban the number 1 ms outright."""
+        decision = neurosim.preset_decision(
+            dict(STOCK_PRESET, validated_for_ctfm=True, read_pulse_width_s=1e-3,
+                 read_pulse_width_source="A1 pulse-read window, 1 ms per read"))
+        self.assertEqual(decision["problems"], [])
+        self.assertEqual(decision["status"], "supported")
+
+    def test_unsourced_read_window_cannot_be_checked(self):
+        preset = dict(STOCK_PRESET, validated_for_ctfm=True)
+        preset.pop("read_pulse_width_source")
+        decision = neurosim.preset_decision(preset)
+        self.assertEqual(decision["status"], "unsupported")
+        self.assertIn("read_pulse_width_source", decision["missing_fields"])
+
+    def test_schedule_check_is_not_performed_rather_than_passed(self):
+        """The engine summary reports no subarray read latency, so the 10 ns read
+        window is not silently declared feasible."""
+        parsed = neurosim.parse_stdout(REAL_STDOUT)
+        check = neurosim.schedule_feasibility(STOCK_PRESET, parsed)
+        self.assertEqual(check["status"], "not_performed")
+        self.assertIsNone(check["engine_column_read_latency_s"])
+
+    def test_schedule_check_reports_an_impossible_read_window(self):
+        check = neurosim.schedule_feasibility(
+            STOCK_PRESET, {"subarray_read_latency_s": 25e-9})
+        self.assertEqual(check["status"], "infeasible")
+        self.assertIn("does not hold", check["detail"])
 
     def test_missing_physical_values_are_named(self):
         decision = neurosim.preset_decision({"preset_id": "x", "validated_for_ctfm": True})
@@ -150,22 +191,45 @@ class PresetGateTests(unittest.TestCase):
 
 
 class TopologyAndResultTests(unittest.TestCase):
-    def test_mnist_mlp_v1_topology_is_refused(self):
-        supported, reason = neurosim.topology_support([(784, 128), (128, 10)])
-        self.assertFalse(supported)
-        self.assertIn("segfault", reason)
+    def test_mnist_mlp_v1_depends_on_the_array_size(self):
+        """Measured: 784x128x10 segfaults at subArray 64 and 128 and completes at
+        256. The array size is part of the observation, not a detail."""
+        mnist = [(784, 128), (128, 10)]
+        for size in (64, 128):
+            supported, reason = neurosim.topology_support(mnist, size)
+            self.assertFalse(supported, size)
+            self.assertIn("segfault", reason)
+        self.assertEqual(neurosim.topology_support(mnist, 256), (True, None))
 
     def test_single_wide_layer_is_allowed(self):
-        self.assertEqual(neurosim.topology_support([(784, 128)]), (True, None))
+        self.assertEqual(neurosim.topology_support([(784, 128)], 64), (True, None))
 
-    def test_uniform_width_multilayer_is_allowed(self):
-        # Measured to complete on this build, so the guard must not refuse it.
-        self.assertEqual(neurosim.topology_support([(1024, 128), (1024, 128)]), (True, None))
-        self.assertEqual(neurosim.topology_support([(1024, 128)] * 3), (True, None))
+    def test_an_unmeasured_shape_is_allowed_to_try(self):
+        # run_engine isolates the process, so an unmeasured pair is attempted
+        # rather than guessed at.
+        self.assertEqual(neurosim.topology_support([(1024, 128), (1024, 128)], 64), (True, None))
+        self.assertEqual(neurosim.topology_support([(1024, 128)] * 3, 128), (True, None))
 
-    def test_narrow_output_layer_is_refused(self):
-        self.assertFalse(neurosim.topology_support([(1024, 10)])[0])
+    def test_a_narrow_output_layer_is_not_refused_on_a_rule_that_was_wrong(self):
+        """An earlier note claimed every layer under 96 output features crashed.
+        Direct measurement refutes it: these all complete at subArray 64."""
+        for shape in ([(1024, 10)], [(128, 10)], [(256, 10)], [(256, 64)]):
+            self.assertEqual(neurosim.topology_support(shape, 64), (True, None), shape)
+        # 784x64 really does crash at 64, so that one stays refused.
+        self.assertFalse(neurosim.topology_support([(784, 64)], 64)[0])
+
+    def test_without_an_array_size_only_a_shape_that_always_crashed_is_refused(self):
         self.assertFalse(neurosim.topology_support([(784, 64)])[0])
+        # mnist_mlp_v1 completes at one measured size, so it is not refused outright.
+        self.assertTrue(neurosim.topology_support([(784, 128), (128, 10)])[0])
+
+    def test_a_preset_may_not_cost_a_different_array_than_the_run_used(self):
+        result = neurosim.ppa_result(
+            [(784, 128), (128, 10)], preset=dict(STOCK_PRESET, validated_for_ctfm=True,
+                                                 sub_array=128),
+            root="/nonexistent-engine-root",
+            hardware={"tile_size": 256, "adc_bits": 5, "adc_order": "subtract_then_adc"})
+        self.assertTrue(any("different circuit" in r for r in result["blocking_reasons"]))
 
     def test_ppa_result_never_fabricates_numbers(self):
         result = neurosim.ppa_result([(784, 128), (128, 10)], root="/nonexistent-engine-root")
@@ -195,6 +259,36 @@ class EncodingTests(unittest.TestCase):
             np.testing.assert_array_equal(planes[2], [0, 0, 0, 0])
             # The sign plane carries weight -2**(bits-1)*delta, so -0.5 sets it.
             self.assertEqual(planes[1][0], 1)
+
+    def test_the_planes_decode_back_to_what_was_written(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "i.csv"
+            values = np.array([0.5, -0.5, 0.0, 0.25])
+            neurosim.encode_activation_csv(values, 4, path)
+            planes = np.genfromtxt(path, delimiter=",")
+            np.testing.assert_allclose(neurosim.decode_activation_planes(planes, 4), values)
+
+    def test_a_nonnegative_signal_only_reaches_half_the_signed_grid(self):
+        """The engine's trace is signed, ours is unsigned: one bit is lost, and
+        the result says so with a number rather than a remark."""
+        fidelity = neurosim.activation_trace_fidelity(np.array([0.0, 0.3, 0.9, 1.0]), 8)
+        self.assertTrue(fidelity["signal_is_nonnegative"])
+        self.assertEqual(fidelity["levels_available_to_this_signal"], 128)
+        self.assertEqual(fidelity["effective_bits_for_this_signal"], 7)
+        self.assertEqual(fidelity["accuracy_path_levels"], 256)
+        # One unsigned code is 1/255 of peak; losing a bit costs about twice that.
+        self.assertGreater(fidelity["relative_to_peak"], 0)
+        self.assertLess(fidelity["relative_to_peak"], 2.0/255)
+
+    def test_the_fidelity_travels_with_the_assembled_engine_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            layers = [dict(name="fc", weights=np.full((96, 8), 0.1), bias=np.zeros(96))]
+            inputs = neurosim.build_engine_inputs(
+                layers, [np.abs(np.linspace(0, 1, 8)).reshape(1, 8)], Path(directory),
+                input_bits=8, synapse_bit=8, profile_states=[])
+            fidelity = inputs["normalization"][0]["activation_fidelity"]
+            self.assertEqual(fidelity["effective_bits_for_this_signal"], 7)
+            json.dumps(fidelity)
 
     def test_out_of_range_activation_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

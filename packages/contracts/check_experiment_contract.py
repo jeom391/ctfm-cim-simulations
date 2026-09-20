@@ -9,6 +9,17 @@ from uuid import UUID
 from jsonschema import Draft202012Validator, FormatChecker
 
 MAX_REQUESTED_RUNS = 2000
+SCHEMA_VERSION = "1.2.0"
+# docs/spec/08-hardware-baseline.md section 6: a 1.1.0 request must not be
+# reinterpreted under 1.2.0 semantics. Its tile_size=null meant "ADC off", which
+# 1.2.0 spells as an explicit array size, and it carries no adc_order, so there
+# is no reading of the old request that is both faithful and complete. The
+# migration is therefore an explicit error, never a silent default.
+SUPERSEDED_SCHEMA_VERSIONS = {
+    "1.1.0": "1.1.0 requests are not re-interpreted under 1.2.0: state the physical "
+             "tile_size (it is meaningful with the ADC off) and adc_order "
+             "(null when the ADC is off). v1.1.0 results keep their original meaning.",
+}
 
 
 class ContractError(ValueError):
@@ -40,6 +51,10 @@ def validate_request(request):
         elif isinstance(value, list):
             pending.extend((child, depth + 1) for child in value)
 
+    version = request.get("schema_version") if isinstance(request, dict) else None
+    if version in SUPERSEDED_SCHEMA_VERSIONS:
+        raise ContractError(SUPERSEDED_SCHEMA_VERSIONS[version], "schema_version",
+                            code="schema_migration_required")
     VALIDATOR.validate(request)
     ids = [UUID(ref["id"]) for ref in request["profile_refs"]]
     if len(ids) != len(set(ids)):
@@ -68,6 +83,9 @@ def self_test():
     case(None, "years", [0, 1])  # Retention off
     case("effects", "adc", True)  # missing ADC controls
     case("hardware", "adc_bits", 6)  # ADC off
+    case("hardware", "adc_order", "subtract_then_adc")  # ADC off
+    case("hardware", "tile_size", None)  # the array size is always physical
+    case(None, "schema_version", "1.1.0")  # superseded, no silent reinterpretation
     case("engines", "ppa", "neurosim")
     case(None, "vds_v", 0.5)  # no measurement override
     case(None, "seed", -1)
@@ -80,6 +98,10 @@ def self_test():
     request = copy.deepcopy(active)
     request["hardware"]["tile_size"] = 100
     invalid.append(request)
+    for order in [None, "subtract", "adc_then_subtract_then_adc"]:
+        request = copy.deepcopy(active)
+        request["hardware"]["adc_order"] = order
+        invalid.append(request)
     request = copy.deepcopy(active)
     request["profile_refs"].append({"id": request["profile_refs"][0]["id"], "revision": 2})
     invalid.append(request)
@@ -93,12 +115,16 @@ def self_test():
         except (ValueError, ValidationError):
             continue
         raise AssertionError(f"Invalid request was accepted: {request}")
+    combinations = 0
     for bits in range(3, 9):
         for size in [64, 128, 256]:
-            request = copy.deepcopy(active)
-            request["hardware"].update(adc_bits=bits, tile_size=size)
-            assert validate_request(request) == 90
-    print(f"PASS: {len(fixtures)} fixtures, {len(invalid)} rejection cases, 18 ADC/tile combinations")
+            for order in ["subtract_then_adc", "adc_then_subtract"]:
+                request = copy.deepcopy(active)
+                request["hardware"].update(adc_bits=bits, tile_size=size, adc_order=order)
+                assert validate_request(request) == 90
+                combinations += 1
+    print(f"PASS: {len(fixtures)} fixtures, {len(invalid)} rejection cases, "
+          f"{combinations} ADC/tile/order combinations")
 
 
 if __name__ == "__main__":

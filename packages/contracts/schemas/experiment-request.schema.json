@@ -1,199 +1,6 @@
 {
-  "type": "object",
-  "properties": {
-    "schema_version": {
-      "const": "1.1.0"
-    },
-    "profile_refs": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "id",
-          "revision"
-        ],
-        "additionalProperties": false
-      },
-      "minItems": 1,
-      "maxItems": 5,
-      "uniqueItems": true
-    },
-    "model_id": {
-      "const": "mnist_mlp_v1"
-    },
-    "checkpoint_id": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "format": "uuid"
-    },
-    "pools": {
-      "type": "array",
-      "items": {
-        "enum": [
-          "combined",
-          "ltp",
-          "ltd",
-          "common"
-        ]
-      },
-      "minItems": 1,
-      "maxItems": 4,
-      "uniqueItems": true
-    },
-    "mappings": {
-      "type": "array",
-      "items": {
-        "enum": [
-          "fixed_reference",
-          "pair_search"
-        ]
-      },
-      "minItems": 1,
-      "maxItems": 2,
-      "uniqueItems": true
-    },
-    "effects": {
-      "type": "object",
-      "properties": {
-        "d2d": {
-          "type": "boolean"
-        },
-        "retention": {
-          "type": "boolean"
-        },
-        "adc": {
-          "type": "boolean"
-        },
-        "c2c": {
-          "const": false
-        }
-      },
-      "required": [
-        "d2d",
-        "retention",
-        "adc",
-        "c2c"
-      ],
-      "additionalProperties": false
-    },
-    "arrays": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 100
-    },
-    "n_reprogram": {
-      "const": 1
-    },
-    "years": {
-      "type": "array",
-      "items": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 100
-      },
-      "minItems": 1,
-      "maxItems": 10,
-      "uniqueItems": true,
-      "contains": {
-        "const": 0
-      }
-    },
-    "seed": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 4294967295
-    },
-    "hardware": {
-      "type": "object",
-      "properties": {
-        "tile_size": {
-          "enum": [
-            null,
-            64,
-            128,
-            256
-          ]
-        },
-        "adc_bits": {
-          "enum": [
-            null,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8
-          ]
-        },
-        "range_policy": {
-          "enum": [
-            null,
-            "validation_max_abs"
-          ]
-        },
-        "preset_id": {
-          "const": null
-        }
-      },
-      "required": [
-        "tile_size",
-        "adc_bits",
-        "range_policy",
-        "preset_id"
-      ],
-      "additionalProperties": false
-    },
-    "engines": {
-      "type": "object",
-      "properties": {
-        "accuracy": {
-          "enum": [
-            "torch_reference",
-            "aihwkit_ideal"
-          ]
-        },
-        "ppa": {
-          "const": "off"
-        }
-      },
-      "required": [
-        "accuracy",
-        "ppa"
-      ],
-      "additionalProperties": false
-    }
-  },
-  "required": [
-    "schema_version",
-    "profile_refs",
-    "model_id",
-    "checkpoint_id",
-    "pools",
-    "mappings",
-    "effects",
-    "arrays",
-    "n_reprogram",
-    "years",
-    "seed",
-    "hardware",
-    "engines"
-  ],
-  "additionalProperties": false,
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "CTFM first-release experiment request v1.1.0",
-  "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden.",
+  "additionalProperties": false,
   "allOf": [
     {
       "if": {
@@ -238,6 +45,42 @@
       }
     },
     {
+      "else": {
+        "properties": {
+          "hardware": {
+            "additionalProperties": false,
+            "properties": {
+              "adc_bits": {
+                "const": null
+              },
+              "adc_order": {
+                "const": null
+              },
+              "preset_id": {
+                "const": null
+              },
+              "range_policy": {
+                "const": null
+              },
+              "tile_size": {
+                "enum": [
+                  64,
+                  128,
+                  256
+                ]
+              }
+            },
+            "required": [
+              "tile_size",
+              "adc_bits",
+              "adc_order",
+              "range_policy",
+              "preset_id"
+            ],
+            "type": "object"
+          }
+        }
+      },
       "if": {
         "properties": {
           "effects": {
@@ -252,15 +95,8 @@
       "then": {
         "properties": {
           "hardware": {
-            "type": "object",
+            "additionalProperties": false,
             "properties": {
-              "tile_size": {
-                "enum": [
-                  64,
-                  128,
-                  256
-                ]
-              },
               "adc_bits": {
                 "enum": [
                   3,
@@ -271,35 +107,237 @@
                   8
                 ]
               },
-              "range_policy": {
-                "const": "validation_max_abs"
+              "adc_order": {
+                "enum": [
+                  "subtract_then_adc",
+                  "adc_then_subtract"
+                ]
               },
               "preset_id": {
                 "const": null
+              },
+              "range_policy": {
+                "const": "validation_max_abs"
+              },
+              "tile_size": {
+                "enum": [
+                  64,
+                  128,
+                  256
+                ]
               }
             },
             "required": [
               "tile_size",
               "adc_bits",
+              "adc_order",
               "range_policy",
               "preset_id"
             ],
-            "additionalProperties": false
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "hardware": {
-            "const": {
-              "tile_size": null,
-              "adc_bits": null,
-              "range_policy": null,
-              "preset_id": null
-            }
+            "type": "object"
           }
         }
       }
     }
-  ]
+  ],
+  "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error.",
+  "properties": {
+    "arrays": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "checkpoint_id": {
+      "format": "uuid",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "effects": {
+      "additionalProperties": false,
+      "properties": {
+        "adc": {
+          "type": "boolean"
+        },
+        "c2c": {
+          "const": false
+        },
+        "d2d": {
+          "type": "boolean"
+        },
+        "retention": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "d2d",
+        "retention",
+        "adc",
+        "c2c"
+      ],
+      "type": "object"
+    },
+    "engines": {
+      "additionalProperties": false,
+      "properties": {
+        "accuracy": {
+          "enum": [
+            "torch_reference",
+            "aihwkit_ideal"
+          ]
+        },
+        "ppa": {
+          "const": "off"
+        }
+      },
+      "required": [
+        "accuracy",
+        "ppa"
+      ],
+      "type": "object"
+    },
+    "hardware": {
+      "additionalProperties": false,
+      "properties": {
+        "adc_bits": {
+          "enum": [
+            null,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        "adc_order": {
+          "enum": [
+            null,
+            "subtract_then_adc",
+            "adc_then_subtract"
+          ]
+        },
+        "preset_id": {
+          "const": null
+        },
+        "range_policy": {
+          "enum": [
+            null,
+            "validation_max_abs"
+          ]
+        },
+        "tile_size": {
+          "enum": [
+            64,
+            128,
+            256
+          ]
+        }
+      },
+      "required": [
+        "tile_size",
+        "adc_bits",
+        "adc_order",
+        "range_policy",
+        "preset_id"
+      ],
+      "type": "object"
+    },
+    "mappings": {
+      "items": {
+        "enum": [
+          "fixed_reference",
+          "pair_search"
+        ]
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "model_id": {
+      "const": "mnist_mlp_v1"
+    },
+    "n_reprogram": {
+      "const": 1
+    },
+    "pools": {
+      "items": {
+        "enum": [
+          "combined",
+          "ltp",
+          "ltd",
+          "common"
+        ]
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "profile_refs": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "maxItems": 5,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema_version": {
+      "const": "1.2.0"
+    },
+    "seed": {
+      "maximum": 4294967295,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "years": {
+      "contains": {
+        "const": 0
+      },
+      "items": {
+        "maximum": 100,
+        "minimum": 0,
+        "type": "number"
+      },
+      "maxItems": 10,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile_refs",
+    "model_id",
+    "checkpoint_id",
+    "pools",
+    "mappings",
+    "effects",
+    "arrays",
+    "n_reprogram",
+    "years",
+    "seed",
+    "hardware",
+    "engines"
+  ],
+  "title": "CTFM first-release experiment request v1.2.0",
+  "type": "object"
 }

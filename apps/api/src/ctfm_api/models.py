@@ -30,6 +30,7 @@ class HardwareControls(ResponseModel):
     # These are request choices, not advertised engine support.
     tile_sizes: list[int]
     adc_bits: list[int]
+    adc_orders: list[str]
     range_policies: list[str]
     validated_combinations: list[dict]
 

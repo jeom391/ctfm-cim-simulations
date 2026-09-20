@@ -832,7 +832,28 @@
             "else": {
               "properties": {
                 "hardware": {
-                  "const": {}
+                  "additionalProperties": false,
+                  "properties": {
+                    "adc_bits": {},
+                    "adc_order": {},
+                    "preset_id": {},
+                    "range_policy": {},
+                    "tile_size": {
+                      "enum": [
+                        64,
+                        128,
+                        256
+                      ]
+                    }
+                  },
+                  "required": [
+                    "tile_size",
+                    "adc_bits",
+                    "adc_order",
+                    "range_policy",
+                    "preset_id"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -862,6 +883,12 @@
                         8
                       ]
                     },
+                    "adc_order": {
+                      "enum": [
+                        "subtract_then_adc",
+                        "adc_then_subtract"
+                      ]
+                    },
                     "preset_id": {},
                     "range_policy": {
                       "const": "validation_max_abs"
@@ -877,6 +904,7 @@
                   "required": [
                     "tile_size",
                     "adc_bits",
+                    "adc_order",
                     "range_policy",
                     "preset_id"
                   ],
@@ -886,7 +914,7 @@
             }
           }
         ],
-        "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden.",
+        "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error.",
         "properties": {
           "arrays": {
             "maximum": 100.0,
@@ -957,6 +985,13 @@
                   8
                 ]
               },
+              "adc_order": {
+                "enum": [
+                  null,
+                  "subtract_then_adc",
+                  "adc_then_subtract"
+                ]
+              },
               "preset_id": {},
               "range_policy": {
                 "enum": [
@@ -966,7 +1001,6 @@
               },
               "tile_size": {
                 "enum": [
-                  null,
                   64,
                   128,
                   256
@@ -976,6 +1010,7 @@
             "required": [
               "tile_size",
               "adc_bits",
+              "adc_order",
               "range_policy",
               "preset_id"
             ],
@@ -1038,7 +1073,7 @@
             "uniqueItems": true
           },
           "schema_version": {
-            "const": "1.1.0"
+            "const": "1.2.0"
           },
           "seed": {
             "maximum": 4294967295.0,
@@ -1075,7 +1110,7 @@
           "hardware",
           "engines"
         ],
-        "title": "CTFM first-release experiment request v1.1.0",
+        "title": "CTFM first-release experiment request v1.2.0",
         "type": "object"
       },
       "ExperimentResult": {
@@ -1178,7 +1213,7 @@
           "schema_version": {
             "anyOf": [
               {
-                "const": "1.1.0",
+                "const": "1.2.0",
                 "type": "string"
               },
               {
@@ -1481,6 +1516,13 @@
             "title": "Adc Bits",
             "type": "array"
           },
+          "adc_orders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Adc Orders",
+            "type": "array"
+          },
           "range_policies": {
             "items": {
               "type": "string"
@@ -1507,6 +1549,7 @@
         "required": [
           "tile_sizes",
           "adc_bits",
+          "adc_orders",
           "range_policies",
           "validated_combinations"
         ],
@@ -2386,6 +2429,7 @@
           "kind": {
             "enum": [
               "D0",
+              "D1",
               "M0",
               "ALL",
               "candidate"
@@ -2472,7 +2516,7 @@
   "info": {
     "description": "Explicit measurement review, immutable Device Profiles and queued scientific computation.",
     "title": "CTFM measurement and CIM API",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "openapi": "3.1.0",
   "paths": {

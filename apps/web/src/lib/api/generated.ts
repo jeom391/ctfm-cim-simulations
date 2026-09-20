@@ -587,8 +587,8 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * CTFM first-release experiment request v1.1.0
-         * @description Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden.
+         * CTFM first-release experiment request v1.2.0
+         * @description Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error.
          */
         ExperimentRequest: {
             arrays: number;
@@ -610,11 +610,13 @@ export interface components {
             hardware: {
                 /** @enum {unknown} */
                 adc_bits: null | 3 | 4 | 5 | 6 | 7 | 8;
+                /** @enum {unknown} */
+                adc_order: null | "subtract_then_adc" | "adc_then_subtract";
                 preset_id: unknown;
                 /** @enum {unknown} */
                 range_policy: null | "validation_max_abs";
                 /** @enum {unknown} */
-                tile_size: null | 64 | 128 | 256;
+                tile_size: 64 | 128 | 256;
             };
             mappings: ("fixed_reference" | "pair_search")[];
             /** @constant */
@@ -628,7 +630,7 @@ export interface components {
                 revision: number;
             }[];
             /** @constant */
-            schema_version: "1.1.0";
+            schema_version: "1.2.0";
             seed: number;
             years: number[];
         } & (unknown & unknown & unknown);
@@ -669,7 +671,7 @@ export interface components {
             /** Runs */
             runs?: components["schemas"]["RunResult"][] | null;
             /** Schema Version */
-            schema_version?: "1.1.0" | null;
+            schema_version?: "1.2.0" | null;
             /**
              * Status
              * @enum {string}
@@ -786,6 +788,8 @@ export interface components {
         HardwareControls: {
             /** Adc Bits */
             adc_bits: number[];
+            /** Adc Orders */
+            adc_orders: string[];
             /** Range Policies */
             range_policies: string[];
             /** Tile Sizes */
@@ -1103,7 +1107,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "D0" | "M0" | "ALL" | "candidate";
+            kind: "D0" | "D1" | "M0" | "ALL" | "candidate";
             /** Loss Vs Digital Pp */
             loss_vs_digital_pp?: number | null;
             /** Loss Vs Mapped Pp */

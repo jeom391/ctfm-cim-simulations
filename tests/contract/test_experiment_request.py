@@ -29,13 +29,36 @@ def test_request_round_trip_preserves_all_selected_values(name, count):
 
 @pytest.mark.parametrize("bits", range(3, 9))
 @pytest.mark.parametrize("tile", [64, 128, 256])
-def test_each_adc_choice_survives_validation(bits, tile):
+@pytest.mark.parametrize("order", ["subtract_then_adc", "adc_then_subtract"])
+def test_each_adc_choice_survives_validation(bits, tile, order):
     request = fixture("effects")
-    request["hardware"].update(adc_bits=bits, tile_size=tile)
+    request["hardware"].update(adc_bits=bits, tile_size=tile, adc_order=order)
     assert ExperimentRequest.model_validate(request).root["hardware"] == {
-        "adc_bits": bits, "tile_size": tile,
+        "adc_bits": bits, "tile_size": tile, "adc_order": order,
         "range_policy": "validation_max_abs", "preset_id": None,
     }
+
+
+def test_a_v1_1_request_is_refused_rather_than_reinterpreted():
+    """tile_size=null used to mean 'ADC off'; under 1.2.0 it is a physical size."""
+    from ctfm_contracts.check_experiment_contract import ContractError
+    request = fixture()
+    request["schema_version"] = "1.1.0"
+    with pytest.raises(ContractError) as error:
+        validate_request(request)
+    assert error.value.code == "schema_migration_required"
+    assert error.value.field == "schema_version"
+
+
+def test_the_adc_order_is_not_applicable_when_the_converter_is_off():
+    request = fixture()
+    assert request["effects"]["adc"] is False
+    assert request["hardware"]["adc_order"] is None
+    # The array is still physical with the ADC off, so its size stays explicit.
+    assert request["hardware"]["tile_size"] in (64, 128, 256)
+    request["hardware"]["adc_order"] = "subtract_then_adc"
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
 
 
 @pytest.mark.parametrize("path,value", [
@@ -45,6 +68,7 @@ def test_each_adc_choice_survives_validation(bits, tile):
     (("years",), [0, math.nan]), (("years",), [0, math.inf]),
     (("effects", "c2c"), True), (("effects", "adc"), True),
     (("effects", "d2d"), "false"), (("hardware", "adc_bits"), 6),
+    (("hardware", "tile_size"), None), (("hardware", "adc_order"), "subtract"),
     (("engines", "ppa"), "neurosim"), (("vds_v",), 0.5),
     (("profile_refs",), [{"id": "not-a-uuid", "revision": 1}]),
 ])

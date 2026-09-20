@@ -14,9 +14,20 @@ export function Notices({items,title='경고 및 안내'}:{items?:unknown[];titl
 export function PpaPanel({ppa}:{ppa?:PpaSummary|null}){
  if(!ppa)return null;
  const numeric:[string,number|null|undefined][]=[['면적 m²',ppa.area_m2],['에너지 J/추론',ppa.energy_j_per_inference],['지연 s/추론',ppa.latency_s_per_inference]];
+ const coverage=ppa.coverage;const inventory=coverage?.inventory;
  return <div className="ppa-panel"><div className="result-title"><h4>PPA (면적·에너지·지연)</h4><Status value={ppa.status}/></div>
+  <p className="muted">측정 전도도를 적용한 선형 등가 회로의 조건부 비용 추정입니다. 실제 제작 CTFM 가속기의 성능이 아닙니다.</p>
   <DataTable caption="미실행 값은 0이 아니라 —입니다" rows={[Object.fromEntries(numeric.map(([k,v])=>[k,v==null?null:v]))]}/>
-  <Notices items={ppa.reasons} title="PPA를 실행하지 않은 이유"/>
+  <Notices items={ppa.blocking_reasons?.length?ppa.blocking_reasons:undefined} title="PPA를 실행하지 못한 이유"/>
+  <Notices items={ppa.incomplete_reasons?.length?ppa.incomplete_reasons:(ppa.blocking_reasons?undefined:ppa.reasons)} title="총계를 제공하지 않는 이유 · 실행 여부와 별개"/>
+  {inventory?<DataTable caption="요청 설정이 의미하는 물리 구성 · 가중치당 plane별 1 셀, bit slicing 없음" rows={[{
+   '변환 순서':inventory.adc_order??null,'물리 셀 수':inventory.physical_cells??null,
+   'ADC 수':inventory.adc_count??null,'추론당 변환 cycle':inventory.conversion_cycles_per_inference??null,
+   '입력 정밀도':String(inventory.input_bits??'—')+' bit'}]}/>:null}
+  {coverage?.missing_components?.length?<DataTable caption="비용 모델이 없는 블록 · 이 블록들이 연결되기 전까지 총계는 null입니다" rows={coverage.missing_components.map(m=>({블록:m.id,내용:m.detail}))}/>:null}
+  {coverage?.excluded_by_scope?.length?<DataTable caption="범위에서 제외한 항목" rows={coverage.excluded_by_scope.map(m=>({항목:m.id,내용:m.detail}))}/>:null}
+  {ppa.engine_totals?<DataTable caption="엔진이 보고한 칩 총계 · 위 누락 블록을 포함하지 않으므로 전체 PPA가 아닙니다" rows={[ppa.engine_totals as Row]}/>:null}
+  {ppa.schedule_check&&ppa.schedule_check.status!=='feasible'?<p className="muted">읽기 구간 검사: {ppa.schedule_check.status} · {ppa.schedule_check.detail||'—'}</p>:null}
   {ppa.preset?.preset_id?<p className="muted">preset <code>{ppa.preset.preset_id}</code>{ppa.preset_artifact?.sha256?` · ${ppa.preset_artifact.sha256.slice(0,12)}`:''}</p>
    :<p className="muted">검증된 CTFM 등가 회로 preset이 없습니다. 아래 차이는 정확도 모델과 엔진 회로 모델이 구조적으로 다른 지점입니다.</p>}
   {ppa.model_mismatches?.length?<DataTable caption="정확도 모델과 PPA 엔진 모델의 차이" rows={ppa.model_mismatches.map(m=>({id:m.id,내용:m.detail}))}/>:null}

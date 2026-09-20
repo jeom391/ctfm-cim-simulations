@@ -21,10 +21,12 @@ export function buildExperiment(f:SimulationForm,profiles:Profile[],caps:Capabil
  check(!f.retention||parts.every(Boolean),'연수 목록에 빈 항목을 넣을 수 없습니다.');
  check(years.length<=10&&years.includes(0)&&new Set(years).size===years.length&&years.every(n=>Number.isFinite(n)&&n>=0&&n<=100),'연수는 0을 포함하고 중복 없는 0~100 값이어야 하며 최대 10개입니다.');
  check(!f.adc||available(caps.effects?.adc),'현재 엔진 환경에서 ADC를 지원하지 않습니다.');
- if(f.adc){check([64,128,256].includes(f.tileSize)&&integer(f.adcBits,3,8),'ADC는 3~8 bit, 타일은 64/128/256이어야 합니다.');const pairs=caps.hardware?.validated_combinations;if(pairs)check(pairs.some(p=>p.tile_size===f.tileSize&&p.adc_bits===f.adcBits&&(!p.engine||p.engine===f.engine)),'검증되지 않은 ADC·타일·엔진 조합입니다.');}
+ // The array is physical, so its size is part of every request, ADC or not.
+ check([64,128,256].includes(f.tileSize),'배열 크기는 64/128/256이어야 합니다.');
+ if(f.adc){check(integer(f.adcBits,3,8),'ADC는 3~8 bit여야 합니다.');check(['subtract_then_adc','adc_then_subtract'].includes(f.adcOrder),'두 ADC 순서 중 하나를 선택하세요.');const pairs=caps.hardware?.validated_combinations;if(pairs)check(pairs.some(p=>p.tile_size===f.tileSize&&p.adc_bits===f.adcBits&&(!p.engine||p.engine===f.engine)&&(!p.adc_order||p.adc_order===f.adcOrder)),'검증되지 않은 ADC·타일·순서·엔진 조합입니다.');}
  check(chosen.length*f.pools.length*f.mappings.length*arrays*years.length<=2000,'한 요청의 최대 실행 수는 2,000입니다.');
  const checkpoint=f.checkpoint.trim();check(!checkpoint||/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(checkpoint),'checkpoint ID는 UUID여야 합니다.');
- return {schema_version:'1.1.0',profile_refs:chosen.map(p=>({id:p.profile_id,revision:p.revision})),model_id:'mnist_mlp_v1',checkpoint_id:checkpoint||null,pools:f.pools as ExperimentRequest['pools'],mappings:f.mappings as ExperimentRequest['mappings'],effects:{d2d:f.d2d,retention:f.retention,adc:f.adc,c2c:false},arrays,n_reprogram:1,years,seed:f.seed,hardware:{tile_size:f.adc?f.tileSize as 64|128|256:null,adc_bits:f.adc?f.adcBits as 3|4|5|6|7|8:null,range_policy:f.adc?'validation_max_abs':null,preset_id:null},engines:{accuracy:f.engine as 'torch_reference'|'aihwkit_ideal',ppa:'off'}};
+ return {schema_version:'1.2.0',profile_refs:chosen.map(p=>({id:p.profile_id,revision:p.revision})),model_id:'mnist_mlp_v1',checkpoint_id:checkpoint||null,pools:f.pools as ExperimentRequest['pools'],mappings:f.mappings as ExperimentRequest['mappings'],effects:{d2d:f.d2d,retention:f.retention,adc:f.adc,c2c:false},arrays,n_reprogram:1,years,seed:f.seed,hardware:{tile_size:f.tileSize as 64|128|256,adc_bits:f.adc?f.adcBits as 3|4|5|6|7|8:null,adc_order:f.adc?f.adcOrder:null,range_policy:f.adc?'validation_max_abs':null,preset_id:null},engines:{accuracy:f.engine as 'torch_reference'|'aihwkit_ideal',ppa:'off'}};
 }
 export function buildAnalysis({kind,datasets,settings}:{kind:Kind;datasets:Dataset[];settings:Record<string,unknown>}){
  check(datasets.length>0,'분석할 데이터셋을 추가하세요.');

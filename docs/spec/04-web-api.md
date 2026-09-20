@@ -1,3 +1,5 @@
+> **변경 주의:** [08](08-hardware-baseline.md)의 실행 계약 1.2 전환과 한 줄 UI 설명을 적용합니다. 기존 schema 1.1은 자동 변경하지 않습니다.
+
 # 웹 화면과 API 계약
 
 > 1차 구현 업데이트: 사용자 선택 항목·실험 요청은 [07-first-release-controls.md](07-first-release-controls.md)의 v1.1.0을 우선합니다. PPA/C2C는 현재 비활성이고 기존 계산 규칙은 유지합니다.

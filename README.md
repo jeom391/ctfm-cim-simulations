@@ -1,3 +1,5 @@
+> **2026-09-20 개발 재개:** 구현 전에 [PDF 답변 및 작업 순서](docs/implementation-decisions-2026-09-20.md)와 [설계 v1.2 기준](docs/spec/08-hardware-baseline.md)을 먼저 읽으세요. 문서 결정과 구현 완료는 구분합니다.
+
 # CTFM-CIM Simulations
 
 CTFM 소자의 측정 데이터 분석과 실측 전도도 상태 기반 CIM 추론 평가를 위한 연구용 프로젝트입니다.

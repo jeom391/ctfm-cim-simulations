@@ -1,3 +1,5 @@
+> **최신 작업 순서:** [PDF 답변](../implementation-decisions-2026-09-20.md)과 [08 인수 조건](08-hardware-baseline.md)을 우선합니다. 1024→1022는 행 번호이며 상태 개수가 아닙니다.
+
 # 구현 순서와 인수 기준
 
 > 1차 구현 업데이트: 사용자 선택 항목·실험 요청은 [07-first-release-controls.md](07-first-release-controls.md)의 v1.1.0을 우선합니다. PPA/C2C는 현재 비활성이고 기존 계산 규칙은 유지합니다.

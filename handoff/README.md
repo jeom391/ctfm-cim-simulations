@@ -1,3 +1,5 @@
+> **최신 인수인계 (2026-09-20):** 팀 구현은 main 57af5ec에 반영됐습니다. 아래의 초기 골격/미구현 상태 설명은 당시 기록입니다. 먼저 [두 PDF 답변·작업 순서](../docs/implementation-decisions-2026-09-20.md) → [하드웨어 기준 v1.2](../docs/spec/08-hardware-baseline.md) → [근거·보고서 기준](../docs/research/hardware-baseline-evidence.md)을 읽으세요. 충돌 시 새 문서가 우선하며 코드/schema는 별도 이행이 필요합니다.
+
 # 최신 개발 인수인계
 
 전체 계산·API 설계는 v1.0.0이며 통합 웹 저장소 구조를 v1.0.1로 갱신했습니다. 기존 세 시뮬레이터를 각각 구현하지 않고 단일 웹 앱과 공통 실험 실행기를 사용합니다.

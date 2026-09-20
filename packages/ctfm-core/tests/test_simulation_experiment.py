@@ -30,7 +30,7 @@ def synthetic_profile():
 
 
 def configuration(p,effects=False):
-    return dict(schema_version='1.1.0',profile_refs=[dict(id=p['manifest']['profile_id'],revision=1)],model_id='mnist_mlp_v1',checkpoint_id=None,pools=['combined','common'],mappings=['fixed_reference'],effects=dict(d2d=effects,retention=effects,adc=effects,c2c=False),arrays=2 if effects else 1,n_reprogram=1,years=[0,1] if effects else [0],seed=20260917,hardware=dict(tile_size=128 if effects else None,adc_bits=6 if effects else None,range_policy='validation_max_abs' if effects else None,preset_id=None),engines=dict(accuracy='torch_reference',ppa='off'))
+    return dict(schema_version='1.2.0',profile_refs=[dict(id=p['manifest']['profile_id'],revision=1)],model_id='mnist_mlp_v1',checkpoint_id=None,pools=['combined','common'],mappings=['fixed_reference'],effects=dict(d2d=effects,retention=effects,adc=effects,c2c=False),arrays=2 if effects else 1,n_reprogram=1,years=[0,1] if effects else [0],seed=20260917,hardware=dict(tile_size=128,adc_bits=6 if effects else None,adc_order='subtract_then_adc' if effects else None,range_policy='validation_max_abs' if effects else None,preset_id=None),engines=dict(accuracy='torch_reference',ppa='off'))
 
 
 class ExperimentIntegrationTests(unittest.TestCase):
@@ -48,20 +48,28 @@ class ExperimentIntegrationTests(unittest.TestCase):
             self.assertEqual({k:r['summary'][k] for k in ('requested','completed','failed','skipped')},dict(requested=8,completed=2,failed=2,skipped=4))
             self.assertEqual(r['runs'][0]['engine'],'torch_reference')
             self.assertIsNone(r['runs'][0]['profile_ref'])
-            self.assertEqual(r['runs'][1]['profile_ref'],config['profile_refs'][0])
-            self.assertEqual(r['runs'][1]['ppa']['status'],'unsupported')
+            # D0 is FP32 digital, D1 is the same digital weights with unsigned 8 bit
+            # activations, so their gap is the input quantization loss on its own.
+            self.assertEqual([r['runs'][0]['kind'],r['runs'][1]['kind']],['D0','D1'])
+            self.assertEqual(r['runs'][1]['engine'],'torch_reference')
+            self.assertIsNotNone(r['runs'][1]['accuracy'])
+            self.assertEqual(r['runs'][2]['profile_ref'],config['profile_refs'][0])
+            self.assertEqual(r['runs'][2]['ppa']['status'],'unsupported')
             # The refusal must come from the adapter, carrying why it refused and
             # how the two models differ, with no number standing in for absence.
-            ppa=r['runs'][1]['ppa']
+            ppa=r['runs'][2]['ppa']
             self.assertTrue(ppa['reason'])
             self.assertTrue(ppa['reasons'] if 'reasons' in ppa else ppa['model_mismatches'])
             self.assertIn('nonuniform_states',{m['id'] for m in ppa['model_mismatches']})
             self.assertEqual(ppa['preset']['status'],'unsupported')
             for key in ('area_m2','energy_j_per_inference','latency_s_per_inference','raw_output'):
                 self.assertIsNone(ppa[key])
-            self.assertTrue(r['runs'][1]['mapping_errors'])
-            self.assertIsNone(r['runs'][1]['hardware']['adc_bits'])
-            self.assertEqual(r['runs'][2]['hardware']['adc_bits'],6)
+            self.assertTrue(r['runs'][2]['mapping_errors'])
+            self.assertIsNone(r['runs'][2]['hardware']['adc_bits'])
+            self.assertEqual(r['runs'][3]['hardware']['adc_bits'],6)
+            self.assertEqual(r['runs'][3]['hardware']['adc_order'],'subtract_then_adc')
+            self.assertEqual(r['effective_config']['input_encoding']['bits'],8)
+            self.assertEqual(r['schema_version'],'1.2.0')
             self.assertEqual(r['summary']['failed'],2)
             zero,one=r['summary']['array_statistics']
             self.assertEqual(zero['accuracy']['n'],2);self.assertIsNone(one['accuracy']['mean'])

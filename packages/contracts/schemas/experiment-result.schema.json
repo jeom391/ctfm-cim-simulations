@@ -80,6 +80,7 @@
         "kind": {
           "enum": [
             "D0",
+            "D1",
             "M0",
             "ALL",
             "candidate"
@@ -273,7 +274,7 @@
     "schema_version": {
       "anyOf": [
         {
-          "const": "1.1.0",
+          "const": "1.2.0",
           "type": "string"
         },
         {

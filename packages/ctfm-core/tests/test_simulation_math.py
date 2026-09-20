@@ -3,7 +3,9 @@ import hashlib
 import json
 import unittest
 import numpy as np
-from ctfm.simulation.math import map_weights, d2d_factors, retention_ratio, quantize, tiled_linear, summarize
+from ctfm.simulation.math import (map_weights, d2d_factors, retention_ratio, quantize,
+                                  tiled_linear, summarize, quantize_input, bit_planes,
+                                  differential_linear, ADC_ORDERS)
 
 def states(values):
     return [dict(state_id=str(i), conductance_s=g, direction='ltp') for i,g in enumerate(values)]
@@ -45,10 +47,60 @@ class SimulationMathTests(unittest.TestCase):
         self.assertEqual(retention_ratio(dict(fit,a=.5),1)['status'],'invalid')
         self.assertEqual(retention_ratio(dict(fit,a=.1),0)['status'],'invalid')
     def test_adc_grid_bits_clipping_and_zero(self):
-        q3,d=quantize(np.array([0.,.2,2.]),1.,3);q8,_=quantize(np.array([0.,.2,2.]),1.,8)
+        q3,d=quantize(np.array([0.,.2,2.]),3,-1.,1.);q8,_=quantize(np.array([0.,.2,2.]),8,-1.,1.)
         np.testing.assert_allclose(q3,[1/7,1/7,1]);self.assertFalse(np.allclose(q3,q8))
         self.assertEqual(d['clipped_count'],1);self.assertEqual(d['count'],3)
-        np.testing.assert_equal(quantize(np.array([4.,0.]),0,3)[0],[0,0])
+        np.testing.assert_equal(quantize(np.array([4.,0.]),3,0.,0.)[0],[0,0])
+
+    def test_unipolar_grid_starts_at_the_lower_bound(self):
+        q,_=quantize(np.array([0.,1.5,3.]),3,0.,3.)
+        np.testing.assert_allclose(q,[0.,3*4/7,3.])
+        with self.assertRaises(ValueError):quantize(np.array([0.]),3,1.,0.)
+        with self.assertRaises(ValueError):quantize(np.array([0.]),2,0.,1.)
+
+    def test_unsigned_input_codes_and_lsb_first_planes(self):
+        np.testing.assert_array_equal(quantize_input(np.array([0.,.5,1.,2.]),1.),[0,128,255,255])
+        np.testing.assert_array_equal(quantize_input(np.array([1.]),0.),[0])
+        with self.assertRaises(ValueError):quantize_input(np.array([-.1]),1.)
+        planes=bit_planes(np.array([5]),4)
+        np.testing.assert_array_equal(planes[:,0],[1,0,1,0])
+        self.assertEqual(bit_planes(np.array([0]),8).shape,(8,1))
+
+    def test_bit_serial_pair_matches_the_hand_computed_partial_sums(self):
+        gp=np.array([[3e-6,1e-6]]);gm=np.array([[1e-6,2e-6]]);b=np.zeros(1)
+        x=np.array([[1.,0.]])
+        direct,_=differential_linear(x,gp,gm,b,1.,1.,tile_size=2)
+        np.testing.assert_allclose(direct,[[2e-6]])
+        cal={}
+        serial,_=differential_linear(x,gp,gm,b,1.,1.,tile_size=2,calibration=cal)
+        np.testing.assert_allclose(serial,direct,atol=1e-18)
+        self.assertAlmostEqual(cal['subtract_then_adc'],2e-6,places=12)
+        self.assertAlmostEqual(cal['adc_then_subtract'],3e-6,places=12)
+        first,_=differential_linear(x,gp,gm,b,1.,1.,tile_size=2,adc_bits=3,
+                                    bound=cal['subtract_then_adc'],order='subtract_then_adc')
+        second,_=differential_linear(x,gp,gm,b,1.,1.,tile_size=2,adc_bits=3,
+                                     bound=cal['adc_then_subtract'],order='adc_then_subtract')
+        np.testing.assert_allclose(first,[[2e-6]],atol=1e-18)
+        np.testing.assert_allclose(second,[[3e-6-2*3e-6/7]],atol=1e-18)
+
+    def test_bit_serial_equals_the_direct_mac_with_the_adc_off(self):
+        rng=np.random.default_rng(5)
+        gp=np.abs(rng.normal(scale=1e-5,size=(9,11)))+1e-7
+        gm=np.abs(rng.normal(scale=1e-5,size=(9,11)))+1e-7
+        b=rng.normal(size=9)*1e-3;x=np.abs(rng.normal(size=(4,11)))
+        direct,_=differential_linear(x,gp,gm,b,.3,2.,tile_size=4)
+        serial,_=differential_linear(x,gp,gm,b,.3,2.,tile_size=4,calibration={})
+        np.testing.assert_allclose(serial,direct,rtol=1e-12)
+
+    def test_the_adc_needs_an_explicit_order_and_a_physical_tile(self):
+        gp=np.ones((2,2))*1e-5;gm=np.ones((2,2))*1e-6;b=np.zeros(2);x=np.ones((1,2))
+        with self.assertRaises(ValueError):
+            differential_linear(x,gp,gm,b,1.,1.,tile_size=2,adc_bits=4,bound=1.,order=None)
+        with self.assertRaises(ValueError):
+            differential_linear(x,gp,gm,b,1.,1.,tile_size=None)
+        with self.assertRaises(ValueError):
+            differential_linear(x,gp,gm[:1],b,1.,1.,tile_size=2)
+        self.assertEqual(ADC_ORDERS,('subtract_then_adc','adc_then_subtract'))
     def test_row_adc_then_sum_and_bias_once_column_blocks(self):
         x=np.array([[1.,1.,1.]]);w=np.array([[.4,.4,.4],[.2,.2,.2],[.1,.1,.1]]);b=np.array([.25,.5,.75])
         y,_=tiled_linear(x,w,b,tile_size=2,bits=3,bound=1)

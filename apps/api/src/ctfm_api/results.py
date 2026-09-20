@@ -29,7 +29,7 @@ class AnalysisResult(ScientificResult):
     artifacts: list[Artifact]
 
 class RunResult(ScientificResult):
-    kind: Literal["D0","M0","ALL","candidate"]
+    kind: Literal["D0","D1","M0","ALL","candidate"]
     status: Literal["succeeded","invalid","skipped","failed"]
     accuracy: float | None=Field(default=None,ge=0,le=1)
     loss_vs_digital_pp: float | None=None
@@ -43,7 +43,7 @@ class ExperimentResult(ScientificResult):
     experiment_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","partial","failed","cancelled"]
-    schema_version: Literal["1.1.0"] | None=None
+    schema_version: Literal["1.2.0"] | None=None
     requested_config: dict | None=None
     resolved_config: dict | None=None
     effective_config: dict | None=None

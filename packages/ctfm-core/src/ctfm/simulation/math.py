@@ -91,39 +91,142 @@ def retention_ratio(fit, years):
     return result
 
 
-def quantize(values, bound, bits):
-    if not math.isfinite(bound) or bound < 0 or not isinstance(bits, int) or not 3 <= bits <= 8:
-        raise ValueError('ADC requires a finite nonnegative bound and 3..8 bits')
-    y = np.asarray(values)
+INPUT_LEVELS = 255
+INPUT_BITS = 8
+ADC_ORDERS = ('subtract_then_adc', 'adc_then_subtract')
+
+
+def quantize_input(x, input_range):
+    """q=clip(floor(255*x/r+0.5),0,255) from docs/spec/08-hardware-baseline.md section 4.
+
+    ``input_range`` is r: 1 for the [0,1] pixel layer, and the digital
+    checkpoint's validation ReLU maximum for a hidden layer. r=0 gives q=0.
+    Negative inputs are out of scope for this unsigned encoding.
+    """
+    values = np.asarray(x, dtype=np.float64)
+    if not np.isfinite(values).all():
+        raise ValueError('Nonfinite activation cannot be quantized')
+    if not isinstance(input_range, (int, float)) or not math.isfinite(input_range) or input_range < 0:
+        raise ValueError('Input range must be finite and nonnegative')
+    if values.size and values.min() < 0:
+        raise ValueError('Unsigned 8 bit input encoding requires nonnegative activations')
+    if input_range == 0:
+        return np.zeros(values.shape, dtype=np.int64)
+    return np.clip(np.floor(INPUT_LEVELS*values/input_range+.5), 0, INPUT_LEVELS).astype(np.int64)
+
+
+def bit_planes(q, bits=INPUT_BITS):
+    """LSB-first fixed-length bit schedule; an all-zero cycle is not skipped."""
+    codes = np.asarray(q, dtype=np.int64)
+    return np.stack([(codes >> k) & 1 for k in range(bits)], axis=0).astype(np.float64)
+
+
+def quantize(values, bits, lower, upper):
+    """Q(z)=L+clip(floor((z-L)/(U-L)*(2^b-1)+0.5),0,2^b-1)*(U-L)/(2^b-1).
+
+    The grid is uniform over [lower, upper], so a bipolar range may not represent
+    exact zero. An empty range quantizes everything to zero.
+    """
+    if not isinstance(bits, int) or isinstance(bits, bool) or not 3 <= bits <= 8:
+        raise ValueError('ADC requires 3..8 bits')
+    if not all(math.isfinite(v) for v in (lower, upper)) or upper < lower:
+        raise ValueError('ADC requires a finite range with upper >= lower')
+    y = np.asarray(values, dtype=np.float64)
     if not np.isfinite(y).all():
         raise ValueError('Nonfinite ADC input')
-    clipped = np.clip(y, -bound, bound)
-    if bound == 0:
+    clipped = np.clip(y, lower, upper)
+    if upper == lower:
         output = np.zeros_like(y)
     else:
-        levels = 2**bits
-        q = np.floor((clipped+bound)*(levels-1)/(2*bound)+.5)
-        output = -bound+2*bound*q/(levels-1)
-    return output, dict(count=y.size, clipped_count=int(np.count_nonzero(np.abs(y)>bound)),
+        steps = 2**bits-1
+        code = np.clip(np.floor((clipped-lower)/(upper-lower)*steps+.5), 0, steps)
+        output = lower+code*(upper-lower)/steps
+    return output, dict(count=y.size, clipped_count=int(np.count_nonzero((y < lower) | (y > upper))),
                         clip_abs_error_sum=float(np.sum(np.abs(y-clipped))),
                         quantization_abs_error_sum=float(np.sum(np.abs(output-clipped))))
 
 
+def _zero_stats():
+    return dict(count=0, clipped_count=0, clip_abs_error_sum=0., quantization_abs_error_sum=0.)
+
+
 def tiled_linear(x, weight, bias, *, tile_size=None, bits=None, bound=None):
+    """Legacy single-plane bipolar path, kept for the v1.1 comparison only.
+
+    The v1.2 accuracy model is :func:`differential_linear`. This one quantizes a
+    completed MAC once, which docs/spec/08 section 4 says must not be treated as
+    the same result as per-bit-plane quantization.
+    """
     x, weight, bias = np.asarray(x), np.asarray(weight), np.asarray(bias)
     if bits is None:
-        return x @ weight.T + bias, dict(count=0, clipped_count=0, clip_abs_error_sum=0., quantization_abs_error_sum=0.)
+        return x @ weight.T + bias, _zero_stats()
     if not isinstance(tile_size, int) or tile_size < 1:
         raise ValueError('ADC requires positive tile size')
-    output = np.zeros((len(x), len(weight)), dtype=np.result_type(x,weight))
-    stats = dict(count=0, clipped_count=0, clip_abs_error_sum=0., quantization_abs_error_sum=0.)
+    output = np.zeros((len(x), len(weight)), dtype=np.result_type(x, weight))
+    stats = _zero_stats()
     for col in range(0, weight.shape[0], tile_size):
         for row in range(0, weight.shape[1], tile_size):
-            part = x[:,row:row+tile_size] @ weight[col:col+tile_size,row:row+tile_size].T
-            q, diag = quantize(part, bound, bits)
-            output[:,col:col+tile_size] += q
+            part = x[:, row:row+tile_size] @ weight[col:col+tile_size, row:row+tile_size].T
+            q, diag = quantize(part, bits, -bound, bound)
+            output[:, col:col+tile_size] += q
             for key in stats: stats[key] += diag[key]
     return output+bias, stats
+
+
+def differential_linear(x, g_plus, g_minus, bias, scale, input_range, *, tile_size,
+                        adc_bits=None, bound=None, order=None, calibration=None,
+                        input_bits=INPUT_BITS):
+    """One layer of the v1.2 model: 8 bit serial input over a G+/G- cell pair.
+
+    Independent NumPy reference for :class:`ctfm.simulation.torch_runner.Network`.
+    Partial sums are conductance-domain (siemens x bit); physical current is that
+    times VDS, which the caller records rather than folding in here.
+
+    ``calibration`` collects the nominal ADC range for both orders in one pass
+    over every tile and bit plane with the ADC bypassed, so a range is never
+    derived from an already quantized signal.
+    """
+    g_plus = np.asarray(g_plus, dtype=np.float64)
+    g_minus = np.asarray(g_minus, dtype=np.float64)
+    bias = np.asarray(bias, dtype=np.float64)
+    if g_plus.shape != g_minus.shape:
+        raise ValueError('The two conductance planes must have the same shape')
+    if not isinstance(tile_size, int) or isinstance(tile_size, bool) or tile_size < 1:
+        raise ValueError('A positive physical tile size is required; it is meaningful with the ADC off too')
+    codes = quantize_input(x, input_range)
+    step = input_range/INPUT_LEVELS
+    outputs, inputs = g_plus.shape
+    if adc_bits is None and calibration is None:
+        # The same sum as the bit serial loop; acceptance 2 checks the equality.
+        return (codes*step) @ (scale*(g_plus-g_minus)).T + bias, _zero_stats()
+    if adc_bits is not None and order not in ADC_ORDERS:
+        raise ValueError('ADC requires an explicit order: '+', '.join(ADC_ORDERS))
+    planes = bit_planes(codes, input_bits)
+    significance = (2.**np.arange(input_bits)).reshape(-1, 1, 1)
+    accumulated = np.zeros((len(codes), outputs), dtype=np.float64)
+    stats = _zero_stats()
+    for col in range(0, outputs, tile_size):
+        for row in range(0, inputs, tile_size):
+            block = planes[:, :, row:row+tile_size]
+            plus = block @ g_plus[col:col+tile_size, row:row+tile_size].T
+            minus = block @ g_minus[col:col+tile_size, row:row+tile_size].T
+            if calibration is not None:
+                calibration['subtract_then_adc'] = max(calibration.get('subtract_then_adc', 0.),
+                                                       float(np.abs(plus-minus).max()))
+                calibration['adc_then_subtract'] = max(calibration.get('adc_then_subtract', 0.),
+                                                       float(plus.max()), float(minus.max()))
+            if adc_bits is None:
+                converted = plus-minus
+            elif order == 'subtract_then_adc':
+                converted, diag = quantize(plus-minus, adc_bits, -float(bound), float(bound))
+                for key in stats: stats[key] += diag[key]
+            else:
+                high, diag_plus = quantize(plus, adc_bits, 0., float(bound))
+                low, diag_minus = quantize(minus, adc_bits, 0., float(bound))
+                converted = high-low
+                for key in stats: stats[key] += diag_plus[key]+diag_minus[key]
+            accumulated[:, col:col+converted.shape[2]] += (significance*converted).sum(axis=0)
+    return accumulated*step*scale+bias, stats
 
 
 def summarize(values):

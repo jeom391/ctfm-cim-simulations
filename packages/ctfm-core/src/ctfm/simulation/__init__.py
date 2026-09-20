@@ -11,8 +11,8 @@ import uuid
 import numpy as np
 from ctfm.adapters import engine_capabilities
 from .data import load_mnist
-from .math import map_weights, d2d_factors, retention_ratio, summarize
-from .torch_runner import create_model, train_model, model_layers, Network, evaluate, calibrate
+from .math import map_weights, d2d_factors, retention_ratio, summarize, ADC_ORDERS, INPUT_BITS
+from .torch_runner import create_model, train_model, model_layers, Network, evaluate, calibrate, input_ranges
 
 POOL_ORDER=('combined','ltp','ltd','common')
 MAPPING_ORDER=('fixed_reference','pair_search')
@@ -26,7 +26,9 @@ ASSUMPTIONS=[
  {'id':'retention_ms_to_10s','description':'Millisecond pulse-read G is treated as the 10-second reference state','evidence_kind':'assumed'},
  {'id':'retention_read_bias_transfer','description':'Program fit may transfer across pulse/retention read VGS, including A3/A4/A5; source read biases are retained','evidence_kind':'assumed'},
  {'id':'retention_common_gain','description':'The same Program retention ratio affects both devices and every state; not a state-specific memory-loss model','evidence_kind':'assumed'},
- {'id':'adc_bipolar_grid','description':'Differential partial sum then bipolar ADC; grid can omit exact zero; digital row sum and bias once','evidence_kind':'assumed'},
+ {'id':'adc_bipolar_grid','description':'Uniform ADC grid per bit plane; a bipolar range can omit exact zero; digital shift-add across bits, digital row sum and bias once','evidence_kind':'assumed'},
+ {'id':'unsigned_8bit_bitserial','description':'Activations are unsigned 8 bit driven LSB-first over a fixed 8 cycle schedule with no zero-cycle skipping; only nonnegative pixel and ReLU activations are in scope','evidence_kind':'assumed'},
+ {'id':'hidden_range_from_digital_checkpoint','description':'The hidden input range r is the digital checkpoint maximum over the 5k validation split, held fixed across bits, arrays and retention timepoints','evidence_kind':'assumed'},
 ]
 
 
@@ -48,7 +50,7 @@ def _save_json(path,value):
 
 def _validate(config,profiles):
     from ctfm.profiles import validate_profile
-    if config.get('schema_version')!='1.1.0' or config.get('model_id')!='mnist_mlp_v1':raise ValueError('Unsupported experiment/model version')
+    if config.get('schema_version')!='1.2.0' or config.get('model_id')!='mnist_mlp_v1':raise ValueError('Unsupported experiment/model version')
     seed=config.get('seed')
     if isinstance(seed,bool) or not isinstance(seed,int) or not 0<=seed<=2**32-1:raise ValueError('Explicit uint32 seed required')
     effects=config['effects'];hardware=config['hardware']
@@ -63,9 +65,13 @@ def _validate(config,profiles):
     if not effects['d2d'] and arrays!=1:raise ValueError('D2D off requires one array')
     if not 1<=len(years)<=10 or len(set(years))!=len(years) or 0 not in years or any(isinstance(y,bool) or not isinstance(y,(int,float)) or not _math.isfinite(y) or not 0<=y<=100 for y in years):raise ValueError('Years must be distinct finite values in 0..100 including zero')
     if not effects['retention'] and years!=[0]:raise ValueError('Retention off requires years=[0]')
+    # The array is physical, so its size is required whether or not an ADC
+    # converts the partial sums; only the converter controls go null.
+    if hardware.get('tile_size') not in (64,128,256):raise ValueError('An explicit physical tile size of 64, 128 or 256 is required')
     if effects['adc']:
-        if hardware.get('adc_bits') not in range(3,9) or hardware.get('tile_size') not in (64,128,256) or hardware.get('range_policy')!='validation_max_abs':raise ValueError('Unsupported ADC configuration')
-    elif any(hardware.get(k) is not None for k in ('tile_size','adc_bits','range_policy')):raise ValueError('ADC off requires null hardware fields')
+        if hardware.get('adc_bits') not in range(3,9) or hardware.get('range_policy')!='validation_max_abs':raise ValueError('Unsupported ADC configuration')
+        if hardware.get('adc_order') not in ADC_ORDERS:raise ValueError('ADC requires an explicit order: '+', '.join(ADC_ORDERS))
+    elif any(hardware.get(k) is not None for k in ('adc_bits','range_policy','adc_order')):raise ValueError('ADC off requires null converter fields; the order does not apply')
     if not 1<=len(profiles)<=5 or len(profiles)!=len(config['profile_refs']):raise ValueError('Profile reference count mismatch')
     refs={(r['id'],r['revision']) for r in config['profile_refs']}
     if len({r['id'] for r in config['profile_refs']})!=len(config['profile_refs']):raise ValueError('Duplicate profile revisions')
@@ -144,8 +150,17 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
         model=create_model();model.load_state_dict(checkpoint['state_dict'],strict=True);model.eval()
         checkpoint_filename=None
     digital_layers=model_layers(model)
+    # r per layer comes from the digital checkpoint on the validation split only,
+    # so every candidate shares one input range and the test set is never used.
+    ranges=input_ranges(digital_layers,train_images,train_labels,validation_idx)
+    digital_layers=[dict(layer,input_range=ranges[layer['name']]) for layer in digital_layers]
     digital=evaluate(Network(digital_layers),test_images,test_labels)
     runs=[dict(run_id='D0',kind='D0',status='succeeded',**digital,loss_vs_digital_pp=0.)]
+    # Digital weights with the same unsigned 8 bit activations: the gap to D0 is
+    # the input quantization loss on its own, before any mapping or converter.
+    digital_8bit=evaluate(Network(digital_layers,input_bits=INPUT_BITS),test_images,test_labels)
+    runs.append(dict(run_id='D1',kind='D1',status='succeeded',**digital_8bit,
+                     loss_vs_digital_pp=100*(digital['accuracy']-digital_8bit['accuracy'])))
     np.savez_compressed(output_dir/'trace-test-first-256.npz',images=test_images[:256],labels=test_labels[:256],indices=np.arange(256))
     effects=config['effects'];hardware=config['hardware'];engine=config['engines']['accuracy']
     warnings=[];recommendations=[];array_summaries=[];calibrations=[];candidate_records=[];ppa_source=None
@@ -167,12 +182,15 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                     if progress:progress('inference',completed,total)
                     continue
                 maps=[map_weights(layer['weights'],states,mapping) for layer in digital_layers]
-                nominal=[dict(name=layer['name'],weights=mapped['weights'],bias=layer['bias']) for layer,mapped in zip(digital_layers,maps)]
+                nominal=[dict(name=layer['name'],weights=mapped['weights'],bias=layer['bias'],
+                              g_plus=mapped['g_plus'],g_minus=mapped['g_minus'],scale=mapped['scale'],
+                              input_range=layer['input_range'])
+                         for layer,mapped in zip(digital_layers,maps)]
                 # PPA is a nominal-time estimate, so one assembled engine input is
                 # enough; keep the first valid candidate and name it in the result.
                 if ppa_source is None:ppa_source=dict(identity=identity,nominal=nominal,states=states)
-                nominal_validation=evaluate(Network(nominal,engine),train_images,train_labels,validation_idx)
-                nominal_test=evaluate(Network(nominal,engine),test_images,test_labels)
+                nominal_validation=evaluate(Network(nominal,engine,tile_size=hardware['tile_size'],input_bits=INPUT_BITS),train_images,train_labels,validation_idx)
+                nominal_test=evaluate(Network(nominal,engine,tile_size=hardware['tile_size'],input_bits=INPUT_BITS),test_images,test_labels)
                 nominal_accuracy=nominal_test['accuracy']
                 nominal_record=dict(**identity,run_id=candidate_id+'-M0',kind='M0',status='succeeded',**nominal_test,
                                     validation_accuracy=nominal_validation['accuracy'],loss_vs_digital_pp=100*(digital['accuracy']-nominal_accuracy),loss_vs_mapped_pp=0.)
@@ -190,7 +208,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                 if effects['adc']:
                     bounds=calibrate(nominal,train_images,train_labels,validation_idx,hardware['tile_size'],engine)
                     calibration_filename=candidate_id+'-calibration.json'
-                    calibration_hash=_save_json(output_dir/calibration_filename,dict(**identity,bounds=bounds,tile_size=hardware['tile_size'],range_policy='validation_max_abs',source='nominal M0; complete validation set only',validation_count=5000,split_sha256=split_hash,shared_across='bits, arrays and all retention timepoints'))
+                    calibration_hash=_save_json(output_dir/calibration_filename,dict(**identity,bounds=bounds,tile_size=hardware['tile_size'],range_policy='validation_max_abs',adc_order=hardware['adc_order'],source='nominal M0 with the ADC bypassed; complete validation set only',validation_count=5000,split_sha256=split_hash,units='siemens x input bit; physical current is this times VDS',input_ranges=ranges,shared_across='bits, arrays and all retention timepoints; both orders collected in one pass'))
                     calibrations.append(dict(**identity,filename=calibration_filename,sha256=calibration_hash,bounds=bounds))
                 candidate_records.append(dict(**identity,mapping_artifact=mapping_filename,mapping_errors=mapping_meta,
                     hardware={**hardware,'calibration_filename':calibration_filename,'calibration_sha256':calibration_hash,'bounds':bounds}))
@@ -208,7 +226,9 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                             if effects['d2d']:
                                 array_payload[name+'_'+polarity+'_factor']=factor;array_payload[name+'_'+polarity+'_g_s']=g
                             array_diag[name+'_'+polarity]=dict(min_s=float(g.min()),max_s=float(g.max()),outside_observed_fraction=float(np.mean((g<mapped['g_min_s']) | (g>mapped['g_max_s']))),factor_mean=float(factor.mean()),factor_std=float(factor.std(ddof=1)) if factor.size>1 else None)
-                        array_layers.append(dict(name=name,weights=mapped['scale']*(gs[0]-gs[1]),bias=layer['bias']))
+                        array_layers.append(dict(name=name,weights=mapped['scale']*(gs[0]-gs[1]),bias=layer['bias'],
+                                                g_plus=gs[0],g_minus=gs[1],scale=mapped['scale'],
+                                                input_range=layer['input_range']))
                     array_filename=None
                     if effects['d2d']:
                         array_filename=candidate_id+'-array-'+str(array_index)+'.npz'
@@ -221,9 +241,13 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                         if retention['status']=='invalid':
                             record.update(status='invalid',reason=retention['reason'],accuracy=None,loss_vs_digital_pp=None,loss_vs_mapped_pp=None,retention_loss_pp=None)
                         else:
-                            ratio=retention['ratio'];time_layers=[dict(name=l['name'],weights=l['weights']*ratio,bias=l['bias']) for l in array_layers]
+                            # One common gain on both devices, so the pair still reads G+ minus G-.
+                            ratio=retention['ratio'];time_layers=[dict(l,weights=l['weights']*ratio,g_plus=l['g_plus']*ratio,g_minus=l['g_minus']*ratio) for l in array_layers]
                             try:
-                                result=evaluate(Network(time_layers,engine,tile_size=hardware['tile_size'] if effects['adc'] else None,bits=hardware['adc_bits'] if effects['adc'] else None,bounds=bounds),test_images,test_labels)
+                                result=evaluate(Network(time_layers,engine,tile_size=hardware['tile_size'],input_bits=INPUT_BITS,
+                                                        bits=hardware['adc_bits'] if effects['adc'] else None,
+                                                        adc_order=hardware['adc_order'] if effects['adc'] else None,
+                                                        bounds=bounds),test_images,test_labels)
                                 accuracy=result['accuracy']
                                 if year==0:accuracy_t0=accuracy
                                 record.update(status='succeeded',**result,loss_vs_digital_pp=100*(digital['accuracy']-accuracy),loss_vs_mapped_pp=100*(nominal_accuracy-accuracy),retention_loss_pp=100*(accuracy_t0-accuracy) if accuracy_t0 is not None else None)
@@ -242,6 +266,9 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
     effective=deepcopy(config)
     effective.update(checkpoint_id=checkpoint_id,split_seed=split_seed,candidates=candidate_records,
                      dtype='float32',device='cpu',mapping_scale_policy='fixed_nominal',digital_bias='unchanged',dac='ideal',
+                     input_encoding=dict(bits=INPUT_BITS,signedness='unsigned',schedule='LSB-first fixed 8 cycles, zero cycles not skipped',
+                                         ranges=ranges,range_source='digital checkpoint maximum over the 5k validation split'),
+                     partial_sum_units='siemens x input bit; physical current is this times the measured VDS',
                      effect_owners=dict(d2d='ctfm.simulation.math',retention='ctfm.simulation.math',adc='ctfm.simulation.torch_runner',c2c=None),
                      disabled_effects=['programming_noise','forward_noise','PCM_drift','compensation','IR_drop','nonlinear_IV','endurance'])
     provenance=dict(python=sys.version,platform=platform.platform(),numpy=np.__version__,torch=str(torch.__version__),
@@ -263,13 +290,14 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
         # the nominal network so the engine sees exactly the mapped weights.
         recorded=[]
         trace_batch=torch.as_tensor(test_images[:256],dtype=torch.float32)/255.
-        with torch.inference_mode():Network(ppa_source['nominal'],'torch_reference')(trace_batch,record_inputs=recorded)
+        with torch.inference_mode():Network(ppa_source['nominal'],'torch_reference',tile_size=hardware['tile_size'],input_bits=INPUT_BITS)(trace_batch,record_inputs=recorded)
         try:
             ppa_inputs=build_engine_inputs(ppa_source['nominal'],recorded,output_dir/'neurosim-inputs',
                                            input_bits=8,synapse_bit=8,profile_states=ppa_source['states'])
         except ValueError as exc:
             warnings.append('NeuroSim engine inputs could not be assembled ('+type(exc).__name__+')')
-    _decision=_ppa_result(MNIST_MLP_V1_LAYERS,inputs=ppa_inputs,out_dir=output_dir)
+    _decision=_ppa_result(MNIST_MLP_V1_LAYERS,inputs=ppa_inputs,out_dir=output_dir,
+                          hardware={**hardware,'input_bits':INPUT_BITS} if effects['adc'] else None)
     if ppa_source is not None:_decision['candidate']=ppa_source['identity']
     # Keep the list as well as the joined text: individual reasons contain their
     # own semicolons, so the joined string cannot be split back apart.
@@ -280,21 +308,25 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
              model_mismatches=_decision['model_mismatches'],raw_output=_decision['raw_output'],
              engine=_decision['engine'],preset=_decision['preset'],
              preset_artifact=_decision.get('preset_artifact'),candidate=_decision.get('candidate'),
+             coverage=_decision.get('coverage'),schedule_check=_decision.get('schedule_check'),
+             engine_totals=_decision.get('engine_totals'),build=_decision.get('build'),
+             blocking_reasons=list(_decision.get('blocking_reasons') or []),
+             incomplete_reasons=list(_decision.get('incomplete_reasons') or []),
              normalization=_decision.get('normalization'),conductance=_decision.get('conductance'),
              trace_sample=_decision['trace_sample'],time_basis=_decision['time_basis'])
     candidate_by_id={c['candidate_id']:c for c in candidate_records}
     for run in runs:
-        run['engine']='torch_reference' if run['kind']=='D0' else engine
+        run['engine']='torch_reference' if run['kind'] in ('D0','D1') else engine
         run['profile_ref']=dict(id=run['profile_id'],revision=run['profile_revision']) if 'profile_id' in run else None
         run['ppa']=deepcopy(ppa)
         candidate=candidate_by_id.get(run.get('candidate_id'))
         run['mapping_errors']=candidate['mapping_errors'] if candidate else None
-        run['hardware']=deepcopy(candidate['hardware']) if candidate and run['kind']=='ALL' else dict(tile_size=None,adc_bits=None,range_policy=None,preset_id=None)
+        run['hardware']=deepcopy(candidate['hardware']) if candidate and run['kind']=='ALL' else dict(tile_size=None,adc_bits=None,adc_order=None,range_policy=None,preset_id=None)
     completed_runs=sum(r['kind']=='ALL' and r['status']=='succeeded' for r in runs)
     failed_runs=sum(r['kind']=='ALL' and r['status']=='invalid' for r in runs)
     skipped_runs=sum(r['status']=='skipped' for r in runs)*config['arrays']*len(config['years'])
     if completed_runs+failed_runs+skipped_runs!=total:raise RuntimeError('Experiment run accounting mismatch')
-    result=dict(schema_version='1.1.0',status='partial' if failed_runs or skipped_runs else 'succeeded',requested_config=requested,resolved_config=resolved,resolved_config_hash=resolved_hash,effective_config=effective,
+    result=dict(schema_version='1.2.0',status='partial' if failed_runs or skipped_runs else 'succeeded',requested_config=requested,resolved_config=resolved,resolved_config_hash=resolved_hash,effective_config=effective,
                 checkpoint_id=checkpoint_id,checkpoint_filename=checkpoint_filename,provenance=provenance,assumptions=used_assumptions,warnings=warnings,runs=runs,
                 summary=dict(digital_accuracy=digital['accuracy'],recommendations=recommendations,array_statistics=array_summaries,
                              requested=total,completed=completed_runs,failed=failed_runs,skipped=skipped_runs,

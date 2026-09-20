@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from ctfm_contracts.check_experiment_contract import MAX_REQUESTED_RUNS, SCHEMA
+from ctfm_contracts.check_experiment_contract import MAX_REQUESTED_RUNS, SCHEMA, SCHEMA_VERSION
 from ctfm_contracts.models import ExperimentRequest
 from ctfm.profiles import ProfileManifest
 from .contracts import AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
@@ -47,27 +47,32 @@ def capabilities():
     controls = SCHEMA["allOf"][2]["then"]["properties"]["hardware"]["properties"]
     effect = lambda available, reason: Capability(available=available, version=None, reason=None if available else reason)
     return Capabilities(
-        schema_version="1.1.0", profile_schema_version="1.0.0",
+        schema_version=SCHEMA_VERSION, profile_schema_version="1.0.0",
         models={"mnist_mlp_v1": effect(torch_available, "torch_unavailable")},
         engines=engines,
         effects={"d2d": effect(torch_available, "torch_unavailable"), "retention": effect(torch_available, "torch_unavailable"),
                  "adc": effect(torch_available, "torch_unavailable"), "c2c": effect(False, "not_provided")},
         hardware=HardwareControls(tile_sizes=controls["tile_size"]["enum"], adc_bits=controls["adc_bits"]["enum"],
+            adc_orders=controls["adc_order"]["enum"],
             range_policies=["validation_max_abs"],
             # Only engines whose ADC/tile combinations were compared against the
             # independent NumPy reference are advertised. AIHWKit earns its rows
             # from scripts/linux/verify_aihwkit_adc_combinations.py (18/18) and
             # still has to be available in *this* process to be listed.
-            validated_combinations=[{"tile_size": t, "adc_bits": b, "engine": name}
+            # Both ADC orders are compared against the independent NumPy model in
+            # the same sweep, so the order is part of what is advertised: a caller
+            # must not assume a verified bit/tile pair is verified in both orders.
+            validated_combinations=[{"tile_size": t, "adc_bits": b, "adc_order": o, "engine": name}
                                     for name in ("torch_reference", "aihwkit_ideal") if engines[name]["available"]
-                                    for t in (64,128,256) for b in range(3,9)] if torch_available else []),
+                                    for t in (64,128,256) for b in range(3,9)
+                                    for o in controls["adc_order"]["enum"]] if torch_available else []),
         limits={"max_profiles": properties["profile_refs"]["maxItems"], "max_arrays": properties["arrays"]["maximum"],
                 "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
         supported_file_formats=["csv","xlsx"],
         warnings=["C2C: not provided. PPA: no validated CTFM equivalent circuit preset."])
 
 def create_app(storage_root=None):
-    app = FastAPI(title="CTFM measurement and CIM API", version="1.1.0",
+    app = FastAPI(title="CTFM measurement and CIM API", version="1.2.0",
                   responses={422: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
                   description="Explicit measurement review, immutable Device Profiles and queued scientific computation.")
     lock = threading.Lock()

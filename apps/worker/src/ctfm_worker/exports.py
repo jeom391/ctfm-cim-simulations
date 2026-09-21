@@ -32,10 +32,11 @@ def export_result(result, output_dir):
             writer=csv.writer(stream);writer.writerow(columns)
             writer.writerows([[safe_csv(row.get(key)) for key in columns] for row in rows])
         sheet=workbook.create_sheet(name[:31])
-        for values in [columns]+[[scalar(row.get(key)) for key in columns] for row in rows]:
+        # sheet.max_row scans every cell, which made this loop quadratic on 24k-row tables.
+        for index,values in enumerate([columns]+[[scalar(row.get(key)) for key in columns] for row in rows],start=1):
             sheet.append(values)
-            for cell in sheet[sheet.max_row]:
-                if isinstance(cell.value,str): cell.data_type="s"
+            for column,value in enumerate(values,start=1):
+                if isinstance(value,str): sheet.cell(index,column).data_type="s"
         sheet.freeze_panes="A2";sheet.auto_filter.ref=sheet.dimensions
     if not workbook.worksheets:
         sheet=workbook.create_sheet("summary");sheet.append(["status","No tabular rows"])

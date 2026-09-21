@@ -10,6 +10,8 @@ from copy import deepcopy
 from pathlib import Path
 from statistics import mean, stdev
 
+# Extraction rules and state identity are unchanged; this fix only identifies
+# the exported table boundaries before explicit column mapping is applied.
 PARSER_VERSION = '1.0.0'
 RETENTION_SOURCES = {'A1':('R1',0.),'A2':('R2',0.),'A3':('R3(1)',.5),'A4':('R4(1)',.1),'A5':('R5(1)',.5)}
 MAX_ROWS = 1_000_000
@@ -30,6 +32,47 @@ DEFAULTS = dict(read_tolerance_v=0.05, write_threshold_v=5.0, start_time_s=6.0,
 UNIT_FACTORS = {'time_s': {'s':1., 'ms':1e-3, 'us':1e-6, '쨉s':1e-6},
                 'vgs_v': {'V':1., 'mV':1e-3},
                 'id_a': {'A':1., 'mA':1e-3, 'uA':1e-6, '쨉A':1e-6, '關A':1e-6, 'nA':1e-9}}
+
+
+def _blank_row(row):
+    return all(v is None or not str(v).strip() for v in row)
+
+
+def _instrument_block(raw, warnings):
+    """Recognize the exported table layout, not the meaning/units of its channels.
+
+    Only the known Time/MeasResult layout permits excluding export metadata.
+    Unknown or resumed tables fail rather than silently dropping measurements.
+    Returned boundaries are indices into the original rows.
+    """
+    signature = ['Time', 'MeasResult1_value', 'MeasResult2_value']
+    candidates = [i for i, row in enumerate(raw)
+                  if [str(v).strip() for v in row[:3]] == signature]
+    if not candidates:
+        return None, len(raw)
+    if len(candidates) != 1:
+        raise ValueError('Multiple instrument tables found; select/export one table explicitly')
+    start = candidates[0]
+    for index, row in enumerate(raw[:start]):
+        title = index == 0 and row and not _numeric(row[0]) and _blank_row(row[1:])
+        if not _blank_row(row) and not title and str(row[0]).strip() not in {'Device ID', 'Remarks'}:
+            raise ValueError(f'Unrecognized instrument metadata at row {index + 1}; select/export the measurement table explicitly')
+    warnings.append('Recognized instrument table layout v1 (channel mapping still required)')
+    if start:
+        warnings.append(f'Instrument metadata rows 1-{start} excluded')
+    end = next((i for i in range(start + 1, len(raw)) if _blank_row(raw[i])), len(raw))
+    footer = [(i, row) for i, row in enumerate(raw[end:], end) if not _blank_row(row)]
+    if footer:
+        first, header = footer[0]
+        allowed = {'Waveform1_voltage', 'Waveform1_time', 'Waveform2_time',
+                   'Waveform2_voltage', 'MeasTiming_time', 'MeasTiming_flag',
+                   'MeasResult1_time', 'MeasResult1_value',
+                   'MeasResult2_time', 'MeasResult2_value'}
+        labels = {str(v).strip() for v in header if v is not None and str(v).strip()}
+        if not labels or not labels <= allowed or any(not _blank_row(row[:3]) for _, row in footer):
+            raise ValueError(f'Unrecognized trailing/auxiliary table at row {first + 1}; select/export the measurement table explicitly')
+        warnings.append(f'Instrument auxiliary section rows {end + 1}-{len(raw)} excluded')
+    return start, end
 
 
 def parse_table(data: bytes, filename: str, sheet: str | None = None) -> dict:
@@ -95,12 +138,13 @@ def parse_table(data: bytes, filename: str, sheet: str | None = None) -> dict:
         raw.pop()
     if not raw:
         raise ValueError('The table is empty')
-    header_index = None
-    for index, row in enumerate(raw):
-        nonempty = [v for v in row if v is not None and str(v).strip()]
-        if len(nonempty) >= 2 and all(isinstance(v, str) and not _numeric(v) for v in nonempty):
-            header_index = index
-            break
+    header_index, data_end = _instrument_block(raw, warnings)
+    if header_index is None:
+        for index, row in enumerate(raw):
+            nonempty = [v for v in row if v is not None and str(v).strip()]
+            if len(nonempty) >= 2 and all(isinstance(v, str) and not _numeric(v) for v in nonempty):
+                header_index = index
+                break
     if header_index is None:
         raise ValueError('A header row with explicit column labels is required')
     header = raw[header_index]
@@ -110,7 +154,7 @@ def parse_table(data: bytes, filename: str, sheet: str | None = None) -> dict:
     if not all(columns) or len(set(columns)) != len(columns):
         raise ValueError('Column labels must be nonempty and unique')
     rows, source_rows = [], []
-    for n, row in enumerate(raw[header_index + 1:], start=header_index + 2):
+    for n, row in enumerate(raw[header_index + 1:data_end], start=header_index + 2):
         if len(row) > len(columns) and any(v not in ('', None) for v in row[len(columns):]):
             raise ValueError(f'Row {n} has more cells than the header')
         rows.append(dict(zip(columns, list(row[:len(columns)]) + [None] * (len(columns)-len(row)))))

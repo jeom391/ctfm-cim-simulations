@@ -68,3 +68,12 @@ def test_spreadsheet_exports_keep_untrusted_strings_as_text(tmp_path):
     assert workbook["notes"]["A2"].data_type=="s"
     assert workbook["notes"]["A2"].value=="=1+1"
     workbook.close()
+
+def test_spreadsheet_export_scales_to_measured_table_size(tmp_path):
+    # A measured LTP+LTD pair yields 24k raw rows; a per-row max_row scan made this hang for minutes.
+    import time
+    from ctfm_worker.exports import export_result
+    rows=[{"row":i,"label":"=x","value":i*1e-6} for i in range(24000)]
+    started=time.monotonic()
+    export_result({"tables":{"raw":rows}},tmp_path)
+    assert time.monotonic()-started<60

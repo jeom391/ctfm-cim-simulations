@@ -10,3 +10,6 @@
 
 # Keep shell scripts LF so they stay runnable from WSL/Linux.
 *.sh    text eol=lf
+
+# Preserve shared measurement CSV bytes and provenance hashes.
+/data/reference/ltp-ltd-2026-09-21/**/*.csv -text

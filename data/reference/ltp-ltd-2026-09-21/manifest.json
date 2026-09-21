@@ -1,0 +1,450 @@
+{
+  "dataset_id": "ltp-ltd-2026-09-21",
+  "version": 1,
+  "shared_date": "2026-09-21",
+  "measurement_date": "not_inferred",
+  "source": "user-designated latest LTD,LTP collection",
+  "expectations_basis": "independent primary-block scan; not production-parser validation or proof of device quality",
+  "files": [
+    {
+      "file": "A1/A1_LTD.csv",
+      "sha256": "505609d2d81312e5f8988fe4dd4da84324e0c4e95f7a21954e4c8d1c91cb50bb",
+      "bytes": 413696,
+      "condition_id": "A1",
+      "direction": "ltd",
+      "header_row": 2,
+      "data_start_row": 3,
+      "data_end_row": 12002,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1023,
+        "source_row": 1021,
+        "time_s": 6.00185,
+        "id_a": 8.78e-07,
+        "conductance_s": 8.779999999999999e-06
+      },
+      "reference_last_sample": {
+        "transition_row": 11204,
+        "source_row": 11202,
+        "time_s": 7.01995,
+        "id_a": 1.14e-07,
+        "conductance_s": 1.1399999999999999e-06
+      }
+    },
+    {
+      "file": "A1/A1_LTP.csv",
+      "sha256": "345c6ce04223ce66bed2488fe5c660b63b7c375bebe74a27570c27c7cde2b71e",
+      "bytes": 544214,
+      "condition_id": "A1",
+      "direction": "ltp",
+      "header_row": 2,
+      "data_start_row": 3,
+      "data_end_row": 12002,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1023,
+        "source_row": 1021,
+        "time_s": 6.00185,
+        "id_a": 1.48e-06,
+        "conductance_s": 1.4799999999999999e-05
+      },
+      "reference_last_sample": {
+        "transition_row": 11204,
+        "source_row": 11202,
+        "time_s": 7.01995,
+        "id_a": 4.09e-06,
+        "conductance_s": 4.09e-05
+      }
+    },
+    {
+      "file": "A2/A2_LTD.csv",
+      "sha256": "247a937fce2649dba2673abd43e4be3542dc1e31db2ffb0ffafd9f1b45766dce",
+      "bytes": 753720,
+      "condition_id": "A2",
+      "direction": "ltd",
+      "header_row": 2,
+      "data_start_row": 3,
+      "data_end_row": 12002,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1023,
+        "source_row": 1021,
+        "time_s": 6.00185,
+        "id_a": 1.23e-06,
+        "conductance_s": 1.23e-05
+      },
+      "reference_last_sample": {
+        "transition_row": 11204,
+        "source_row": 11202,
+        "time_s": 7.01995,
+        "id_a": 4.96e-07,
+        "conductance_s": 4.96e-06
+      }
+    },
+    {
+      "file": "A2/A2_LTP.csv",
+      "sha256": "5e029618aaf10b5b70afa7c5852675c39c95bf63457cc60de65f27366e8a3a2d",
+      "bytes": 760080,
+      "condition_id": "A2",
+      "direction": "ltp",
+      "header_row": 2,
+      "data_start_row": 3,
+      "data_end_row": 12002,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1023,
+        "source_row": 1021,
+        "time_s": 6.00185,
+        "id_a": 7.75e-07,
+        "conductance_s": 7.749999999999999e-06
+      },
+      "reference_last_sample": {
+        "transition_row": 11204,
+        "source_row": 11202,
+        "time_s": 7.01995,
+        "id_a": 3.8e-06,
+        "conductance_s": 3.7999999999999995e-05
+      }
+    },
+    {
+      "file": "A3/LTD_512_A3_228.csv",
+      "sha256": "5f6e1ac52fd6c3618598756e9a9b26e7a8b2bcf1170ef70db7324688e2d83985",
+      "bytes": 570555,
+      "condition_id": "A3",
+      "direction": "ltd",
+      "header_row": 3,
+      "data_start_row": 4,
+      "data_end_row": 12003,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1024,
+        "source_row": 1022,
+        "time_s": 6.00185,
+        "id_a": 4.08e-05,
+        "conductance_s": 0.000408
+      },
+      "reference_last_sample": {
+        "transition_row": 11205,
+        "source_row": 11203,
+        "time_s": 7.01995,
+        "id_a": 1.58e-05,
+        "conductance_s": 0.000158
+      }
+    },
+    {
+      "file": "A3/LTP_512_A3_228.csv",
+      "sha256": "c161f29269d12ce2a0a349f0fa19a6aee71fff2872df4213a125905fc108d70e",
+      "bytes": 711045,
+      "condition_id": "A3",
+      "direction": "ltp",
+      "header_row": 3,
+      "data_start_row": 4,
+      "data_end_row": 12003,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1024,
+        "source_row": 1022,
+        "time_s": 6.00185,
+        "id_a": 1.7390375433e-05,
+        "conductance_s": 0.00017390375432999999
+      },
+      "reference_last_sample": {
+        "transition_row": 11205,
+        "source_row": 11203,
+        "time_s": 7.01995,
+        "id_a": 5.4447453294e-05,
+        "conductance_s": 0.0005444745329399999
+      }
+    },
+    {
+      "file": "A4/LTD_512_A4_229.csv",
+      "sha256": "cd8e450d23cf66362d9364fb916d6f07c37ab6960cdbf1da766c5d080cf0cce7",
+      "bytes": 722836,
+      "condition_id": "A4",
+      "direction": "ltd",
+      "header_row": 3,
+      "data_start_row": 4,
+      "data_end_row": 12003,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1024,
+        "source_row": 1022,
+        "time_s": 6.00185,
+        "id_a": 4.4071523007e-05,
+        "conductance_s": 0.00044071523006999994
+      },
+      "reference_last_sample": {
+        "transition_row": 11205,
+        "source_row": 11203,
+        "time_s": 7.01995,
+        "id_a": 1.4691848264e-05,
+        "conductance_s": 0.00014691848264
+      }
+    },
+    {
+      "file": "A4/LTP_512_A4_229.csv",
+      "sha256": "99b25ae3742b4ed6ad1c99e999614522660a385a14c6403a7ad283ab8f53a870",
+      "bytes": 714207,
+      "condition_id": "A4",
+      "direction": "ltp",
+      "header_row": 3,
+      "data_start_row": 4,
+      "data_end_row": 12003,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1024,
+        "source_row": 1022,
+        "time_s": 6.00185,
+        "id_a": 2.399751429e-05,
+        "conductance_s": 0.00023997514289999998
+      },
+      "reference_last_sample": {
+        "transition_row": 11205,
+        "source_row": 11203,
+        "time_s": 7.01995,
+        "id_a": 5.2910039813e-05,
+        "conductance_s": 0.0005291003981299999
+      }
+    },
+    {
+      "file": "A5/LTD_512_A5_234.csv",
+      "sha256": "cf7c2805c23075b5ef910c3e6f1b5fe91f6ed3c61d7446d3539cea6e730c306b",
+      "bytes": 571392,
+      "condition_id": "A5",
+      "direction": "ltd",
+      "header_row": 3,
+      "data_start_row": 4,
+      "data_end_row": 12003,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1024,
+        "source_row": 1022,
+        "time_s": 6.00185,
+        "id_a": 6.05e-05,
+        "conductance_s": 0.000605
+      },
+      "reference_last_sample": {
+        "transition_row": 11205,
+        "source_row": 11203,
+        "time_s": 7.01995,
+        "id_a": 2.71e-05,
+        "conductance_s": 0.000271
+      }
+    },
+    {
+      "file": "A5/LTP_512_A5_234.csv",
+      "sha256": "d82d373e344182ecd841f82cc494cca405c19f2a1a67430d20ba0a1eec331408",
+      "bytes": 714498,
+      "condition_id": "A5",
+      "direction": "ltp",
+      "header_row": 3,
+      "data_start_row": 4,
+      "data_end_row": 12003,
+      "data_count": 12000,
+      "time_range_s": [
+        5.90005,
+        7.09995
+      ],
+      "column_mapping": {
+        "time_s": "Time",
+        "id_a": "MeasResult1_value",
+        "vgs_v": "MeasResult2_value"
+      },
+      "units": {
+        "time_s": "s",
+        "id_a": "A",
+        "vgs_v": "V"
+      },
+      "start_time_s": 6,
+      "read_vgs_v": 0,
+      "vds_v": 0.1,
+      "observed_write_segments": 511,
+      "reference_candidate_count": 510,
+      "reference_first_sample": {
+        "transition_row": 1024,
+        "source_row": 1022,
+        "time_s": 6.00185,
+        "id_a": 3.1734518416e-05,
+        "conductance_s": 0.00031734518416
+      },
+      "reference_last_sample": {
+        "transition_row": 11205,
+        "source_row": 11203,
+        "time_s": 7.01995,
+        "id_a": 5.8806093875e-05,
+        "conductance_s": 0.0005880609387499999
+      }
+    }
+  ]
+}

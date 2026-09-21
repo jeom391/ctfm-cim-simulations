@@ -1,3 +1,5 @@
+> **최신 후속 작업:** [마무리 계획](../docs/completion-plan-2026-09-21.md)을 먼저 읽으세요. [CSV10개와 manifest](../data/reference/ltp-ltd-2026-09-21/README.md)가 공유됐으므로 LTP/LTD 원본 미제공은 더 이상 대기 사유가 아닙니다. 이번 변경은 자료·문서이며 parser/C2C/PPA 코드 수정 완료를 뜻하지 않습니다.
+
 > **최신 인수인계 (2026-09-20):** 팀 구현은 main 57af5ec에 반영됐습니다. 아래의 초기 골격/미구현 상태 설명은 당시 기록입니다. 먼저 [두 PDF 답변·작업 순서](../docs/implementation-decisions-2026-09-20.md) → [하드웨어 기준 v1.2](../docs/spec/08-hardware-baseline.md) → [근거·보고서 기준](../docs/research/hardware-baseline-evidence.md)을 읽으세요. 충돌 시 새 문서가 우선하며 코드/schema는 별도 이행이 필요합니다.
 
 # 최신 개발 인수인계

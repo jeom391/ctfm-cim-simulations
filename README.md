@@ -1,3 +1,5 @@
+> **2026-09-21 마무리:** [작업 순서와 완료 기준](docs/completion-plan-2026-09-21.md), [최신 공유 LTP/LTD](data/reference/ltp-ltd-2026-09-21/README.md). 기존 원본 Git 제외 원칙의 예외는 이번 사용자 승인 데이터셋에 한정합니다.
+
 > **2026-09-20 개발 재개:** 구현 전에 [PDF 답변 및 작업 순서](docs/implementation-decisions-2026-09-20.md)와 [설계 v1.2 기준](docs/spec/08-hardware-baseline.md)을 먼저 읽으세요. 문서 결정과 구현 완료는 구분합니다.
 
 # CTFM-CIM Simulations

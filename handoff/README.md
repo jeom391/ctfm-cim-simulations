@@ -1,3 +1,5 @@
+> **최신 진행도·개발 인계:** [main 6c590ea 기준 확인 결과](02_measurement-fix-and-next-steps.md)를 먼저 읽으세요. CSV 수정은 이미 main에 병합됐고 팀의 HTTP/브라우저/엔진 검증이 추가됐습니다. ADC 순서 간 통제 비교·UI 개선·C2C·PPA는 남아 있습니다.
+
 > **웹·API·엔진 실제 실행 검증 (2026-09-21):** [검증 결과](../docs/verification-2026-09-21.md). 실측 CSV 10개 HTTP·브라우저 흐름, 실측 프로필 torch vs AIHWKit 일치, worker export O(n²) 정지와 시뮬레이터 ADC 지표 미표시를 수정했습니다. PPA는 여전히 blocked입니다.
 
 > **CSV 파서 수정:** [수정 내용·검증 결과](../docs/csv-parser-fix-2026-09-21.md)를 먼저 확인하세요. 최신 CSV 10개 파싱·분석 및 A1~A5 프로필 생성/발행 함수 검증을 완료했습니다. C2C/PPA는 후속 작업입니다.

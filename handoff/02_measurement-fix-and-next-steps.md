@@ -1,45 +1,54 @@
-# 개발 담당 인수인계 — CSV 수정 이후
+# 개발 담당 인수인계 — 최신 진행도
 
-2026-09-21. 사용자의 요청에 따라 이번 작업은 CSV 파서·측정 분석 수정까지 종료한다. 아래 후속 구현은 개발 담당에게 인계하며, 완료된 것으로 해석하지 않는다.
+2026-09-21. 확인 기준 main `6c590ea` (PR #4, 구현 커밋 `7e7f10b`). CSV 수정 `2f88b0b`도 이미 main에 포함되어 있다. 이번 인수인계 보완은 `codex/fix-measurement-csv` 브랜치에 공유한다. 사용자의 요청에 따라 추가 제품 구현은 진행하지 않고 개발 담당에게 넘긴다.
 
-## 먼저 받을 코드와 읽을 자료
+## 확인 범위와 근거
 
-- 브랜치: `codex/fix-measurement-csv` (main에 아직 병합하지 않음)
-- 제품 코드·회귀 테스트 수정 커밋: `2f88b0b`
-- 수정 내역과 검증 명령: [CSV 파서 수정 기록](../docs/csv-parser-fix-2026-09-21.md)
-- 실제 공유 입력: [CSV 10개와 manifest](../data/reference/ltp-ltd-2026-09-21/README.md)
-- 후속 작업 설계: [마무리 계획 P0~P4](../docs/completion-plan-2026-09-21.md)
-- 시뮬레이션 기준: [하드웨어 기준](../docs/spec/08-hardware-baseline.md), [설계 근거](../docs/research/hardware-baseline-evidence.md)
+이번 점검은 최신 코드, `scripts/measured_workflow.py`, [팀 실행 검증 기록](../docs/verification-2026-09-21.md)을 읽어 대조한 것이다. 팀의 Windows/WSL 실행이나 브라우저 검증을 이 점검에서 다시 실행한 것은 아니다. 아래 수치는 팀 기록의 결과이며, 스크립트가 실제로 검사하는 범위를 함께 명시한다.
 
-기존 작업을 보존한 상태에서 원격 브랜치를 fetch하고 변경을 검토한 뒤 팀 절차에 따라 병합한다. main만 갱신하면 아직 이번 파서 수정은 들어오지 않는다.
+## 현재 진행도
 
-## 이번에 확인된 것
+| 항목 | 상태 | 남은 점 |
+| --- | --- | --- |
+| 최신 CSV 10개 파싱·후보 추출 | 구현 및 실측 회귀 검증, main 반영 | 다른 실제 IV/Retention 파일까지 검증됐다는 뜻은 아님 |
+| A1~A5 HTTP 업로드→분석→프로필 발행→ZIP 다운로드 | 팀 기록상 통과, 각 조건 후보 1,020개 | 스크립트는 ZIP 목록을 읽으며 내부 모든 값까지 검증하지 않음 |
+| 측정 페이지 브라우저 흐름 | 팀 기록상 A3 통과 | A1~A5 모두 브라우저 검증한 것은 아님 |
+| 실측 프로필 MNIST 실행 | 팀 기록상 A1 HTTP, A3 브라우저 실행 | 전체 조건·비이상성 조합 검증과 구분 |
+| torch_reference ↔ aihwkit_ideal | 팀 기록상 Linux A1에서 각 ADC 순서별 동일 checkpoint 결과 일치 | 두 ADC 순서 사이에는 checkpoint가 달라 우열 비교 불가 |
+| 실측 분석 XLSX 내보내기 지연 | 코드 수정 및 팀 회귀 검증 | 팀 기록상 약 5분→7초, 환경 의존 수치 |
+| 시뮬레이터 mapping/ADC 지표 표시 | 두 필드명 호환 처리 추가 | 공식 API/결과 계약 이름 통일 필요 |
+| 분석 결과 화면의 대형 원시 JSON | 미수정 | 요약·페이지 나눔·필요 시 상세 로딩으로 개선 |
+| C2C 수동 입력과 적용 | 이번 main에서 미반영 | 담당 재배정 필요. 이전 문서의 특정 인물/시간 예정은 현행 완료 근거가 아님 |
+| NeuroSim PPA 사용자 경로 | 차단 상태 | 가정 모델 계약, preset, API/worker 연결, 비용 검증 필요 |
+| NeuroSim crash | 최소 입력 `[[257,1],[1,1]]` 3/3 재현 기록 | 원인 수정·회귀 검증 미완료 |
 
-| 항목 | 현재 상태 |
-| --- | --- |
-| 알려진 장비 CSV의 제목/Remarks/뒤쪽 보조표 분리 | 구현·실측 검증 완료 |
-| 원본 행 번호·SHA256 보존, 명시적 단위/열 매핑 | 검증 완료 |
-| 최신 10개 CSV 파싱 → 후보 상태 추출 | 파일별 측정 12,000행, 후보 510개 검증 |
-| A1~A5의 LTP/LTD 후보를 사용한 프로필 생성·발행 함수 | 테스트 메모리 안에서 검증 완료, 조건별 후보 1,020개 |
-| 웹 업로드 → 분석 → 프로필 저장/다운로드 | 후속 검증 필요 |
-| 다른 실제 IV/Retention 파일 분석 | 이번 실측 검증 범위 밖 |
-| C2C 수동 입력·시뮬레이터 반영 | 미변경, 후속 구현 |
-| NeuroSim 연동·정확도 입력 의미 통일 | 미변경, 후속 구현 |
+팀 기록의 전체 테스트 결과는 264 passed / 5 skipped, 웹 테스트 13/13이다. 엔진 probe 성공이나 오류 재현 스크립트의 rc=0은 PPA 계산 성공을 의미하지 않는다.
 
-기존 계산 기준인 6초 이후, 전환 행 j의 j-2행, 절대 읽기 전류, VDS=0.1 V를 유지했다. 510개 후보는 실제 채택 결과이며 설정상 512회 인가와 같은 개념이 아니다. 1,020개 후보가 모두 서로 구별되는 가중치 상태라는 의미도 아니다.
+## measured_workflow.py가 하는 일과 한계
 
-관련 검증은 57개 테스트 및 6개 하위 테스트 통과, 선택적 검사 2개 skip이다. skip의 이유와 재실행 방법은 수정 기록에 있다. 전체 제품·추론 엔진·브라우저 검증 완료를 뜻하지 않는다.
+실행 중인 API+worker를 대상으로 원본 SHA256, 서버 업로드 SHA256, preview 시작 행, 분석 후보 수와 첫/끝 원본 행·전류를 검사한다. 프로필 생성·발행·ZIP 다운로드 후 지정 조건만 MNIST를 실행한다. 실험 완료 개수 및 실제 선택 엔진도 확인한다.
 
-## 이어서 할 순서와 완료 기준
+기본값은 분석 A1~A5, MNIST는 A1만, torch_reference, ADC 6 bit / subtract_then_adc다. `--checkpoint-id`를 주지 않으면 새 checkpoint가 사용될 수 있다. 한 번 호출해 두 ADC 순서를 자동 비교하는 스크립트가 아니다. 두 번 실행 시 결과를 직접 비교하는 assertion도 없다. 브라우저를 조작하거나 NeuroSim PPA를 켜는 스크립트도 아니다. 실행하면 서버에 분석·발행 프로필·실험을 생성하므로 검증용 환경에서 사용한다.
 
-1. **P0 웹 경로 확인**: 이번 브랜치를 통합하고 공유 CSV를 측정 페이지에 업로드한다. Time→시간(s), MeasResult1_value→Drain 전류(A), MeasResult2_value→Gate 전압(V)을 지정한다. 분석 결과의 행 번호·전류·전도도를 manifest와 대조하고 프로필 저장/다운로드를 확인한다. 기존 프로필을 덮어쓰기보다 새 revision으로 관리한다. 알 수 없는 표 구조는 오류를 표시하며 임의 행 삭제로 우회하지 않는다. 임의 파일용 헤더/구간 선택 UI는 이번에 추가하지 않았다.
-2. **P1 실제 프로필로 정확도 실행**: 공유 원본에서 만든 프로필로 MNIST를 실행한다. nominal/input8bit/mapping/ADC/effects 결과 구분과 두 ADC 처리 순서를 확인한다. AIHWKit은 실제 실행 환경에서 지원 여부를 확인하고 다른 엔진의 성공을 대신 보고하지 않는다.
-3. **P2 C2C 수동 입력**: 파일 형식 확정과 분리하여 relative CV 입력부터 연결한다. 마무리 계획의 수동 가정 모델을 API/schema/UI/core/results까지 함께 구현한다. D2D는 배열에 고정하고 C2C는 재기록마다 생성하며 이미지마다 다시 추첨하지 않는다. off/CV=0 동일성과 seed 재현성을 검증한다. 실측 C2C 분석은 파일 형식 확보 후 진행한다.
-4. **P3 NeuroSim 연결**: 정확도 모델과 동일한 G+/G−, 입력 인코딩, ADC 처리 순서가 전달되게 한다. 조건부 가정 표시와 실행 설정/provenance를 연결한다. 현재 함수 존재만으로 웹에서 실행 가능하다고 판단하지 않는다.
-5. **P4 엔진 문제·비용 검증**: 64/128 배열 오류를 재현·수정한다. 빠진 회로 비용이 있으면 누락 항목과 부분 결과를 표시하고 전체 PPA 완료로 보고하지 않는다. 자세한 구현안은 마무리 계획을 따른다.
+API+worker 실행 후 예시:
 
-추가적인 소자 측정이 필요하다는 이유로 이미 형식이 알려진 데이터의 파싱·연동 작업 전체를 중단하지 않는다. 새로운 측정 파일이 들어오면 별도 hash/조건으로 검증하며, 기존 공유 원본과 기대값을 조용히 바꾸지 않는다.
+```sh
+uv run --locked python scripts/measured_workflow.py --conditions A1 --adc-order subtract_then_adc
+# 출력된 checkpoint_id를 아래에 지정하고 다른 조건은 유지한다.
+uv run --locked python scripts/measured_workflow.py --conditions A1 --adc-order adc_then_subtract --checkpoint-id <위-실행의-checkpoint-id>
+```
 
-## 개발 담당에게 전달할 메시지
+이 스크립트는 호출마다 프로필을 새로 만든다. 엄밀한 비교는 동일 profile revision·checkpoint·test/validation 표본·seed·배열 편차·매핑·ADC bits·배열 크기를 고정하고 ADC 순서만 바꾼 두 요청으로 검증해야 한다. checkpoint만 같다고 모든 비교 조건이 같다고 단정하지 않는다.
 
-> CSV 파서·측정 분석 수정은 `codex/fix-measurement-csv` 브랜치에 올렸습니다. 먼저 `handoff/02_measurement-fix-and-next-steps.md`와 연결된 수정 기록을 읽고 변경을 통합해주세요. 최신 CSV 10개 분석과 A1~A5 프로필 생성·발행 함수는 검증했고, 웹 전체 흐름은 추가 확인이 필요합니다. 이후 정확도 경로, C2C 수동 입력, NeuroSim 연동·오류 수정 순서로 이어가면 됩니다. 각 항목은 실제로 검증한 범위와 남은 부분을 구분해 기록해주세요.
+## 다음 구현 순서
+
+1. **ADC 순서 비교 검증**: 동일 입력 조건에서 순서만 바꾼 두 실행을 저장한다. 기존 표의 정확도 차이는 checkpoint 차이가 섞여 있으므로 순서 효과로 발표하지 않는다.
+2. **측정 UI 정리와 계약 통일**: 기본 요약은 후보/채택/제외 수, Gmin/Gmax, 풀 가용 여부, 경고로 제한한다. state ID 전체는 검색/페이지 나눔 또는 별도 다운로드로 제공한다. 접기만 하고 거대한 JSON을 계속 렌더링하는 방식으로 끝내지 않는다. mapping_errors/mapping_metrics, adc/adc_metrics는 API·core·UI·schema에서 공식 이름을 정하고 기존 기록 호환도 유지한다.
+3. **C2C 수동 입력**: [마무리 계획 P2](../docs/completion-plan-2026-09-21.md)의 권고 모델을 API/schema/UI/core/results까지 연결한다. 실측 파일 형식 미확정과 독립적으로 진행할 수 있다. D2D는 배열에 고정, C2C는 재기록마다 고정하고 이미지마다 새로 뽑지 않는다.
+4. **NeuroSim P3/P4**: preset이 없다는 사실은 현재 차단 원인이지 소자팀 답변을 기다려야만 한다는 뜻은 아니다. [하드웨어 기준](../docs/spec/08-hardware-baseline.md)과 [근거](../docs/research/hardware-baseline-evidence.md)에 맞춰 조건부 가정 모델을 구현해야 한다. 현재 adapter의 validated_for_ctfm 검사에 임의로 true를 넣지 말고 assumed_proxy의 허용 범위·표시·coverage 계약을 연결한다. 실제 G+/G−·입력 인코딩·ADC 순서 일치, 비용 누락 표시, crash 원인 수정과 회귀 검증을 함께 진행한다. 이번 검증은 이 부분을 해결하지 않았다.
+
+전체 목표와 세부 완료 기준은 [마무리 계획 P0~P4](../docs/completion-plan-2026-09-21.md)를 따른다. P0의 LTP/LTD 실측 경로와 P1의 일부 실행 검증이 전진한 상태이며, 전체 시뮬레이터 완료로 보고하지 않는다. Retention/D2D의 실제 데이터 검증 범위도 따로 기록한다.
+
+## 개발 담당 전달 메시지
+
+> 최신 main과 measured_workflow.py 확인했습니다. CSV 분석→프로필→실측 MNIST 실행 및 엔진별 대조까지 진행된 점 확인했습니다. 남은 작업은 같은 조건의 ADC 순서 비교, 측정 화면 JSON 정리와 결과 필드 계약 통일, C2C 수동 입력, NeuroSim 조건부 PPA 연결·crash 수정입니다. 특히 preset 미제공은 소자팀 대기 항목으로 두기보다 확정된 가정 모델 설계에 맞춰 구현할 부분입니다. handoff/02_measurement-fix-and-next-steps.md에 검증 범위와 다음 작업을 정리했으니 읽고 이어서 진행해주세요.

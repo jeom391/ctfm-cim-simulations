@@ -5,7 +5,9 @@ import unittest
 import numpy as np
 from ctfm.simulation.math import (map_weights, d2d_factors, retention_ratio, quantize,
                                   tiled_linear, summarize, quantize_input, bit_planes,
-                                  differential_linear, ADC_ORDERS)
+                                  differential_linear, ADC_ORDERS,
+                                  c2c_factors, c2c_relative_cv_percent_to_ratio,
+                                  c2c_factor_statistics, observed_range_violation)
 
 def states(values):
     return [dict(state_id=str(i), conductance_s=g, direction='ltp') for i,g in enumerate(values)]
@@ -112,4 +114,90 @@ class SimulationMathTests(unittest.TestCase):
         self.assertIsNone(summarize([.5])['std']);self.assertIsNone(summarize([])['mean'])
         self.assertEqual(summarize([.5,.7])['n'],2)
         self.assertAlmostEqual(summarize([.5,.7])['std'],np.sqrt(.02))
+
+    # --- C2C core module (task 03; calculation only, not wired into run_experiment) ---
+
+    def test_c2c_percent_to_ratio_is_the_only_percent_conversion(self):
+        self.assertEqual(c2c_relative_cv_percent_to_ratio(5), .05)
+        self.assertEqual(c2c_relative_cv_percent_to_ratio(0), 0.)
+        for bad in (None, -1, float('nan'), float('inf')):
+            with self.assertRaises(ValueError):c2c_relative_cv_percent_to_ratio(bad)
+
+    def test_c2c_seed_contract_matches_d2d_shape_and_adds_reprogram_index(self):
+        key=[7,'abc',2,3,'fc1','plus']
+        seed=int.from_bytes(hashlib.sha256(json.dumps(key,separators=(',',':')).encode()).digest()[:8],'big')
+        f,info=c2c_factors((3,4),.2,*key);s=np.sqrt(np.log(1+.2**2))
+        expected=np.exp(-s*s/2+s*np.random.Generator(np.random.PCG64(seed)).standard_normal((3,4)))
+        np.testing.assert_equal(f,expected);self.assertEqual(info['seed'],seed);self.assertEqual(info['seed_key'],key)
+
+    def test_c2c_off_or_cv_zero_is_the_identity_and_leaves_input_unchanged(self):
+        f,_=c2c_factors((3,4),0,7,'abc',2,3,'fc1','plus')
+        np.testing.assert_equal(f,np.ones((3,4)))
+        g_nominal=np.array([[1e-6,2e-6],[3e-6,4e-6]])
+        np.testing.assert_equal(g_nominal*np.ones((2,2)),g_nominal)  # off/CV0: G_program==G_nominal exactly
+        with self.assertRaises(ValueError):c2c_factors((3,4),None,7,'abc',2,3,'fc1','plus')
+
+    def test_c2c_reproducible_for_the_same_record_across_two_adc_orders(self):
+        """No adc_order/years parameter exists on c2c_factors -- calling it twice
+        with the same (seed, profile, array, reprogram, layer, polarity), once
+        as if for subtract_then_adc and once for adc_then_subtract, MUST return
+        the same record; there is nothing to pass differently, by construction."""
+        key=(11,'profile-hash',0,5,'fc2','minus')
+        first,_=c2c_factors((6,),.1,*key)
+        second,_=c2c_factors((6,),.1,*key)
+        np.testing.assert_equal(first,second)
+
+    def test_c2c_new_reprogram_or_polarity_draws_a_different_record(self):
+        base=c2c_factors((6,),.1,11,'profile-hash',0,5,'fc2','minus')[0]
+        reprogrammed=c2c_factors((6,),.1,11,'profile-hash',0,6,'fc2','minus')[0]
+        other_polarity=c2c_factors((6,),.1,11,'profile-hash',0,5,'fc2','plus')[0]
+        self.assertFalse(np.array_equal(base,reprogrammed))
+        self.assertFalse(np.array_equal(base,other_polarity))
+
+    def test_d2d_array_deviation_is_unaffected_by_c2c_reprogram_draws(self):
+        """D2D is keyed only by array_index (no reprogram_index); redrawing C2C
+        for a new record must never move the D2D factor for that same array."""
+        d2d_before,_=d2d_factors((4,),.15,99,'profile-hash',0,'fc1','plus')
+        c2c_factors((4,),.1,99,'profile-hash',0,1,'fc1','plus')  # a C2C draw happens in between
+        c2c_factors((4,),.1,99,'profile-hash',0,2,'fc1','plus')  # ... and another, different record
+        d2d_after,_=d2d_factors((4,),.15,99,'profile-hash',0,'fc1','plus')
+        np.testing.assert_equal(d2d_before,d2d_after)
+
+    def test_c2c_rejects_nonfinite_or_negative_cv_and_invalid_shape(self):
+        for bad_cv in (None, -.01, float('nan'), float('inf')):
+            with self.assertRaises(ValueError):c2c_factors((2,2),bad_cv,1,'p',0,0,'fc1','plus')
+        for bad_shape in ((), (0,), (-1,), (2.5,), (True,)):
+            with self.assertRaises(ValueError):c2c_factors(bad_shape,.1,1,'p',0,0,'fc1','plus')
+        with self.assertRaises(ValueError):c2c_factors((2,),1e200,1,'p',0,0,'fc1','plus')  # sigma overflow, not silent inf
+
+    def test_c2c_statistical_sanity_mean_one_and_target_cv_at_large_n(self):
+        f,_=c2c_factors((300000,),.08,42,'profile-x',0,3,'fc1','plus')
+        stats=c2c_factor_statistics(f)
+        self.assertEqual(stats['n'],300000)
+        self.assertAlmostEqual(stats['mean'],1.,delta=.005)          # SE(mean)~cv/sqrt(n)~1.5e-4
+        self.assertAlmostEqual(stats['empirical_cv'],.08,delta=.08*.05)  # within 5% relative of the target CV
+        with self.assertRaises(ValueError):c2c_factor_statistics(np.array([]))
+        with self.assertRaises(ValueError):c2c_factor_statistics(np.array([1.,float('nan')]))
+
+    def test_c2c_factor_statistics_is_not_fooled_by_g_program_spread(self):
+        """The exact mistake docs/completion-plan-2026-09-21.md P2 warns against:
+        std(G_program)/mean(G_program) is dominated by each weight's distinct
+        nominal conductance, not the injected C2C ratio -- only the factor
+        array itself recovers the injected CV."""
+        f,_=c2c_factors((5000,),.05,1,'p',0,0,'fc1','plus')
+        g_nominal=np.geomspace(1e-7,1e-3,5000)  # four decades of nominal spread
+        g_program=g_nominal*f
+        factor_cv=c2c_factor_statistics(f)['empirical_cv']
+        g_program_cv=np.std(g_program,ddof=1)/np.mean(g_program)
+        self.assertAlmostEqual(factor_cv,.05,delta=.05*.1)
+        self.assertGreater(g_program_cv,1.)  # wildly larger than .05; would misreport the injected CV
+
+    def test_observed_range_violation_reports_without_clipping(self):
+        g_program=np.array([.5,1.5,2.,3.5,4.])
+        result=observed_range_violation(g_program,1.,3.)
+        self.assertAlmostEqual(result['outside_observed_fraction'],3/5)  # .5, 3.5 and 4. fall outside [1,3]
+        self.assertEqual((result['min_s'],result['max_s']),(.5,4.))
+        np.testing.assert_equal(g_program,[.5,1.5,2.,3.5,4.])  # input array itself is never modified/clipped
+        with self.assertRaises(ValueError):observed_range_violation(np.array([float('nan')]),0.,1.)
+        with self.assertRaises(ValueError):observed_range_violation(g_program,2.,1.)  # min>max
 if __name__=='__main__':unittest.main()

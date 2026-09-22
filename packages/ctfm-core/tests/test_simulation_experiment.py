@@ -1,4 +1,5 @@
 """Synthetic integration fixtures; these are not measured device results."""
+from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
@@ -31,6 +32,25 @@ def synthetic_profile():
 
 def configuration(p,effects=False):
     return dict(schema_version='1.2.0',profile_refs=[dict(id=p['manifest']['profile_id'],revision=1)],model_id='mnist_mlp_v1',checkpoint_id=None,pools=['combined','common'],mappings=['fixed_reference'],effects=dict(d2d=effects,retention=effects,adc=effects,c2c=False),arrays=2 if effects else 1,n_reprogram=1,years=[0,1] if effects else [0],seed=20260917,hardware=dict(tile_size=128,adc_bits=6 if effects else None,adc_order='subtract_then_adc' if effects else None,range_policy='validation_max_abs' if effects else None,preset_id=None),engines=dict(accuracy='torch_reference',ppa='off'))
+
+
+def c2c_configuration(p,*,cv_percent=5,n_reprogram=2,arrays=2,years=None,adc_order=None,d2d=True):
+    """A 1.3.0 request isolated to C2C: single pool/mapping so array/reprogram
+    identity is easy to track directly from run_id in tests."""
+    years=[0] if years is None else years
+    return dict(schema_version='1.3.0',
+               profile_refs=[dict(id=p['manifest']['profile_id'],revision=1,c2c=dict(cv_percent=cv_percent,source='manual_assumption'))],
+               model_id='mnist_mlp_v1',checkpoint_id=None,pools=['combined'],mappings=['fixed_reference'],
+               effects=dict(d2d=d2d,retention=len(years)>1,adc=adc_order is not None,c2c=True),
+               arrays=arrays if d2d else 1,n_reprogram=n_reprogram,years=years,seed=20260917,
+               hardware=dict(tile_size=64,adc_bits=6 if adc_order else None,adc_order=adc_order,
+                             range_policy='validation_max_abs' if adc_order else None,preset_id=None),
+               engines=dict(accuracy='torch_reference',ppa='off'))
+
+
+def synthetic_data():
+    train=np.zeros((60000,784),dtype=np.uint8);test=np.zeros((10000,784),dtype=np.uint8)
+    return (train,np.zeros(60000,dtype=np.uint8),test,np.zeros(10000,dtype=np.uint8),[{'synthetic':True}])
 
 
 class ExperimentIntegrationTests(unittest.TestCase):
@@ -98,6 +118,151 @@ class ExperimentIntegrationTests(unittest.TestCase):
         p['manifest']['profile_hash']=compute_profile_hash(p['manifest'])
         with tempfile.TemporaryDirectory() as directory,patch('ctfm.simulation.load_mnist') as download:
             with self.assertRaises(ValueError):run_experiment(configuration(p,True),[p],Path(directory),cache_dir=Path(directory)/'cache')
+            download.assert_not_called()
+
+
+class C2CIntegrationTests(unittest.TestCase):
+    """C2C wiring: run_experiment end to end with mocked MNIST/training, same
+    pattern as ExperimentIntegrationTests above. Not a measured-device claim."""
+
+    def _run(self,config,p,directory,name='run'):
+        with patch('ctfm.simulation.load_mnist',return_value=synthetic_data()),patch('ctfm.simulation.train_model',return_value=(create_model(),[])):
+            return run_experiment(config,[p],Path(directory)/name,cache_dir=Path(directory)/'cache')
+
+    def test_c2c_on_with_cv_zero_matches_c2c_off_exactly(self):
+        p=synthetic_profile()
+        off=configuration(p,False)
+        on=c2c_configuration(p,cv_percent=0,n_reprogram=3,arrays=1,d2d=False)
+        with tempfile.TemporaryDirectory() as directory:
+            r_off=self._run(off,p,directory,'off');r_on=self._run(on,p,directory,'on')
+            all_off=[r for r in r_off['runs'] if r['kind']=='ALL'];all_on=[r for r in r_on['runs'] if r['kind']=='ALL']
+            self.assertEqual(len(all_off),1);self.assertEqual(len(all_on),3)
+            for r in all_on:self.assertEqual(r['accuracy'],all_off[0]['accuracy'])
+
+    def test_different_reprograms_draw_different_c2c_records(self):
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=8,n_reprogram=2,arrays=1,d2d=False)
+        with tempfile.TemporaryDirectory() as directory:
+            r=self._run(config,p,directory)
+            runs=[x for x in r['runs'] if x['kind']=='ALL']
+            self.assertEqual(len(runs),2)
+            seeds0={v['seed'] for v in runs[0]['c2c_diagnostics'].values()}
+            seeds1={v['seed'] for v in runs[1]['c2c_diagnostics'].values()}
+            self.assertTrue(seeds0.isdisjoint(seeds1))
+            self.assertEqual(runs[0]['run_id'],'candidate-1-array-0-record-0-year-0')
+            self.assertEqual(runs[1]['run_id'],'candidate-1-array-0-record-1-year-0')
+            self.assertTrue((Path(directory)/'run'/'candidate-1-array-0-record-0.json').is_file())
+
+    def test_d2d_diagnostics_are_identical_across_reprograms_of_the_same_array(self):
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=8,n_reprogram=2,arrays=1,d2d=True)
+        with tempfile.TemporaryDirectory() as directory:
+            r=self._run(config,p,directory)
+            runs=[x for x in r['runs'] if x['kind']=='ALL']
+            self.assertEqual(runs[0]['d2d_diagnostics'],runs[1]['d2d_diagnostics'])
+            self.assertNotEqual(runs[0]['c2c_diagnostics'],runs[1]['c2c_diagnostics'])
+
+    def test_the_same_record_is_reused_across_retention_years(self):
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=8,n_reprogram=1,arrays=1,d2d=False,years=[0,1])
+        with tempfile.TemporaryDirectory() as directory:
+            r=self._run(config,p,directory)
+            runs=[x for x in r['runs'] if x['kind']=='ALL']
+            self.assertEqual({x['years'] for x in runs},{0,1})
+            diag_by_year={x['years']:x['c2c_diagnostics'] for x in runs}
+            self.assertEqual(diag_by_year[0],diag_by_year[1])
+
+    def test_the_same_record_is_reused_across_adc_orders_via_shared_checkpoint(self):
+        p=synthetic_profile()
+        config_a=c2c_configuration(p,cv_percent=8,n_reprogram=1,arrays=1,d2d=False,adc_order='subtract_then_adc')
+        with tempfile.TemporaryDirectory() as directory:
+            r1=self._run(config_a,p,directory,'a')
+            config_b=deepcopy(config_a)
+            config_b['checkpoint_id']=r1['checkpoint_id']
+            config_b['hardware']['adc_order']='adc_then_subtract'
+            with patch('ctfm.simulation.load_mnist',return_value=synthetic_data()),patch('ctfm.simulation.train_model',return_value=(create_model(),[])):
+                r2=run_experiment(config_b,[p],Path(directory)/'b',cache_dir=Path(directory)/'cache',checkpoint_path=Path(directory)/'a'/'checkpoint.pt')
+            diag_a=[x for x in r1['runs'] if x['kind']=='ALL'][0]['c2c_diagnostics']
+            diag_b=[x for x in r2['runs'] if x['kind']=='ALL'][0]['c2c_diagnostics']
+            self.assertEqual(diag_a,diag_b)
+
+    def test_same_config_reproduces_identical_c2c_results(self):
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=6,n_reprogram=2,arrays=2,d2d=True)
+        with tempfile.TemporaryDirectory() as directory:
+            r1=self._run(config,p,directory,'r1')
+            config2=deepcopy(config);config2['checkpoint_id']=r1['checkpoint_id']
+            with patch('ctfm.simulation.load_mnist',return_value=synthetic_data()),patch('ctfm.simulation.train_model',return_value=(create_model(),[])):
+                r2=run_experiment(config2,[p],Path(directory)/'r2',cache_dir=Path(directory)/'cache',checkpoint_path=Path(directory)/'r1'/'checkpoint.pt')
+            all1=[x for x in r1['runs'] if x['kind']=='ALL'];all2=[x for x in r2['runs'] if x['kind']=='ALL']
+            self.assertEqual([x['accuracy'] for x in all1],[x['accuracy'] for x in all2])
+            self.assertEqual([x['c2c_diagnostics'] for x in all1],[x['c2c_diagnostics'] for x in all2])
+
+    def test_array_statistics_distinguish_array_from_reprogram_variance(self):
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=6,n_reprogram=3,arrays=2,d2d=True)
+        with tempfile.TemporaryDirectory() as directory:
+            r=self._run(config,p,directory)
+            stats=r['summary']['array_statistics'][0]
+            self.assertEqual(stats['requested_arrays'],2);self.assertEqual(stats['requested_reprogram'],3)
+            # One value per array (its mean across reprograms), never one per record.
+            self.assertEqual(stats['accuracy']['n'],2)
+            self.assertEqual(set(stats['reprogram_accuracy_by_array']),{'0','1'})
+            for per_array in stats['reprogram_accuracy_by_array'].values():self.assertEqual(per_array['n'],3)
+
+    def test_off_path_array_statistics_has_no_reprogram_breakdown(self):
+        p=synthetic_profile()
+        config=configuration(p,True)
+        with tempfile.TemporaryDirectory() as directory:
+            r=self._run(config,p,directory)
+            for stats in r['summary']['array_statistics']:
+                self.assertIsNone(stats['reprogram_accuracy_by_array']);self.assertEqual(stats['requested_reprogram'],1)
+
+    def test_c2c_run_budget_includes_n_reprogram(self):
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=5,n_reprogram=100,arrays=21,d2d=True)  # 21*100=2100 > 2000
+        with tempfile.TemporaryDirectory() as directory,patch('ctfm.simulation.load_mnist') as download:
+            with self.assertRaisesRegex(ValueError,'budget'):run_experiment(config,[p],Path(directory),cache_dir=Path(directory)/'cache')
+            download.assert_not_called()
+
+    def test_invalid_c2c_cv_is_rejected_before_data_download(self):
+        p=synthetic_profile()
+        base=c2c_configuration(p,cv_percent=5,n_reprogram=2,arrays=1,d2d=False)
+        for bad in (None,-1,float('nan'),float('inf'),True):
+            config=deepcopy(base);config['profile_refs'][0]['c2c']['cv_percent']=bad
+            with tempfile.TemporaryDirectory() as directory,patch('ctfm.simulation.load_mnist') as download:
+                with self.assertRaises(ValueError):run_experiment(config,[p],Path(directory),cache_dir=Path(directory)/'cache')
+                download.assert_not_called()
+
+    def test_c2c_missing_or_wrong_source_is_rejected(self):
+        p=synthetic_profile()
+        base=c2c_configuration(p,cv_percent=5,n_reprogram=2,arrays=1,d2d=False)
+        no_c2c=deepcopy(base);del no_c2c['profile_refs'][0]['c2c']
+        wrong_source=deepcopy(base);wrong_source['profile_refs'][0]['c2c']['source']='measured'
+        for config in (no_c2c,wrong_source):
+            with tempfile.TemporaryDirectory() as directory,patch('ctfm.simulation.load_mnist') as download:
+                with self.assertRaises(ValueError):run_experiment(config,[p],Path(directory),cache_dir=Path(directory)/'cache')
+                download.assert_not_called()
+
+    def test_invalid_n_reprogram_is_rejected(self):
+        p=synthetic_profile()
+        base=c2c_configuration(p,cv_percent=5,n_reprogram=2,arrays=1,d2d=False)
+        for bad in (0,101,1.5,True):
+            config=deepcopy(base);config['n_reprogram']=bad
+            with tempfile.TemporaryDirectory() as directory,patch('ctfm.simulation.load_mnist') as download:
+                with self.assertRaises(ValueError):run_experiment(config,[p],Path(directory),cache_dir=Path(directory)/'cache')
+                download.assert_not_called()
+        off_but_reprogrammed=configuration(p,False);off_but_reprogrammed['n_reprogram']=2
+        with tempfile.TemporaryDirectory() as directory,patch('ctfm.simulation.load_mnist') as download:
+            with self.assertRaises(ValueError):run_experiment(off_but_reprogrammed,[p],Path(directory),cache_dir=Path(directory)/'cache')
+            download.assert_not_called()
+
+    def test_c2c_on_requires_schema_1_3(self):
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=5,n_reprogram=1,arrays=1,d2d=False)
+        config['schema_version']='1.2.0'
+        with tempfile.TemporaryDirectory() as directory,patch('ctfm.simulation.load_mnist') as download:
+            with self.assertRaises(ValueError):run_experiment(config,[p],Path(directory),cache_dir=Path(directory)/'cache')
             download.assert_not_called()
 
 if __name__=='__main__':unittest.main()

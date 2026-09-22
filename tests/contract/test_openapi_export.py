@@ -31,3 +31,18 @@ def test_export_and_read_only_staleness_check(tmp_path):
     stale = output.read_bytes()
     assert run("--check").returncode == 1
     assert output.read_bytes() == stale
+
+
+def test_the_checked_in_openapi_snapshot_itself_is_current():
+    """tests/contract/test_shared_schemas.py checks schemas/*.json against the
+    real checked-in path; this is the same check for openapi/openapi.json,
+    which test_export_and_read_only_staleness_check above never touches (it
+    always targets a scratch --output). Without this, the checked-in snapshot
+    could drift from ExperimentResult/ExperimentRequest without any test
+    noticing -- exactly what happened before the C2C reprogram_index field
+    was added (local_report/02_REVIEW_schema-consistency.md gap)."""
+    checked_in = ROOT / "packages/contracts/openapi/openapi.json"
+    before = checked_in.read_bytes()
+    result = subprocess.run([sys.executable, str(SCRIPT), "--check"], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert checked_in.read_bytes() == before  # --check must never write

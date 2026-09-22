@@ -11,7 +11,8 @@ import uuid
 import numpy as np
 from ctfm.adapters import engine_capabilities
 from .data import load_mnist
-from .math import map_weights, d2d_factors, retention_ratio, summarize, ADC_ORDERS, INPUT_BITS
+from .math import (map_weights, d2d_factors, retention_ratio, summarize, ADC_ORDERS, INPUT_BITS,
+                   c2c_factors, c2c_relative_cv_percent_to_ratio, c2c_factor_statistics, observed_range_violation)
 from .torch_runner import create_model, train_model, model_layers, Network, evaluate, calibrate, input_ranges
 
 POOL_ORDER=('combined','ltp','ltd','common')
@@ -23,6 +24,7 @@ ASSUMPTIONS=[
  {'id':'independent_state_programming','description':'The two differential devices can be independently programmed along each selected measured path','evidence_kind':'assumed'},
  {'id':'digital_bias','description':'Original digital bias, ideal DAC and fixed mapping scale; no gain or drift compensation','evidence_kind':'assumed'},
  {'id':'lognormal_d2d','description':'Mean-one positive lognormal distribution transfers IV-proxy CV to every pulse state; devices and polarities independent','evidence_kind':'assumed'},
+ {'id':'manual_lognormal_c2c','description':'Mean-one positive lognormal distribution from a manually assumed relative CV, drawn independently per reprogram/layer/plane; not a measured CTFM cycle-to-cycle distribution (docs/completion-plan-2026-09-21.md P2)','evidence_kind':'assumed'},
  {'id':'retention_ms_to_10s','description':'Millisecond pulse-read G is treated as the 10-second reference state','evidence_kind':'assumed'},
  {'id':'retention_read_bias_transfer','description':'Program fit may transfer across pulse/retention read VGS, including A3/A4/A5; source read biases are retained','evidence_kind':'assumed'},
  {'id':'retention_common_gain','description':'The same Program retention ratio affects both devices and every state; not a state-specific memory-loss model','evidence_kind':'assumed'},
@@ -48,13 +50,21 @@ def _save_json(path,value):
     return _sha(path)
 
 
+SCHEMA_VERSIONS=('1.2.0','1.3.0')
+
+
 def _validate(config,profiles):
     from ctfm.profiles import validate_profile
-    if config.get('schema_version')!='1.2.0' or config.get('model_id')!='mnist_mlp_v1':raise ValueError('Unsupported experiment/model version')
+    schema_version=config.get('schema_version')
+    if schema_version not in SCHEMA_VERSIONS or config.get('model_id')!='mnist_mlp_v1':raise ValueError('Unsupported experiment/model version')
     seed=config.get('seed')
     if isinstance(seed,bool) or not isinstance(seed,int) or not 0<=seed<=2**32-1:raise ValueError('Explicit uint32 seed required')
     effects=config['effects'];hardware=config['hardware']
-    if effects.get('c2c') is not False or config.get('n_reprogram')!=1:raise ValueError('C2C is unavailable; n_reprogram must be one')
+    n_reprogram=config.get('n_reprogram')
+    if isinstance(n_reprogram,bool) or not isinstance(n_reprogram,int) or not 1<=n_reprogram<=100:raise ValueError('n_reprogram must be an integer 1..100')
+    if effects.get('c2c'):
+        if schema_version!='1.3.0':raise ValueError('C2C requires schema_version 1.3.0')
+    elif n_reprogram!=1:raise ValueError('C2C off requires n_reprogram=1 (a single write)')
     if config['engines'].get('ppa')!='off' or hardware.get('preset_id') is not None:raise ValueError('PPA is unsupported without a validated CTFM preset')
     engine=config['engines']['accuracy'];caps=engine_capabilities()
     if engine not in ('torch_reference','aihwkit_ideal') or not caps[engine]['available']:raise ValueError('Requested accuracy engine is unavailable: '+str(caps.get(engine)))
@@ -75,17 +85,25 @@ def _validate(config,profiles):
     if not 1<=len(profiles)<=5 or len(profiles)!=len(config['profile_refs']):raise ValueError('Profile reference count mismatch')
     refs={(r['id'],r['revision']) for r in config['profile_refs']}
     if len({r['id'] for r in config['profile_refs']})!=len(config['profile_refs']):raise ValueError('Duplicate profile revisions')
+    ref_by_key={(r['id'],r['revision']):r for r in config['profile_refs']}
     for profile in profiles:
         m=profile['manifest'];validate_profile(m,profile['states'],published_required=True)
         if (m['profile_id'],m['revision']) not in refs:raise ValueError('Resolved profile does not match requested revision')
         if effects['d2d']:
             d=m['d2d'];cv=d.get('cv')
             if d.get('status')!='available' or cv is None or not _math.isfinite(cv) or cv<0:raise ValueError('D2D requires available measured CV')
+        if effects.get('c2c'):
+            # Manual assumption, never inherited: every referenced profile revision
+            # must state its own cv_percent explicitly (docs/completion-plan P2).
+            ref=ref_by_key[(m['profile_id'],m['revision'])];c2c_ref=ref.get('c2c') or {}
+            if c2c_ref.get('source')!='manual_assumption':raise ValueError('C2C requires source=manual_assumption on every referenced profile')
+            cv_percent=c2c_ref.get('cv_percent')
+            if isinstance(cv_percent,bool) or not isinstance(cv_percent,(int,float)) or not _math.isfinite(cv_percent) or cv_percent<0:raise ValueError('C2C requires a finite nonnegative relative CV percent on every referenced profile')
         if effects['retention']:
             r=m['retention'];fit=r.get('program_fit')
             if r.get('status')!='available' or not fit:raise ValueError('Retention requires available Program fit')
             if retention_ratio(fit,0)['status']!='valid':raise ValueError('Retention fit has invalid reference current')
-    if len(profiles)*len(config['pools'])*len(config['mappings'])*arrays*len(years)>2000:raise ValueError('Requested run budget exceeds 2000')
+    if len(profiles)*len(config['pools'])*len(config['mappings'])*arrays*n_reprogram*len(years)>2000:raise ValueError('Requested run budget exceeds 2000')
 
 
 def _execution_config(request):
@@ -165,9 +183,15 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
     effects=config['effects'];hardware=config['hardware'];engine=config['engines']['accuracy']
     warnings=[];recommendations=[];array_summaries=[];calibrations=[];candidate_records=[];ppa_source=None
     candidate_number=0;completed=0
-    total=len(profiles)*len(config['pools'])*len(config['mappings'])*config['arrays']*len(config['years'])
+    total=len(profiles)*len(config['pools'])*len(config['mappings'])*config['arrays']*config['n_reprogram']*len(config['years'])
     for profile in profiles:
         manifest=profile['manifest'];state_by_id={s['state_id']:s for s in profile['states']};profile_candidates=[]
+        c2c_cv_percent=c2c_ratio=None
+        if effects.get('c2c'):
+            # Manual assumption is per profile revision, never per pool/mapping,
+            # so it is resolved once here and reused by every candidate below.
+            ref=next(r for r in config['profile_refs'] if r['id']==manifest['profile_id'] and r['revision']==manifest['revision'])
+            c2c_cv_percent=ref['c2c']['cv_percent'];c2c_ratio=c2c_relative_cv_percent_to_ratio(c2c_cv_percent)
         for pool in POOL_ORDER:
             if pool not in config['pools']:continue
             pool_info=manifest['pools'].get(pool,{})
@@ -178,7 +202,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                 identity=dict(candidate_id=candidate_id,profile_id=manifest['profile_id'],profile_revision=manifest['revision'],profile_hash=manifest['profile_hash'],pool=pool,mapping=mapping)
                 if not pool_info.get('available') or len({s['conductance_s'] for s in states})<2:
                     runs.append(dict(**identity,kind='candidate',status='skipped',reason=pool_info.get('reason') or 'Pool requires two distinct measured conductances'))
-                    completed+=config['arrays']*len(config['years'])
+                    completed+=config['arrays']*config['n_reprogram']*len(config['years'])
                     if progress:progress('inference',completed,total)
                     continue
                 maps=[map_weights(layer['weights'],states,mapping) for layer in digital_layers]
@@ -211,8 +235,11 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                     calibration_hash=_save_json(output_dir/calibration_filename,dict(**identity,bounds=bounds,tile_size=hardware['tile_size'],range_policy='validation_max_abs',adc_order=hardware['adc_order'],source='nominal M0 with the ADC bypassed; complete validation set only',validation_count=5000,split_sha256=split_hash,units='siemens x input bit; physical current is this times VDS',input_ranges=ranges,shared_across='bits, arrays and all retention timepoints; both orders collected in one pass'))
                     calibrations.append(dict(**identity,filename=calibration_filename,sha256=calibration_hash,bounds=bounds))
                 candidate_records.append(dict(**identity,mapping_artifact=mapping_filename,mapping_errors=mapping_meta,
-                    hardware={**hardware,'calibration_filename':calibration_filename,'calibration_sha256':calibration_hash,'bounds':bounds}))
-                per_year={str(y):[] for y in sorted(config['years'])}
+                    hardware={**hardware,'calibration_filename':calibration_filename,'calibration_sha256':calibration_hash,'bounds':bounds},
+                    c2c=dict(cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source='manual_assumption') if effects.get('c2c') else None))
+                # year -> {array_index: [accuracy per reprogram]}; a record never
+                # counts as its own independent array (docs/spec review).
+                samples={str(y):{} for y in sorted(config['years'])}
                 for array_index in range(config['arrays']):
                     array_layers=[];array_diag={};array_payload={};seed_records=[]
                     for layer,mapped in zip(digital_layers,maps):
@@ -234,30 +261,65 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                         array_filename=candidate_id+'-array-'+str(array_index)+'.npz'
                         np.savez_compressed(output_dir/array_filename,**array_payload)
                         _save_json(output_dir/(candidate_id+'-array-'+str(array_index)+'.json'),dict(**identity,array_index=array_index,seeds=seed_records,diagnostics=array_diag,array_filename=array_filename,array_sha256=_sha(output_dir/array_filename)))
-                    accuracy_t0=None
-                    for year in sorted(config['years']):
-                        retention=retention_ratio(manifest['retention']['program_fit'],year) if effects['retention'] else dict(years=0,ratio=1.,status='valid',extrapolated=False)
-                        record=dict(**identity,run_id=candidate_id+'-array-'+str(array_index)+'-year-'+str(year),kind='ALL',array_index=array_index,years=year,effects=deepcopy(effects),retention=retention,d2d_diagnostics=array_diag if effects['d2d'] else None,array_artifact=array_filename,calibration_sha256=calibration_hash)
-                        if retention['status']=='invalid':
-                            record.update(status='invalid',reason=retention['reason'],accuracy=None,loss_vs_digital_pp=None,loss_vs_mapped_pp=None,retention_loss_pp=None)
-                        else:
-                            # One common gain on both devices, so the pair still reads G+ minus G-.
-                            ratio=retention['ratio'];time_layers=[dict(l,weights=l['weights']*ratio,g_plus=l['g_plus']*ratio,g_minus=l['g_minus']*ratio) for l in array_layers]
-                            try:
-                                result=evaluate(Network(time_layers,engine,tile_size=hardware['tile_size'],input_bits=INPUT_BITS,
-                                                        bits=hardware['adc_bits'] if effects['adc'] else None,
-                                                        adc_order=hardware['adc_order'] if effects['adc'] else None,
-                                                        bounds=bounds),test_images,test_labels)
-                                accuracy=result['accuracy']
-                                if year==0:accuracy_t0=accuracy
-                                record.update(status='succeeded',**result,loss_vs_digital_pp=100*(digital['accuracy']-accuracy),loss_vs_mapped_pp=100*(nominal_accuracy-accuracy),retention_loss_pp=100*(accuracy_t0-accuracy) if accuracy_t0 is not None else None)
-                                per_year[str(year)].append(accuracy)
-                            except (ValueError,FloatingPointError,OverflowError) as exc:
-                                record.update(status='invalid',reason=str(exc),accuracy=None,loss_vs_digital_pp=None,loss_vs_mapped_pp=None,retention_loss_pp=None)
-                        runs.append(record);completed+=1
-                        if progress:progress('inference',completed,total)
+                    for reprogram_index in range(config['n_reprogram']):
+                        # G_program = G_nominal * D2D * C2C (docs/completion-plan P2);
+                        # D2D is already baked into array_layers above and stays fixed
+                        # across every reprogram of this same array. record_layers
+                        # aliases array_layers directly when C2C is off, so the off
+                        # path is bit-identical to before this feature existed.
+                        record_layers=array_layers;c2c_diag=None;record_filename=None
+                        if effects.get('c2c'):
+                            record_layers=[];c2c_diag={};record_seed_records=[]
+                            for layer,mapped in zip(array_layers,maps):
+                                name=layer['name'];gs=[]
+                                for polarity,key in [('plus','g_plus'),('minus','g_minus')]:
+                                    factor,seed_info=c2c_factors(layer[key].shape,c2c_ratio,config['seed'],manifest['profile_hash'],array_index,reprogram_index,name,polarity)
+                                    record_seed_records.append(seed_info)
+                                    g=layer[key]*factor;gs.append(g)
+                                    stats=c2c_factor_statistics(factor)
+                                    # Statistics of the factor itself, never of g: g's spread
+                                    # also carries each weight's distinct nominal conductance
+                                    # and must not be reported as the injected C2C CV.
+                                    violation=observed_range_violation(g,mapped['g_min_s'],mapped['g_max_s'])
+                                    c2c_diag[name+'_'+polarity]=dict(seed=seed_info['seed'],factor_mean=stats['mean'],factor_std=stats['std'],factor_empirical_cv=stats['empirical_cv'],**violation)
+                                record_layers.append(dict(layer,weights=layer['scale']*(gs[0]-gs[1]),g_plus=gs[0],g_minus=gs[1]))
+                            record_filename=candidate_id+'-array-'+str(array_index)+'-record-'+str(reprogram_index)+'.json'
+                            _save_json(output_dir/record_filename,dict(**identity,array_index=array_index,reprogram_index=reprogram_index,cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source='manual_assumption',seeds=record_seed_records,diagnostics=c2c_diag))
+                        # Only 1.2.0-identical run_ids when off: n_reprogram==1 is the
+                        # only value 1.2.0/C2C-off ever allows, so this suffix is empty
+                        # for every existing (non-C2C) result.
+                        record_suffix='' if config['n_reprogram']==1 else '-record-'+str(reprogram_index)
+                        accuracy_t0=None
+                        for year in sorted(config['years']):
+                            retention=retention_ratio(manifest['retention']['program_fit'],year) if effects['retention'] else dict(years=0,ratio=1.,status='valid',extrapolated=False)
+                            record=dict(**identity,run_id=candidate_id+'-array-'+str(array_index)+record_suffix+'-year-'+str(year),kind='ALL',array_index=array_index,reprogram_index=reprogram_index,years=year,effects=deepcopy(effects),retention=retention,d2d_diagnostics=array_diag if effects['d2d'] else None,c2c_diagnostics=c2c_diag,array_artifact=array_filename,record_artifact=record_filename,calibration_sha256=calibration_hash)
+                            if retention['status']=='invalid':
+                                record.update(status='invalid',reason=retention['reason'],accuracy=None,loss_vs_digital_pp=None,loss_vs_mapped_pp=None,retention_loss_pp=None)
+                            else:
+                                # One common gain on both devices, so the pair still reads G+ minus G-.
+                                ratio=retention['ratio'];time_layers=[dict(l,weights=l['weights']*ratio,g_plus=l['g_plus']*ratio,g_minus=l['g_minus']*ratio) for l in record_layers]
+                                try:
+                                    result=evaluate(Network(time_layers,engine,tile_size=hardware['tile_size'],input_bits=INPUT_BITS,
+                                                            bits=hardware['adc_bits'] if effects['adc'] else None,
+                                                            adc_order=hardware['adc_order'] if effects['adc'] else None,
+                                                            bounds=bounds),test_images,test_labels)
+                                    accuracy=result['accuracy']
+                                    if year==0:accuracy_t0=accuracy
+                                    record.update(status='succeeded',**result,loss_vs_digital_pp=100*(digital['accuracy']-accuracy),loss_vs_mapped_pp=100*(nominal_accuracy-accuracy),retention_loss_pp=100*(accuracy_t0-accuracy) if accuracy_t0 is not None else None)
+                                    samples[str(year)].setdefault(array_index,[]).append(accuracy)
+                                except (ValueError,FloatingPointError,OverflowError) as exc:
+                                    record.update(status='invalid',reason=str(exc),accuracy=None,loss_vs_digital_pp=None,loss_vs_mapped_pp=None,retention_loss_pp=None)
+                            runs.append(record);completed+=1
+                            if progress:progress('inference',completed,total)
                 for year in sorted(config['years']):
-                    array_summaries.append(dict(**identity,years=year,requested_arrays=config['arrays'],invalid_arrays=config['arrays']-len(per_year[str(year)]),accuracy=summarize(per_year[str(year)])))
+                    # One value per array (its own mean across reprograms) so a
+                    # multiply-reprogrammed array is never counted as several
+                    # independent arrays; the per-array reprogram breakdown is kept
+                    # separately and only populated when reprogramming is actually used.
+                    per_array_means=[float(np.mean(v)) for v in samples[str(year)].values()]
+                    array_summaries.append(dict(**identity,years=year,requested_arrays=config['arrays'],invalid_arrays=config['arrays']-len(per_array_means),accuracy=summarize(per_array_means),
+                                                requested_reprogram=config['n_reprogram'],
+                                                reprogram_accuracy_by_array={str(k):summarize(v) for k,v in samples[str(year)].items()} if config['n_reprogram']>1 else None))
         if profile_candidates:
             best=max(profile_candidates,key=lambda r:r['validation_accuracy'])
             recommendations.append(dict(profile_id=manifest['profile_id'],profile_hash=manifest['profile_hash'],candidate_id=best['candidate_id'],pool=best['pool'],mapping=best['mapping'],validation_accuracy=best['validation_accuracy'],selection='nominal M0 validation accuracy; canonical pool/mapping order breaks ties'))
@@ -269,7 +331,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                      input_encoding=dict(bits=INPUT_BITS,signedness='unsigned',schedule='LSB-first fixed 8 cycles, zero cycles not skipped',
                                          ranges=ranges,range_source='digital checkpoint maximum over the 5k validation split'),
                      partial_sum_units='siemens x input bit; physical current is this times the measured VDS',
-                     effect_owners=dict(d2d='ctfm.simulation.math',retention='ctfm.simulation.math',adc='ctfm.simulation.torch_runner',c2c=None),
+                     effect_owners=dict(d2d='ctfm.simulation.math',retention='ctfm.simulation.math',adc='ctfm.simulation.torch_runner',c2c='ctfm.simulation.math'),
                      disabled_effects=['programming_noise','forward_noise','PCM_drift','compensation','IR_drop','nonlinear_IV','endurance'])
     provenance=dict(python=sys.version,platform=platform.platform(),numpy=np.__version__,torch=str(torch.__version__),
                     deterministic_algorithms=True,cpu_threads=4,dataset=data_sources,dataset_sha256=dataset_hash,
@@ -279,7 +341,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                     code_sha256={str(f.relative_to(Path(__file__).parent.parent)).replace(chr(92),'/'):_sha(f) for folder in (Path(__file__).parent,Path(__file__).parent.parent/'adapters') for f in folder.glob('*.py')},
                     d2d_seed_policy='SHA256(compact UTF-8 JSON [root_seed,profile_hash,array_index,layer,polarity]) first 8 bytes big-endian uint64; NumPy PCG64 standard_normal row-major',
                     trace=dict(filename='trace-test-first-256.npz',sha256=_sha(output_dir/'trace-test-first-256.npz'),count=256,source='first 256 official test examples; also the PPA activation trace source'))
-    used_assumptions=[a for a in ASSUMPTIONS if (effects['d2d'] or a['id']!='lognormal_d2d') and (effects['retention'] or not a['id'].startswith('retention_')) and (effects['adc'] or a['id']!='adc_bipolar_grid')]
+    used_assumptions=[a for a in ASSUMPTIONS if (effects['d2d'] or a['id']!='lognormal_d2d') and (effects['retention'] or not a['id'].startswith('retention_')) and (effects['adc'] or a['id']!='adc_bipolar_grid') and (effects.get('c2c') or a['id']!='manual_lognormal_c2c')]
     # Ask the adapter rather than hard-coding the refusal, so the result carries
     # the engine build state, the preset decision and the structural model
     # differences instead of an empty mismatch list.
@@ -324,9 +386,9 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
         run['hardware']=deepcopy(candidate['hardware']) if candidate and run['kind']=='ALL' else dict(tile_size=None,adc_bits=None,adc_order=None,range_policy=None,preset_id=None)
     completed_runs=sum(r['kind']=='ALL' and r['status']=='succeeded' for r in runs)
     failed_runs=sum(r['kind']=='ALL' and r['status']=='invalid' for r in runs)
-    skipped_runs=sum(r['status']=='skipped' for r in runs)*config['arrays']*len(config['years'])
+    skipped_runs=sum(r['status']=='skipped' for r in runs)*config['arrays']*config['n_reprogram']*len(config['years'])
     if completed_runs+failed_runs+skipped_runs!=total:raise RuntimeError('Experiment run accounting mismatch')
-    result=dict(schema_version='1.2.0',status='partial' if failed_runs or skipped_runs else 'succeeded',requested_config=requested,resolved_config=resolved,resolved_config_hash=resolved_hash,effective_config=effective,
+    result=dict(schema_version=config['schema_version'],status='partial' if failed_runs or skipped_runs else 'succeeded',requested_config=requested,resolved_config=resolved,resolved_config_hash=resolved_hash,effective_config=effective,
                 checkpoint_id=checkpoint_id,checkpoint_filename=checkpoint_filename,provenance=provenance,assumptions=used_assumptions,warnings=warnings,runs=runs,
                 summary=dict(digital_accuracy=digital['accuracy'],recommendations=recommendations,array_statistics=array_summaries,
                              requested=total,completed=completed_runs,failed=failed_runs,skipped=skipped_runs,

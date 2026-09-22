@@ -51,7 +51,10 @@ def capabilities():
         models={"mnist_mlp_v1": effect(torch_available, "torch_unavailable")},
         engines=engines,
         effects={"d2d": effect(torch_available, "torch_unavailable"), "retention": effect(torch_available, "torch_unavailable"),
-                 "adc": effect(torch_available, "torch_unavailable"), "c2c": effect(False, "not_provided")},
+                 "adc": effect(torch_available, "torch_unavailable"),
+                 # Manual-assumption C2C (schema_version 1.3.0): a per-profile-revision
+                 # relative CV, never a measured CTFM cycle-to-cycle distribution.
+                 "c2c": effect(torch_available, "torch_unavailable")},
         hardware=HardwareControls(tile_sizes=controls["tile_size"]["enum"], adc_bits=controls["adc_bits"]["enum"],
             adc_orders=controls["adc_order"]["enum"],
             range_policies=["validation_max_abs"],
@@ -67,9 +70,10 @@ def capabilities():
                                     for t in (64,128,256) for b in range(3,9)
                                     for o in controls["adc_order"]["enum"]] if torch_available else []),
         limits={"max_profiles": properties["profile_refs"]["maxItems"], "max_arrays": properties["arrays"]["maximum"],
-                "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
+                "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"],
+                "max_n_reprogram": properties["n_reprogram"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
         supported_file_formats=["csv","xlsx"],
-        warnings=["C2C: not provided. PPA: no validated CTFM equivalent circuit preset."])
+        warnings=["PPA: no validated CTFM equivalent circuit preset."])
 
 def create_app(storage_root=None):
     app = FastAPI(title="CTFM measurement and CIM API", version="1.2.0",

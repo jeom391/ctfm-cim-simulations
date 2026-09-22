@@ -37,13 +37,14 @@ class RunResult(ScientificResult):
     retention_loss_pp: float | None=None
     years: float | None=Field(default=None,ge=0)
     array_index: int | None=Field(default=None,ge=0)
+    reprogram_index: int | None=Field(default=None,ge=0)
     reason: str | None=None
 
 class ExperimentResult(ScientificResult):
     experiment_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","partial","failed","cancelled"]
-    schema_version: Literal["1.2.0"] | None=None
+    schema_version: Literal["1.2.0","1.3.0"] | None=None
     requested_config: dict | None=None
     resolved_config: dict | None=None
     effective_config: dict | None=None

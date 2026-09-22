@@ -19,7 +19,7 @@ def fixture(name="baseline"):
     return json.loads((CONTRACTS / f"fixtures/experiment-{name}.request.json").read_text(encoding="utf-8"))
 
 
-@pytest.mark.parametrize("name,count", [("baseline", 1), ("effects", 90)])
+@pytest.mark.parametrize("name,count", [("baseline", 1), ("effects", 90), ("c2c", 6)])
 def test_request_round_trip_preserves_all_selected_values(name, count):
     request = fixture(name)
     parsed = ExperimentRequest.model_validate(request)
@@ -124,6 +124,78 @@ def test_pydantic_exports_authoritative_shape_including_conditional_rules():
     invalid = fixture()
     invalid["hardware"]["adc_bits"] = 6
     assert not validator.is_valid(invalid)
+
+
+def test_a_1_2_0_request_still_rejects_c2c_and_multiple_reprograms():
+    """1.2.0 keeps its exact original meaning; only 1.3.0 unlocks C2C."""
+    request = fixture()
+    request["effects"]["c2c"] = True
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+    request = fixture()
+    request["n_reprogram"] = 2
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+
+
+@pytest.mark.parametrize("cv_percent", [-1, float("nan"), float("inf"), True, False])
+def test_c2c_cv_percent_rejects_negative_nonfinite_and_boolean(cv_percent):
+    request = fixture("c2c")
+    request["profile_refs"][0]["c2c"]["cv_percent"] = cv_percent
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+
+
+def test_c2c_requires_source_manual_assumption_exactly():
+    request = fixture("c2c")
+    request["profile_refs"][0]["c2c"]["source"] = "measured"
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+
+
+def test_c2c_on_requires_every_referenced_profile_to_state_its_own_cv():
+    """No implicit copy: a second profile without its own c2c block is rejected,
+    even though the first profile supplied a valid one."""
+    request = fixture("c2c")
+    request["profile_refs"].append({"id": "22222222-2222-4222-8222-222222222222", "revision": 1})
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+
+
+def test_c2c_off_rejects_a_profile_that_still_carries_c2c_data():
+    """Off must not look pre-filled -- the field must be entirely absent."""
+    request = fixture("c2c")
+    request["effects"]["c2c"] = False
+    request["n_reprogram"] = 1
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+
+
+@pytest.mark.parametrize("n_reprogram", [0, 101, 1.5, True])
+def test_n_reprogram_out_of_range_is_rejected_under_1_3_0(n_reprogram):
+    request = fixture("c2c")
+    request["n_reprogram"] = n_reprogram
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+
+
+def test_c2c_off_requires_n_reprogram_one_even_under_1_3_0():
+    request = fixture("c2c")
+    request["effects"]["c2c"] = False
+    del request["profile_refs"][0]["c2c"]
+    request["n_reprogram"] = 2
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
+
+
+def test_run_budget_multiplies_by_n_reprogram():
+    request = fixture("c2c")
+    request.update(arrays=100, n_reprogram=20)  # 1*1*1*100*20*1 = 2000
+    assert validate_request(request) == 2000
+    ExperimentRequest.model_validate(request)
+    request["n_reprogram"] = 21
+    with pytest.raises(ValidationError):
+        ExperimentRequest.model_validate(request)
 
 
 def test_parsed_deep_json_is_a_validation_error_not_a_recursion_crash():

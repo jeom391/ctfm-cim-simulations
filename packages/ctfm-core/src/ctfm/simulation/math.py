@@ -83,8 +83,8 @@ def c2c_relative_cv_percent_to_ratio(cv_percent):
     ratio c that c2c_factors takes. This is the ONLY place percent and ratio
     meet; c2c_factors and c2c_factor_statistics both take the ratio, never a
     percent, so a caller cannot accidentally pass '5' where '0.05' belongs."""
-    if cv_percent is None or not math.isfinite(cv_percent) or cv_percent < 0:
-        raise ValueError('C2C relative CV must be a finite nonnegative percentage')
+    if isinstance(cv_percent, bool) or cv_percent is None or not math.isfinite(cv_percent) or cv_percent < 0:
+        raise ValueError('C2C relative CV must be a finite nonnegative percentage, not a boolean')
     return cv_percent / 100.
 
 
@@ -119,12 +119,17 @@ def c2c_factors(shape, cv, root_seed, profile_hash, array_index, reprogram_index
     fresh draw," since that would silently break record reuse.
     """
     dims = _validate_c2c_shape(shape)
-    if cv is None or not math.isfinite(cv) or cv < 0:
-        raise ValueError('C2C requires a finite nonnegative relative CV; null is unavailable')
+    if isinstance(cv, bool) or cv is None or not math.isfinite(cv) or cv < 0:
+        raise ValueError('C2C requires a finite nonnegative relative CV, not a boolean; null is unavailable')
     key = [root_seed, profile_hash, array_index, reprogram_index, layer_name, polarity]
     encoded = json.dumps(key, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
     seed = int.from_bytes(hashlib.sha256(encoded).digest()[:8], 'big')
-    sigma = np.sqrt(np.log(1+cv*cv))
+    # log1p(cv*cv), not log(1+cv*cv): a manual CV can be entered as a very
+    # small percentage, and 1+cv*cv rounds to exactly 1.0 in float64 once
+    # cv is below ~1e-8, silently zeroing sigma (docs/completion-plan
+    # review, 04_TASK step "매우 작은 CV에는 log1p 사용"). d2d_factors keeps
+    # its original log(1+cv*cv) unchanged -- this does not touch D2D at all.
+    sigma = np.sqrt(np.log1p(cv*cv))
     if not np.isfinite(sigma):
         raise ValueError('C2C CV is too large for a finite lognormal distribution')
     factors = _mean_one_lognormal(dims, sigma, seed)

@@ -126,7 +126,7 @@ class SimulationMathTests(unittest.TestCase):
     def test_c2c_seed_contract_matches_d2d_shape_and_adds_reprogram_index(self):
         key=[7,'abc',2,3,'fc1','plus']
         seed=int.from_bytes(hashlib.sha256(json.dumps(key,separators=(',',':')).encode()).digest()[:8],'big')
-        f,info=c2c_factors((3,4),.2,*key);s=np.sqrt(np.log(1+.2**2))
+        f,info=c2c_factors((3,4),.2,*key);s=np.sqrt(np.log1p(.2**2))
         expected=np.exp(-s*s/2+s*np.random.Generator(np.random.PCG64(seed)).standard_normal((3,4)))
         np.testing.assert_equal(f,expected);self.assertEqual(info['seed'],seed);self.assertEqual(info['seed_key'],key)
 
@@ -164,11 +164,22 @@ class SimulationMathTests(unittest.TestCase):
         np.testing.assert_equal(d2d_before,d2d_after)
 
     def test_c2c_rejects_nonfinite_or_negative_cv_and_invalid_shape(self):
-        for bad_cv in (None, -.01, float('nan'), float('inf')):
+        for bad_cv in (None, -.01, float('nan'), float('inf'), True, False):
             with self.assertRaises(ValueError):c2c_factors((2,2),bad_cv,1,'p',0,0,'fc1','plus')
         for bad_shape in ((), (0,), (-1,), (2.5,), (True,)):
             with self.assertRaises(ValueError):c2c_factors(bad_shape,.1,1,'p',0,0,'fc1','plus')
         with self.assertRaises(ValueError):c2c_factors((2,),1e200,1,'p',0,0,'fc1','plus')  # sigma overflow, not silent inf
+
+    def test_c2c_percent_to_ratio_rejects_bool_even_though_python_treats_it_as_an_int(self):
+        for bad in (True, False):
+            with self.assertRaises(ValueError):c2c_relative_cv_percent_to_ratio(bad)
+
+    def test_c2c_uses_log1p_so_a_tiny_cv_does_not_silently_zero_out(self):
+        """1+cv*cv rounds to exactly 1.0 in float64 once cv is below ~1e-8, so
+        plain log(1+cv*cv) would silently return sigma=0 (identity, no C2C
+        effect at all) for a nonzero manual CV. log1p keeps it nonzero."""
+        f,_=c2c_factors((5,),1e-9,1,'p',0,0,'fc1','plus')
+        self.assertFalse(np.array_equal(f,np.ones(5)))
 
     def test_c2c_statistical_sanity_mean_one_and_target_cv_at_large_n(self):
         f,_=c2c_factors((300000,),.08,42,'profile-x',0,3,'fc1','plus')

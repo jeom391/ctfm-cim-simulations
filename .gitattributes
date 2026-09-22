@@ -13,3 +13,9 @@
 
 # Preserve shared measurement CSV bytes and provenance hashes.
 /data/reference/ltp-ltd-2026-09-21/**/*.csv -text
+
+# export_schemas.py/export_openapi.py write pure-LF bytes and --check compares
+# byte-for-byte; without this, Windows core.autocrlf=true checks these out as
+# CRLF and every --check falsely reports drift even when nothing changed.
+/packages/contracts/schemas/*.json text eol=lf
+/packages/contracts/openapi/*.json text eol=lf

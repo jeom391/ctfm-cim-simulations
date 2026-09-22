@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import io
 import json
+import math
 import time
 import zipfile
 from copy import deepcopy
@@ -84,16 +85,95 @@ def _assert_matching_runs(result_a, result_b, run_id, keys):
     return {k: a.get(k) for k in keys}
 
 
-def run_adc_order_comparison(call, wait_job, caps, profile, *, adc_bits, checkpoint_id=None):
+def _finite_unit_accuracy(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value <= 1
+
+
+def _require_ok_runs(result, kind, expected_count, *, engine=None):
+    """Reject a comparison built on missing/duplicate/failed/skipped runs or
+    null/nonfinite accuracy -- review R1: completed==requested alone does not
+    guarantee the specific runs a comparison needs actually succeeded."""
+    matches = [r for r in result["runs"] if r["kind"] == kind]
+    if len(matches) != expected_count:
+        raise SystemExit(f"expected exactly {expected_count} {kind} run(s), found {len(matches)}: "
+                         + json.dumps([r.get("run_id") for r in matches]))
+    run_ids = [r["run_id"] for r in matches]
+    if len(set(run_ids)) != len(run_ids):
+        raise SystemExit(f"duplicate run_id among {kind} runs: {run_ids}")
+    for r in matches:
+        if r.get("status") != "succeeded":
+            raise SystemExit(f"{kind} run {r.get('run_id')!r} did not succeed: status={r.get('status')!r}")
+        if not _finite_unit_accuracy(r.get("accuracy")):
+            raise SystemExit(f"{kind} run {r.get('run_id')!r} has a non-finite/out-of-range accuracy: {r.get('accuracy')!r}")
+        n, correct = r.get("n"), r.get("correct")
+        if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+            raise SystemExit(f"{kind} run {r.get('run_id')!r} has an invalid n: {n!r}")
+        if not isinstance(correct, int) or isinstance(correct, bool) or not 0 <= correct <= n:
+            raise SystemExit(f"{kind} run {r.get('run_id')!r} has an invalid correct count: {correct!r}")
+        if abs(correct / n - r["accuracy"]) > 1e-9:
+            raise SystemExit(f"{kind} run {r.get('run_id')!r} accuracy does not match correct/n")
+        if engine is not None and r.get("engine") != engine:
+            raise SystemExit(f"{kind} run {r.get('run_id')!r} used engine {r.get('engine')!r}, requested {engine!r}")
+    return matches
+
+
+def _check_effective_matches_request(config, order, effective):
+    """Review R2/R3: two responses agreeing with each other is not the same as
+    either of them honoring what was actually requested. Compares the exact
+    request dict built for this run (not a round-tripped/server-normalized
+    copy) against effective_config, including each candidate's own ADC order
+    -- not just the top-level field a normalization pass could paper over."""
+    hardware = effective["hardware"]
+    request_hardware = config["hardware"]
+    checks = [
+        ("model_id", effective.get("model_id"), config["model_id"]),
+        ("schema_version", effective.get("schema_version"), config["schema_version"]),
+        ("pools", effective.get("pools"), config["pools"]),
+        ("mappings", effective.get("mappings"), config["mappings"]),
+        ("effects", effective.get("effects"), config["effects"]),
+        ("arrays", effective.get("arrays"), int(config["arrays"])),
+        ("n_reprogram", effective.get("n_reprogram"), int(config["n_reprogram"])),
+        ("years", effective.get("years"), config["years"]),
+        ("seed", effective.get("seed"), int(config["seed"])),
+        ("engines", effective.get("engines"), config["engines"]),
+        ("profile_refs", effective.get("profile_refs"), config["profile_refs"]),
+        ("hardware.tile_size", hardware.get("tile_size"), request_hardware["tile_size"]),
+        ("hardware.adc_bits", hardware.get("adc_bits"), request_hardware["adc_bits"]),
+        ("hardware.range_policy", hardware.get("range_policy"), request_hardware["range_policy"]),
+        ("hardware.preset_id", hardware.get("preset_id"), request_hardware["preset_id"]),
+        ("hardware.adc_order", hardware.get("adc_order"), order),
+    ]
+    mismatches = [{"field": name, "effective": actual, "requested": expected}
+                 for name, actual, expected in checks if actual != expected]
+    if mismatches:
+        raise SystemExit(f"{order}: effective config does not match what was requested: "
+                         + json.dumps(mismatches, ensure_ascii=False))
+    for candidate in effective.get("candidates", []):
+        candidate_hardware = candidate["hardware"]
+        if candidate_hardware.get("adc_order") != order:
+            raise SystemExit(f"{order}: candidate {candidate.get('candidate_id')!r} hardware.adc_order="
+                             f"{candidate_hardware.get('adc_order')!r} does not match the requested order")
+        for key in ("tile_size", "adc_bits", "range_policy", "preset_id"):
+            if candidate_hardware.get(key) != hardware.get(key):
+                raise SystemExit(f"{order}: candidate {candidate.get('candidate_id')!r} hardware.{key}="
+                                 f"{candidate_hardware.get(key)!r} does not match effective_config.hardware.{key}={hardware.get(key)!r}")
+
+
+def run_adc_order_comparison(call, wait_job, caps, profile, *, adc_bits, checkpoint_id=None, engine="torch_reference"):
     """Two experiments on one published profile revision, sharing one
     checkpoint, differing only in hardware.adc_order. Returns a report dict, or
     raises SystemExit before returning anything if a comparison condition, the
     checkpoint identity, or an order-independent run (D0/D1/M0) is violated."""
+    if not caps["engines"].get(engine, {}).get("available"):
+        raise SystemExit(f"{engine} unavailable for the ADC-order comparison: {caps['engines'].get(engine)}")
     base = json.loads((ROOT / "packages/contracts/fixtures/experiment-baseline.request.json").read_text())
     base["profile_refs"] = [dict(id=profile["profile_id"], revision=1)]
-    base["engines"]["accuracy"] = "torch_reference"
+    base["engines"]["accuracy"] = engine
     base["effects"]["adc"] = True
     base["hardware"].update(adc_bits=adc_bits, range_policy=caps["hardware"]["range_policies"][0])
+    if len(base["pools"]) != 1 or len(base["mappings"]) != 1:
+        raise SystemExit("this comparison expects exactly one pool/mapping candidate; "
+                         "the baseline fixture changed shape")
 
     def run(order, checkpoint):
         config = deepcopy(base)
@@ -104,8 +184,14 @@ def run_adc_order_comparison(call, wait_job, caps, profile, *, adc_bits, checkpo
         result = call("GET", "/experiments/" + exp["experiment_id"]).json()
         if result["summary"]["completed"] != result["summary"]["requested"]:
             raise SystemExit(f"{order}: experiment did not complete fully: {result['summary']}")
-        if result["effective_config"]["hardware"]["adc_order"] != order:
-            raise SystemExit(f"{order}: effective config lost the requested ADC order")
+        _check_effective_matches_request(config, order, result["effective_config"])
+        _require_ok_runs(result, "D0", 1, engine="torch_reference")
+        _require_ok_runs(result, "D1", 1, engine="torch_reference")
+        _require_ok_runs(result, "M0", 1, engine=engine)
+        for run_record in _require_ok_runs(result, "ALL", int(config["arrays"]) * len(config["years"]), engine=engine):
+            if run_record["hardware"]["adc_order"] != order:
+                raise SystemExit(f"{order}: ALL run {run_record['run_id']!r} carries hardware.adc_order="
+                                 f"{run_record['hardware']['adc_order']!r} instead of the requested order")
         return exp["experiment_id"], result
 
     experiment_a, result_a = run(ADC_ORDERS[0], checkpoint_id)
@@ -156,7 +242,7 @@ def run_adc_order_comparison(call, wait_job, caps, profile, *, adc_bits, checkpo
     return dict(
         experiment_ids={"subtract_then_adc": experiment_a, "adc_then_subtract": experiment_b},
         checkpoint_id=shared_checkpoint, checkpoint_sha256=result_a["provenance"]["checkpoint"]["sha256"],
-        profile_id=profile["profile_id"], profile_revision=1,
+        profile_id=profile["profile_id"], profile_revision=1, engine=engine,
         adc_bits=adc_bits, tile_size=base["hardware"]["tile_size"],
         calibration_bounds_by_candidate=bounds_by_candidate,
         calibration_note=("bounds are computed for both ADC orders in one nominal pass over the shared mapped "
@@ -225,6 +311,9 @@ def main():
     args = parser.parse_args()
     if args.compare_adc_orders and "," in args.conditions:
         raise SystemExit("--compare-adc-orders requires exactly one --conditions entry")
+    if args.compare_adc_orders and args.engine != "torch_reference":
+        raise SystemExit("--compare-adc-orders only verifies torch_reference; "
+                         f"--engine {args.engine!r} is not supported by this comparison")
     manifest = json.loads((DATA / "manifest.json").read_text(encoding="utf-8"))["files"]
     report = {"conditions": {}}
     with httpx.Client(base_url=args.base_url + "/api/v1", timeout=120) as client:
@@ -256,7 +345,8 @@ def main():
             profile, row = _publish_condition(call, wait_job, manifest, condition)
             if args.compare_adc_orders:
                 row["adc_order_comparison"] = run_adc_order_comparison(
-                    call, wait_job, caps, profile, adc_bits=args.adc_bits, checkpoint_id=args.checkpoint_id)
+                    call, wait_job, caps, profile, adc_bits=args.adc_bits, checkpoint_id=args.checkpoint_id,
+                    engine=args.engine)
             elif condition in args.experiment_conditions.split(","):
                 config = json.loads((ROOT / "packages/contracts/fixtures/experiment-baseline.request.json").read_text())
                 config["profile_refs"] = [dict(id=profile["profile_id"], revision=1)]

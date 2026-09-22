@@ -210,6 +210,23 @@ class C2CIntegrationTests(unittest.TestCase):
             self.assertEqual(set(stats['reprogram_accuracy_by_array']),{'0','1'})
             for per_array in stats['reprogram_accuracy_by_array'].values():self.assertEqual(per_array['n'],3)
 
+    def test_reprogram_and_array_interpretation_text_are_not_swapped(self):
+        """04_REVIEW: the per-array reprogram entry must not carry summarize()'s
+        default 'across seeded arrays' wording -- it is a within-array,
+        across-reprogram distribution. The top-level accuracy must say it is
+        built from each array's own reprogram mean, not one sample per record."""
+        p=synthetic_profile()
+        config=c2c_configuration(p,cv_percent=6,n_reprogram=3,arrays=2,d2d=True)
+        with tempfile.TemporaryDirectory() as directory:
+            r=self._run(config,p,directory)
+            stats=r['summary']['array_statistics'][0]
+            self.assertIn('own mean',stats['accuracy']['interpretation'])
+            self.assertNotEqual(stats['accuracy']['interpretation'],'distribution across seeded arrays, not a confidence interval')
+            for array_index,entry in stats['reprogram_accuracy_by_array'].items():
+                self.assertIn(f'array_index={array_index}',entry['interpretation'])
+                self.assertIn('reprograms of this one array',entry['interpretation'])
+                self.assertNotIn('seeded arrays',entry['interpretation'])
+
     def test_off_path_array_statistics_has_no_reprogram_breakdown(self):
         p=synthetic_profile()
         config=configuration(p,True)
@@ -217,6 +234,8 @@ class C2CIntegrationTests(unittest.TestCase):
             r=self._run(config,p,directory)
             for stats in r['summary']['array_statistics']:
                 self.assertIsNone(stats['reprogram_accuracy_by_array']);self.assertEqual(stats['requested_reprogram'],1)
+                # Off path keeps summarize()'s original, unmodified default text.
+                self.assertEqual(stats['accuracy']['interpretation'],'distribution across seeded arrays, not a confidence interval')
 
     def test_c2c_run_budget_includes_n_reprogram(self):
         p=synthetic_profile()

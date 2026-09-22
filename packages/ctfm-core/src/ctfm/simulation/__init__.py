@@ -317,9 +317,24 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                     # independent arrays; the per-array reprogram breakdown is kept
                     # separately and only populated when reprogramming is actually used.
                     per_array_means=[float(np.mean(v)) for v in samples[str(year)].values()]
-                    array_summaries.append(dict(**identity,years=year,requested_arrays=config['arrays'],invalid_arrays=config['arrays']-len(per_array_means),accuracy=summarize(per_array_means),
+                    array_accuracy=summarize(per_array_means)
+                    reprogram_accuracy_by_array=None
+                    if config['n_reprogram']>1:
+                        # summarize()'s default interpretation ("distribution across
+                        # seeded arrays") is right for array_accuracy here, but wrong
+                        # if copied onto a per-array entry below, which is a
+                        # within-array reprogram distribution, not an across-array
+                        # one (04_REVIEW). Override only at these two call sites;
+                        # summarize()'s own default text is unchanged everywhere else.
+                        array_accuracy=dict(array_accuracy,interpretation="distribution across seeded arrays; each array contributes its own mean over n_reprogram reprograms, not one sample per reprogram")
+                        reprogram_accuracy_by_array={}
+                        for array_index,values in samples[str(year)].items():
+                            entry=summarize(values)
+                            entry['interpretation']=f"distribution across the {config['n_reprogram']} reprograms of this one array (array_index={array_index}), not across different arrays"
+                            reprogram_accuracy_by_array[str(array_index)]=entry
+                    array_summaries.append(dict(**identity,years=year,requested_arrays=config['arrays'],invalid_arrays=config['arrays']-len(per_array_means),accuracy=array_accuracy,
                                                 requested_reprogram=config['n_reprogram'],
-                                                reprogram_accuracy_by_array={str(k):summarize(v) for k,v in samples[str(year)].items()} if config['n_reprogram']>1 else None))
+                                                reprogram_accuracy_by_array=reprogram_accuracy_by_array))
         if profile_candidates:
             best=max(profile_candidates,key=lambda r:r['validation_accuracy'])
             recommendations.append(dict(profile_id=manifest['profile_id'],profile_hash=manifest['profile_hash'],candidate_id=best['candidate_id'],pool=best['pool'],mapping=best['mapping'],validation_accuracy=best['validation_accuracy'],selection='nominal M0 validation accuracy; canonical pool/mapping order breaks ties'))

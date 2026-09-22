@@ -1,0 +1,145 @@
+{"job_id": "a917a9fb-9f30-4474-a8c0-4ab4ed0274e4", "progress": ["running", "parsing", 0, 0]}
+{"job_id": "a917a9fb-9f30-4474-a8c0-4ab4ed0274e4", "progress": ["running", "parsing", 1, 2]}
+{"job_id": "a917a9fb-9f30-4474-a8c0-4ab4ed0274e4", "progress": ["running", "parsing", 2, 2]}
+{"job_id": "a917a9fb-9f30-4474-a8c0-4ab4ed0274e4", "progress": ["running", "exporting", 0, 1]}
+{"job_id": "a917a9fb-9f30-4474-a8c0-4ab4ed0274e4", "progress": ["running", "exporting", 1, 1]}
+{"job_id": "a917a9fb-9f30-4474-a8c0-4ab4ed0274e4", "progress": ["succeeded", "succeeded", 1, 1]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["queued", "queued", 0, 0]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "parsing", 0, 0]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "parsing", 4, 4]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "training", 1, 5]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "training", 2, 5]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "training", 3, 5]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "training", 4, 5]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "training", 5, 5]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "inference", 1, 1]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "exporting", 0, 1]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["running", "exporting", 1, 1]}
+{"job_id": "8959e012-41e8-4506-927e-b26bc9ef466b", "progress": ["succeeded", "succeeded", 1, 1]}
+{"job_id": "b717a4c7-181d-42bd-9f1d-d620efd8862c", "progress": ["queued", "queued", 0, 0]}
+{"job_id": "b717a4c7-181d-42bd-9f1d-d620efd8862c", "progress": ["running", "parsing", 0, 0]}
+{"job_id": "b717a4c7-181d-42bd-9f1d-d620efd8862c", "progress": ["running", "parsing", 4, 4]}
+{"job_id": "b717a4c7-181d-42bd-9f1d-d620efd8862c", "progress": ["running", "inference", 1, 1]}
+{"job_id": "b717a4c7-181d-42bd-9f1d-d620efd8862c", "progress": ["running", "exporting", 0, 1]}
+{"job_id": "b717a4c7-181d-42bd-9f1d-d620efd8862c", "progress": ["running", "exporting", 1, 1]}
+{"job_id": "b717a4c7-181d-42bd-9f1d-d620efd8862c", "progress": ["succeeded", "succeeded", 1, 1]}
+{"A1": {"analysis_id": "561a3aeb-59e8-4a29-a4e5-ef94dc2373d4", "profile_id": "13b44dae-6757-4ccf-b3ed-bde5b0620c4b", "states": 1020, "export_bytes": 198141, "warnings": [], "adc_order_comparison": {"experiment_ids": {"subtract_then_adc": "3a85edc7-2f0b-4a87-b44c-352c2b1cba78", "adc_then_subtract": "dee2ac9a-d57d-4092-8ea9-3860821dbecd"}, "checkpoint_id": "7ad07956-4332-40c2-8837-04a3fe3dfed7", "checkpoint_sha256": "d30f6a61637c405b0b1c80bc9b8f2f15807c3b37635f537d7a8afac42a55afe0", "profile_id": "13b44dae-6757-4ccf-b3ed-bde5b0620c4b", "profile_revision": 1, "adc_bits": 6, "tile_size": 64, "calibration_bounds_by_candidate": {"candidate-1": {"fc1": {"adc_then_subtract": 0.0005597329582087696, "subtract_then_adc": 0.0005276500596664846}, "fc2": {"adc_then_subtract": 0.0003739560197573155, "subtract_then_adc": 0.0003008200437761843}}}, "calibration_note": "bounds are computed for both ADC orders in one nominal pass over the shared mapped weights (ctfm.simulation.torch_runner.calibrate); identical bounds above are therefore expected for this single-checkpoint comparison, not a forced number", "d0": {"accuracy": 0.9651, "correct": 9651, "n": 10000, "loss_vs_digital_pp": 0.0}, "d1": {"accuracy": 0.965, "correct": 9650, "n": 10000, "loss_vs_digital_pp": 0.009999999999998899}, "m0": {"candidate-1-M0": {"accuracy": 0.9641, "correct": 9641, "n": 10000, "validation_accuracy": 0.958, "loss_vs_digital_pp": 0.10000000000000009, "loss_vs_mapped_pp": 0.0}}, "all_by_pool_mapping": [{"run_id": "candidate-1-array-0-year-0", "pool": "combined", "mapping": "fixed_reference", "subtract_then_adc": {"status": "succeeded", "accuracy": 0.9578, "adc": {"fc1": {"clip_abs_error_sum": 7.086084224283695e-06, "clipped_count": 6, "count": 133120000, "mean_clip_abs_error": 5.3230800963669584e-14, "mean_quantization_abs_error": 5.421609165345077e-06, "quantization_abs_error_sum": 721.7246120907366, "saturation_ratio": 4.507211538461538e-08}, "fc2": {"clip_abs_error_sum": 1.7431913875043392e-05, "clipped_count": 2, "count": 1600000, "mean_clip_abs_error": 1.089494617190212e-11, "mean_quantization_abs_error": 2.6202978592482396e-06, "quantization_abs_error_sum": 4.192476574797183, "saturation_ratio": 1.25e-06}}}, "adc_then_subtract": {"status": "succeeded", "accuracy": 0.962, "adc": {"fc1": {"clip_abs_error_sum": 7.74691579863429e-06, "clipped_count": 14, "count": 266240000, "mean_clip_abs_error": 2.9097490229245385e-14, "mean_quantization_abs_error": 1.6157524742253097e-06, "quantization_abs_error_sum": 430.17793873774644, "saturation_ratio": 5.2584134615384616e-08}, "fc2": {"clip_abs_error_sum": 0.0, "clipped_count": 0, "count": 3200000, "mean_clip_abs_error": 0.0, "mean_quantization_abs_error": 1.3155327357162606e-06, "quantization_abs_error_sum": 4.209704754292034, "saturation_ratio": 0.0}}}, "accuracy_delta_pp": -0.41999999999999815}], "scope_note": "single shared-checkpoint comparison; not evidence of general ADC-order or device-condition superiority"}}}
+{
+  "conditions": {
+    "A1": {
+      "analysis_id": "561a3aeb-59e8-4a29-a4e5-ef94dc2373d4",
+      "profile_id": "13b44dae-6757-4ccf-b3ed-bde5b0620c4b",
+      "states": 1020,
+      "export_bytes": 198141,
+      "export_entries": [
+        "manifest.json",
+        "states.csv"
+      ],
+      "warnings": [],
+      "adc_order_comparison": {
+        "experiment_ids": {
+          "subtract_then_adc": "3a85edc7-2f0b-4a87-b44c-352c2b1cba78",
+          "adc_then_subtract": "dee2ac9a-d57d-4092-8ea9-3860821dbecd"
+        },
+        "checkpoint_id": "7ad07956-4332-40c2-8837-04a3fe3dfed7",
+        "checkpoint_sha256": "d30f6a61637c405b0b1c80bc9b8f2f15807c3b37635f537d7a8afac42a55afe0",
+        "profile_id": "13b44dae-6757-4ccf-b3ed-bde5b0620c4b",
+        "profile_revision": 1,
+        "adc_bits": 6,
+        "tile_size": 64,
+        "calibration_bounds_by_candidate": {
+          "candidate-1": {
+            "fc1": {
+              "adc_then_subtract": 0.0005597329582087696,
+              "subtract_then_adc": 0.0005276500596664846
+            },
+            "fc2": {
+              "adc_then_subtract": 0.0003739560197573155,
+              "subtract_then_adc": 0.0003008200437761843
+            }
+          }
+        },
+        "calibration_note": "bounds are computed for both ADC orders in one nominal pass over the shared mapped weights (ctfm.simulation.torch_runner.calibrate); identical bounds above are therefore expected for this single-checkpoint comparison, not a forced number",
+        "d0": {
+          "accuracy": 0.9651,
+          "correct": 9651,
+          "n": 10000,
+          "loss_vs_digital_pp": 0.0
+        },
+        "d1": {
+          "accuracy": 0.965,
+          "correct": 9650,
+          "n": 10000,
+          "loss_vs_digital_pp": 0.009999999999998899
+        },
+        "m0": {
+          "candidate-1-M0": {
+            "accuracy": 0.9641,
+            "correct": 9641,
+            "n": 10000,
+            "validation_accuracy": 0.958,
+            "loss_vs_digital_pp": 0.10000000000000009,
+            "loss_vs_mapped_pp": 0.0
+          }
+        },
+        "all_by_pool_mapping": [
+          {
+            "run_id": "candidate-1-array-0-year-0",
+            "pool": "combined",
+            "mapping": "fixed_reference",
+            "subtract_then_adc": {
+              "status": "succeeded",
+              "accuracy": 0.9578,
+              "adc": {
+                "fc1": {
+                  "clip_abs_error_sum": 7.086084224283695e-06,
+                  "clipped_count": 6,
+                  "count": 133120000,
+                  "mean_clip_abs_error": 5.3230800963669584e-14,
+                  "mean_quantization_abs_error": 5.421609165345077e-06,
+                  "quantization_abs_error_sum": 721.7246120907366,
+                  "saturation_ratio": 4.507211538461538e-08
+                },
+                "fc2": {
+                  "clip_abs_error_sum": 1.7431913875043392e-05,
+                  "clipped_count": 2,
+                  "count": 1600000,
+                  "mean_clip_abs_error": 1.089494617190212e-11,
+                  "mean_quantization_abs_error": 2.6202978592482396e-06,
+                  "quantization_abs_error_sum": 4.192476574797183,
+                  "saturation_ratio": 1.25e-06
+                }
+              }
+            },
+            "adc_then_subtract": {
+              "status": "succeeded",
+              "accuracy": 0.962,
+              "adc": {
+                "fc1": {
+                  "clip_abs_error_sum": 7.74691579863429e-06,
+                  "clipped_count": 14,
+                  "count": 266240000,
+                  "mean_clip_abs_error": 2.9097490229245385e-14,
+                  "mean_quantization_abs_error": 1.6157524742253097e-06,
+                  "quantization_abs_error_sum": 430.17793873774644,
+                  "saturation_ratio": 5.2584134615384616e-08
+                },
+                "fc2": {
+                  "clip_abs_error_sum": 0.0,
+                  "clipped_count": 0,
+                  "count": 3200000,
+                  "mean_clip_abs_error": 0.0,
+                  "mean_quantization_abs_error": 1.3155327357162606e-06,
+                  "quantization_abs_error_sum": 4.209704754292034,
+                  "saturation_ratio": 0.0
+                }
+              }
+            },
+            "accuracy_delta_pp": -0.41999999999999815
+          }
+        ],
+        "scope_note": "single shared-checkpoint comparison; not evidence of general ADC-order or device-condition superiority"
+      }
+    }
+  }
+}

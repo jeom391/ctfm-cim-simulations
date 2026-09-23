@@ -587,8 +587,8 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * CTFM first-release experiment request v1.2.0
-         * @description Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error.
+         * CTFM first-release experiment request v1.2.0/v1.3.0
+         * @description Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error. v1.2.0 requests keep their original meaning (C2C unavailable, single write). v1.3.0 adds an optional manual-assumption C2C model per docs/completion-plan-2026-09-21.md P2: relative CV in percent per referenced profile revision, plus 1-100 reprogram iterations; off (the default reading of a 1.2.0 request) is unchanged.
          */
         ExperimentRequest: {
             arrays: number;
@@ -596,8 +596,7 @@ export interface components {
             checkpoint_id: string | null;
             effects: {
                 adc: boolean;
-                /** @constant */
-                c2c: false;
+                c2c: boolean;
                 d2d: boolean;
                 retention: boolean;
             };
@@ -621,19 +620,24 @@ export interface components {
             mappings: ("fixed_reference" | "pair_search")[];
             /** @constant */
             model_id: "mnist_mlp_v1";
-            /** @constant */
-            n_reprogram: 1;
+            n_reprogram: number;
             pools: ("combined" | "ltp" | "ltd" | "common")[];
             profile_refs: {
+                /** @description Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio). */
+                c2c?: {
+                    cv_percent: number;
+                    /** @constant */
+                    source: "manual_assumption";
+                };
                 /** Format: uuid */
                 id: string;
                 revision: number;
             }[];
-            /** @constant */
-            schema_version: "1.2.0";
+            /** @enum {unknown} */
+            schema_version: "1.2.0" | "1.3.0";
             seed: number;
             years: number[];
-        } & (unknown & unknown & unknown);
+        } & (unknown & unknown & unknown & unknown & unknown & unknown);
         /** ExperimentResult */
         ExperimentResult: {
             /** Artifacts */
@@ -671,7 +675,7 @@ export interface components {
             /** Runs */
             runs?: components["schemas"]["RunResult"][] | null;
             /** Schema Version */
-            schema_version?: "1.2.0" | null;
+            schema_version?: ("1.2.0" | "1.3.0") | null;
             /**
              * Status
              * @enum {string}
@@ -1114,6 +1118,8 @@ export interface components {
             loss_vs_mapped_pp?: number | null;
             /** Reason */
             reason?: string | null;
+            /** Reprogram Index */
+            reprogram_index?: number | null;
             /** Retention Loss Pp */
             retention_loss_pp?: number | null;
             /**

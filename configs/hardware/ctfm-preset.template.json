@@ -107,7 +107,7 @@
 
   "unresolved": [
     "차동 2 plane 비용 모델 (결정 A5). NeuroSim 에 두-plane 차동 배열이 없어 두 번째 plane 의 면적/에너지/지연 근사가 필요합니다.",
-    "mnist_mlp_v1(784-128-10) 은 출력층 10 때문에 현재 엔진 빌드에서 SIGSEGV 입니다 (결정 C2).",
+    "mnist_mlp_v1(784-128-10) 의 crash 는 출력층 10 때문이 아니라 subArray 크기에 달려 있습니다: 64/128 에서 SIGSEGV, 256 에서 완주 (결정 C2). 측정된 (형상, subArray) 쌍은 ctfm.adapters.neurosim.MEASURED_TOPOLOGIES 에 있습니다.",
     "preset 변경은 Param.cpp 재빌드를 요구합니다 (결정 C1)."
   ]
 }

@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: the converter goes null with the ADC off but the physical array size stays
+ok 1 - the converter goes null with the ADC off but the physical array size stays
+  ---
+  duration_ms: 13.0549
+  type: 'test'
+  ...
+# Subtest: enabled effects retain choices including the ADC order
+ok 2 - enabled effects retain choices including the ADC order
+  ---
+  duration_ms: 0.6298
+  type: 'test'
+  ...
+# Subtest: both ADC orders round trip and an unknown order is refused
+ok 3 - both ADC orders round trip and an unknown order is refused
+  ---
+  duration_ms: 0.6573
+  type: 'test'
+  ...
+# Subtest: an unsupported physical array size is refused with or without the ADC
+ok 4 - an unsupported physical array size is refused with or without the ADC
+  ---
+  duration_ms: 0.2689
+  type: 'test'
+  ...
+# Subtest: reject invalid year lists, limits and unavailable effects
+ok 5 - reject invalid year lists, limits and unavailable effects
+  ---
+  duration_ms: 0.858
+  type: 'test'
+  ...
+# Subtest: reject more than 2000 requested runs and unsupported ADC pair
+ok 6 - reject more than 2000 requested runs and unsupported ADC pair
+  ---
+  duration_ms: 0.3955
+  type: 'test'
+  ...
+# Subtest: measurements require confirmed canonical columns, units and metadata
+ok 7 - measurements require confirmed canonical columns, units and metadata
+  ---
+  duration_ms: 1.2175
+  type: 'test'
+  ...
+# Subtest: C2C off stays a 1.2.0 single write and carries no per-profile c2c
+ok 8 - C2C off stays a 1.2.0 single write and carries no per-profile c2c
+  ---
+  duration_ms: 0.4262
+  type: 'test'
+  ...
+# Subtest: C2C on sends 1.3.0 with each revision stating its own manual CV
+ok 9 - C2C on sends 1.3.0 with each revision stating its own manual CV
+  ---
+  duration_ms: 1.2106
+  type: 'test'
+  ...
+# Subtest: C2C on accepts CV 0 but refuses missing, negative or non-numeric CV
+ok 10 - C2C on accepts CV 0 but refuses missing, negative or non-numeric CV
+  ---
+  duration_ms: 1.4667
+  type: 'test'
+  ...
+# Subtest: a second selected profile may not inherit the first profiles CV
+ok 11 - a second selected profile may not inherit the first profiles CV
+  ---
+  duration_ms: 0.8861
+  type: 'test'
+  ...
+# Subtest: reprogram iterations are bounded and multiply into the run budget
+ok 12 - reprogram iterations are bounded and multiply into the run budget
+  ---
+  duration_ms: 0.6276
+  type: 'test'
+  ...
+# Subtest: the LTP/LTD instrument export is suggested exactly as the reference manifest maps it
+ok 13 - the LTP/LTD instrument export is suggested exactly as the reference manifest maps it
+  ---
+  duration_ms: 1.5542
+  type: 'test'
+  ...
+# Subtest: a suggestion never invents a column and never guesses direction outside pulse analyses
+ok 14 - a suggestion never invents a column and never guesses direction outside pulse analyses
+  ---
+  duration_ms: 0.5891
+  type: 'test'
+  ...
+# Subtest: a suggested dataset still has to be confirmed and still needs a device id
+ok 15 - a suggested dataset still has to be confirmed and still needs a device id
+  ---
+  duration_ms: 0.8273
+  type: 'test'
+  ...
+# Subtest: reject duplicate profile revisions, draft profiles and unavailable engines
+ok 16 - reject duplicate profile revisions, draft profiles and unavailable engines
+  ---
+  duration_ms: 0.3338
+  type: 'test'
+  ...
+# Subtest: preserve zero seed, zero signed values and a valid reused checkpoint
+ok 17 - preserve zero seed, zero signed values and a valid reused checkpoint
+  ---
+  duration_ms: 0.4581
+  type: 'test'
+  ...
+# Subtest: row bounds preserve original source rows and reject reversed range
+ok 18 - row bounds preserve original source rows and reject reversed range
+  ---
+  duration_ms: 0.3729
+  type: 'test'
+  ...
+# Subtest: retention requires explicit source and read biases
+ok 19 - retention requires explicit source and read biases
+  ---
+  duration_ms: 0.6279
+  type: 'test'
+  ...
+# Subtest: pulse requires direction and three distinct columns
+ok 20 - pulse requires direction and three distinct columns
+  ---
+  duration_ms: 0.9197
+  type: 'test'
+  ...
+# Subtest: fixed pulse and IV read biases are explicit in request metadata
+ok 21 - fixed pulse and IV read biases are explicit in request metadata
+  ---
+  duration_ms: 0.3436
+  type: 'test'
+  ...
+# Subtest: 1020 state IDs never expand in nested display values and source stays intact
+ok 22 - 1020 state IDs never expand in nested display values and source stays intact
+  ---
+  duration_ms: 2.5215
+  type: 'test'
+  ...
+# Subtest: 24k raw rows page without omission or accumulated DOM rows
+ok 23 - 24k raw rows page without omission or accumulated DOM rows
+  ---
+  duration_ms: 21.4315
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 719.1755

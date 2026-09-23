@@ -1,0 +1,30 @@
+{
+  "adc_order": "adc_then_subtract",
+  "bounds": {
+    "fc1": {
+      "adc_then_subtract": 0.0005597329582087696,
+      "subtract_then_adc": 0.0005276500596664846
+    },
+    "fc2": {
+      "adc_then_subtract": 0.0003739560197573155,
+      "subtract_then_adc": 0.0003008200437761843
+    }
+  },
+  "candidate_id": "candidate-1",
+  "input_ranges": {
+    "fc1": 1.0,
+    "fc2": 10.61129379272461
+  },
+  "mapping": "fixed_reference",
+  "pool": "combined",
+  "profile_hash": "acd91907c2d85e4f782cf25c9790e41a0b16202bd554c58d85798aa9992447e5",
+  "profile_id": "13b44dae-6757-4ccf-b3ed-bde5b0620c4b",
+  "profile_revision": 1,
+  "range_policy": "validation_max_abs",
+  "shared_across": "bits, arrays and all retention timepoints; both orders collected in one pass",
+  "source": "nominal M0 with the ADC bypassed; complete validation set only",
+  "split_sha256": "d633100cfb366988a8ab624603277b1df2e7af896d86dbd05ad115f264ba2577",
+  "tile_size": 64,
+  "units": "siemens x input bit; physical current is this times VDS",
+  "validation_count": 5000
+}

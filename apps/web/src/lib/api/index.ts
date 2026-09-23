@@ -23,7 +23,7 @@ export interface UploadedFile {file_id:string;name:string;sha256:string;size_byt
 export interface Preview {file_id:string;sheets:string[];sheet:string|null;columns:string[];rows:Row[];source_rows:number[];warnings:unknown[]}
 export interface Dataset {key?:string;file_id:string;filename?:string;sheet:string|null;column_mapping:Record<string,string>;units:Record<string,string>;device_id:string;condition_id:string;branch?:string;sweep_amplitude_v?:number|string;direction?:string;source_label?:string;read_vgs_v?:number|string;vds_v?:number|string;row_start?:number|string;row_end?:number|string;confirmed:boolean;preview?:Preview}
 export type AdcOrder = 'subtract_then_adc'|'adc_then_subtract';
-export interface SimulationForm {profileKeys:string[];pools:string[];mappings:string[];d2d:boolean;retention:boolean;adc:boolean;arrays:number;years:string;seed:number;tileSize:number;adcBits:number;adcOrder:AdcOrder;engine:string;checkpoint:string}
+export interface SimulationForm {profileKeys:string[];pools:string[];mappings:string[];d2d:boolean;retention:boolean;adc:boolean;c2c:boolean;nReprogram:number;c2cCv:Record<string,string>;arrays:number;years:string;seed:number;tileSize:number;adcBits:number;adcOrder:AdcOrder;engine:string;checkpoint:string}
 export class ApiError extends Error { code?:string;field?:string;requestId?:string; constructor(message:string,code?:string,field?:string,requestId?:string){super(message);this.code=code;this.field=field;this.requestId=requestId;} }
 export async function request<T>(path:string,options:RequestInit={}):Promise<T>{
  let response:Response;

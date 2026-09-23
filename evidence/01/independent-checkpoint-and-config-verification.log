@@ -1,0 +1,35 @@
+independently re-downloaded checkpoint.pt from experiment 3a85edc7-2f0b-4a87-b44c-352c2b1cba78
+artifact record sha256: d30f6a61637c405b0b1c80bc9b8f2f15807c3b37635f537d7a8afac42a55afe0 size_bytes: 409885
+freshly computed sha256: d30f6a61637c405b0b1c80bc9b8f2f15807c3b37635f537d7a8afac42a55afe0
+matches artifact record: True
+matches provenance.checkpoint.sha256 (run A, subtract_then_adc): True
+matches provenance.checkpoint.sha256 (run B, adc_then_subtract): True
+run B (adc_then_subtract) produced its own checkpoint.pt (should be False -- reused, not retrained): False
+checkpoint_id A == B: True
+
+calibration source note: nominal M0 with the ADC bypassed; complete validation set only
+calibration validation_count (test data never used): 5000
+calibration split_sha256 A==B: True
+calibration bounds dict A==B (both orders computed in one nominal pass): True
+calibration bounds: {"fc1": {"adc_then_subtract": 0.0005597329582087696, "subtract_then_adc": 0.0005276500596664846}, "fc2": {"adc_then_subtract": 0.0003739560197573155, "subtract_then_adc": 0.0003008200437761843}}
+calibration adc_order metadata A: subtract_then_adc  B: adc_then_subtract (expected to differ)
+
+mapping_errors (map_weights output) A==B: True
+profile_hash A==B: True
+pool/mapping A: combined fixed_reference  B: combined fixed_reference
+effective_config.pools A==B: True
+effective_config.mappings A==B: True
+effective_config.effects A==B: True
+effective_config.arrays A==B: True
+effective_config.n_reprogram A==B: True
+effective_config.years A==B: True
+effective_config.seed A==B: True
+effective_config.split_seed A==B: True
+effective_config.checkpoint_id A==B: True
+effective_config.mapping_scale_policy A==B: True
+effective_config.digital_bias A==B: True
+effective_config.dac A==B: True
+effective_config.input_encoding A==B: True
+effective_config.partial_sum_units A==B: True
+effective_config.hardware A: {'adc_bits': 6, 'adc_order': 'subtract_then_adc', 'preset_id': None, 'range_policy': 'validation_max_abs', 'tile_size': 64}
+effective_config.hardware B: {'adc_bits': 6, 'adc_order': 'adc_then_subtract', 'preset_id': None, 'range_policy': 'validation_max_abs', 'tile_size': 64}

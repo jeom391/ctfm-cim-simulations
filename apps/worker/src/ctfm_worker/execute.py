@@ -41,7 +41,7 @@ def execute(job_id):
         result=run_experiment(request,profiles,output,cache_dir=store.root/"cache",
                               checkpoint_path=checkpoint_path,progress=progress,split_seed=request["seed"])
         result["experiment_id"]=item["id"];result["design_version"]="1.1.0"
-        requested=len(request["profile_refs"])*len(request["pools"])*len(request["mappings"])*int(request["arrays"])*len(request["years"])
+        requested=len(request["profile_refs"])*len(request["pools"])*len(request["mappings"])*int(request["arrays"])*int(request["n_reprogram"])*len(request["years"])
         actual=[r for r in result["runs"] if r.get("kind")=="ALL"]
         completed=sum(r["status"]=="succeeded" for r in actual)
         failed=sum(r["status"] in ("invalid","failed") for r in actual)

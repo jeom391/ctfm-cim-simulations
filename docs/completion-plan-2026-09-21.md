@@ -1,5 +1,7 @@
 # 개발 마무리 계획과 완료 기준
 
+> 후속 상태: P0의 알려진 CSV 형식 파싱·후보 추출·프로필 생성/발행 함수 검증을 `2f88b0b`에서 완료했다. 후속 main 6c590ea에서 팀의 LTP/LTD HTTP/브라우저 및 일부 P1 엔진 검증이 추가됐다. ADC 순서 간 통제 비교와 P2~P4 등은 남아 있다. [개발 담당 인수인계](../handoff/02_measurement-fix-and-next-steps.md)를 먼저 확인한다. 아래는 최초 계획이며 전체 완료 보고가 아니다.
+
 2026-09-21 · 진단 기준 fd27e4e. 이번 변경은 지침과 공유 데이터이며 제품 코드 수정이 아니다. [진단 후속 설명](diagnosis-followup-2026-09-21.md), [08 기준 명세](spec/08-hardware-baseline.md), [문헌 근거](research/hardware-baseline-evidence.md)를 함께 읽는다.
 
 ## 범위와 우선순위

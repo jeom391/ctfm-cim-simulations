@@ -52,6 +52,17 @@ def map_weights(weights, states, method='fixed_reference'):
                 errors=dict(mae=float(np.mean(np.abs(error))), rmse=float(np.sqrt(np.mean(error**2))), max_error=float(np.max(np.abs(error)))))
 
 
+def _mean_one_lognormal(shape, sigma, seed):
+    """exp(-sigma^2/2 + sigma*Z), Z~N(0,1): the mean-1, positive lognormal
+    sampler shared by d2d_factors and c2c_factors once their caller has
+    already turned a relative CV into sigma=sqrt(log(1+cv^2)) and validated
+    it. Pulling this out changes nothing about d2d_factors' behavior --
+    same RNG calls in the same order -- it only avoids a second copy of the
+    formula for c2c_factors."""
+    z = np.random.Generator(np.random.PCG64(seed)).standard_normal(shape)
+    return np.exp(-sigma*sigma/2 + sigma*z)
+
+
 def d2d_factors(shape, cv, root_seed, profile_hash, array_index, layer_name, polarity):
     if cv is None or not math.isfinite(cv) or cv < 0:
         raise ValueError('D2D requires a finite nonnegative measured CV; null is unavailable')
@@ -61,11 +72,100 @@ def d2d_factors(shape, cv, root_seed, profile_hash, array_index, layer_name, pol
     sigma = np.sqrt(np.log(1+cv*cv))
     if not np.isfinite(sigma):
         raise ValueError('D2D CV is too large for a finite lognormal distribution')
-    z = np.random.Generator(np.random.PCG64(seed)).standard_normal(shape)
-    factors = np.exp(-sigma*sigma/2 + sigma*z)
+    factors = _mean_one_lognormal(shape, sigma, seed)
     if not np.isfinite(factors).all() or np.any(factors <= 0):
         raise ValueError('D2D realization produced nonpositive or nonfinite factors')
     return factors, dict(seed_key=key, seed=seed, generator='PCG64', numpy_version=np.__version__, order='row-major')
+
+
+def c2c_relative_cv_percent_to_ratio(cv_percent):
+    """Manual relative CV entered as a percent (5 means 5%) -> the unitless
+    ratio c that c2c_factors takes. This is the ONLY place percent and ratio
+    meet; c2c_factors and c2c_factor_statistics both take the ratio, never a
+    percent, so a caller cannot accidentally pass '5' where '0.05' belongs."""
+    if isinstance(cv_percent, bool) or cv_percent is None or not math.isfinite(cv_percent) or cv_percent < 0:
+        raise ValueError('C2C relative CV must be a finite nonnegative percentage, not a boolean')
+    return cv_percent / 100.
+
+
+def _validate_c2c_shape(shape):
+    dims = (shape,) if isinstance(shape, (int, np.integer)) and not isinstance(shape, bool) else tuple(shape)
+    if not dims or any(isinstance(d, bool) or not isinstance(d, (int, np.integer)) or d <= 0 for d in dims):
+        raise ValueError('C2C requires a nonempty shape of positive integers')
+    return dims
+
+
+def c2c_factors(shape, cv, root_seed, profile_hash, array_index, reprogram_index, layer_name, polarity):
+    """Positive, mean-1 lognormal cycle-to-cycle (C2C) multiplicative factors
+    for one record (one reprogram of one array's one layer/plane).
+
+    A manual engineering assumption (docs/completion-plan-2026-09-21.md P2),
+    not a measured CTFM distribution: c=cv (a ratio, see
+    c2c_relative_cv_percent_to_ratio for the percent conversion),
+    s=sqrt(log(1+c^2)), f=exp(-s^2/2+sZ), Z~N(0,1). G_program is then
+    G_nominal * f_D2D * f_C2C (D2D from d2d_factors above; the multiply
+    itself has no dedicated helper, same as the existing D2D call site).
+
+    Unlike D2D -- fixed for the lifetime of one array -- C2C is redrawn every
+    time a state is (re)written, so ``reprogram_index`` is part of the RNG
+    key and ``array_index`` still is too (a fresh array reprograms its own
+    cells independently of every other array). ``adc_order`` and ``years``
+    are deliberately NOT part of the key: this function is pure and
+    deterministic in its inputs, so calling it again with the same
+    (root_seed, profile_hash, array_index, reprogram_index, layer_name,
+    polarity) reproduces the exact same record for a second ADC order or a
+    later retention timepoint -- there is no separate cache to manage, and a
+    caller must never fold adc_order/years into these identifiers to "get a
+    fresh draw," since that would silently break record reuse.
+    """
+    dims = _validate_c2c_shape(shape)
+    if isinstance(cv, bool) or cv is None or not math.isfinite(cv) or cv < 0:
+        raise ValueError('C2C requires a finite nonnegative relative CV, not a boolean; null is unavailable')
+    key = [root_seed, profile_hash, array_index, reprogram_index, layer_name, polarity]
+    encoded = json.dumps(key, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    seed = int.from_bytes(hashlib.sha256(encoded).digest()[:8], 'big')
+    # log1p(cv*cv), not log(1+cv*cv): a manual CV can be entered as a very
+    # small percentage, and 1+cv*cv rounds to exactly 1.0 in float64 once
+    # cv is below ~1e-8, silently zeroing sigma (docs/completion-plan
+    # review, 04_TASK step "매우 작은 CV에는 log1p 사용"). d2d_factors keeps
+    # its original log(1+cv*cv) unchanged -- this does not touch D2D at all.
+    sigma = np.sqrt(np.log1p(cv*cv))
+    if not np.isfinite(sigma):
+        raise ValueError('C2C CV is too large for a finite lognormal distribution')
+    factors = _mean_one_lognormal(dims, sigma, seed)
+    if not np.isfinite(factors).all() or np.any(factors <= 0):
+        raise ValueError('C2C realization produced nonpositive or nonfinite factors')
+    return factors, dict(seed_key=key, seed=seed, generator='PCG64', numpy_version=np.__version__, order='row-major')
+
+
+def c2c_factor_statistics(factors):
+    """Sample mean/std/empirical CV of the generated factors themselves.
+
+    Deliberately takes the factor array, not G_program: G_program's spread
+    also reflects each weight's distinct nominal conductance, so its raw CV
+    is not the injected relative CV and must never be reported as one.
+    """
+    a = np.asarray(factors, dtype=np.float64)
+    if a.size == 0 or not np.isfinite(a).all():
+        raise ValueError('Factor statistics require a nonempty finite array')
+    mean = float(a.mean())
+    std = float(a.std(ddof=1)) if a.size > 1 else None
+    return dict(n=int(a.size), mean=mean, std=std,
+                empirical_cv=(std / mean if std is not None and mean else None))
+
+
+def observed_range_violation(g_program, g_min_s, g_max_s):
+    """Fraction of programmed (G_nominal * factor) values that fall outside
+    the profile's observed pool bounds. Reported only -- never used to clip;
+    docs/spec/08-hardware-baseline.md section 3 prohibits automatic
+    Gmin/Gmax clipping."""
+    g = np.asarray(g_program, dtype=np.float64)
+    if g.size == 0 or not np.isfinite(g).all():
+        raise ValueError('Observed-range diagnostics require a nonempty finite array')
+    if not (math.isfinite(g_min_s) and math.isfinite(g_max_s)) or g_min_s > g_max_s:
+        raise ValueError('g_min_s/g_max_s must be finite with g_min_s <= g_max_s')
+    outside = (g < g_min_s) | (g > g_max_s)
+    return dict(outside_observed_fraction=float(np.mean(outside)), min_s=float(g.min()), max_s=float(g.max()))
 
 
 def retention_ratio(fit, years):

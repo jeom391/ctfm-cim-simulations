@@ -1,6 +1,21 @@
+import {profileKey} from './api/index.ts';
 import type {Capabilities,Dataset,Kind,Profile,SimulationForm,ExperimentRequest} from './api/index.ts';
 export const canonicalKeys:Record<Kind,string[]>={iv:['vgs_v','id_a'],d2d:['vgs_v','id_a'],retention:['time_s','program_id_a','erase_id_a'],pulse_states:['time_s','id_a','vgs_v']};
 export const unitOptions=(key:string)=>key==='time_s'?['s','ms']:key==='vgs_v'?['V','mV']:['A','mA','uA','nA'];
+// Instrument exports name their columns the same way every run, so the first
+// guess is worth prefilling. Nothing here skips a check: every dataset still
+// needs its own 확인 tick, and buildAnalysis re-validates what is submitted.
+const columnHints:Record<string,RegExp>={time_s:/^time/i,id_a:/^(id\b|i_?d\b|drain|meas\s*result\s*1)/i,vgs_v:/^(vg|v_?gs|gate|meas\s*result\s*2)/i,program_id_a:/program/i,erase_id_a:/eras/i};
+export function suggestDataset(kind:Kind,filename:string,columns:string[]){
+ const column_mapping:Record<string,string>={},units:Record<string,string>={};
+ for(const key of canonicalKeys[kind]){
+  const hit=columns.find(c=>columnHints[key]?.test(c.trim())&&!Object.values(column_mapping).includes(c));
+  if(hit){column_mapping[key]=hit;units[key]=unitOptions(key)[0];}
+ }
+ const condition=/(^|[^a-z0-9])([a-e]\d)([^a-z0-9]|$)/i.exec(filename);
+ const direction=/ltp/i.test(filename)?'ltp':/ltd/i.test(filename)?'ltd':'';
+ return {column_mapping,units,condition_id:condition?condition[2].toUpperCase():'',direction:kind==='pulse_states'?direction:''};
+}
 export const available=(value:unknown)=>value===true||(typeof value==='object'&&value!==null&&'available'in value&&value.available===true);
 const check=(ok:unknown,message:string)=>{if(!ok)throw new Error(message);};
 const integer=(n:number,min:number,max:number)=>Number.isInteger(n)&&n>=min&&n<=max;
@@ -24,9 +39,13 @@ export function buildExperiment(f:SimulationForm,profiles:Profile[],caps:Capabil
  // The array is physical, so its size is part of every request, ADC or not.
  check([64,128,256].includes(f.tileSize),'배열 크기는 64/128/256이어야 합니다.');
  if(f.adc){check(integer(f.adcBits,3,8),'ADC는 3~8 bit여야 합니다.');check(['subtract_then_adc','adc_then_subtract'].includes(f.adcOrder),'두 ADC 순서 중 하나를 선택하세요.');const pairs=caps.hardware?.validated_combinations;if(pairs)check(pairs.some(p=>p.tile_size===f.tileSize&&p.adc_bits===f.adcBits&&(!p.engine||p.engine===f.engine)&&(!p.adc_order||p.adc_order===f.adcOrder)),'검증되지 않은 ADC·타일·순서·엔진 조합입니다.');}
- check(chosen.length*f.pools.length*f.mappings.length*arrays*years.length<=2000,'한 요청의 최대 실행 수는 2,000입니다.');
+ const nReprogram=f.c2c?f.nReprogram:1;check(integer(nReprogram,1,100),'재기록 횟수는 1~100 정수여야 합니다.');
+ // Each referenced revision states its own manual CV; nothing is inherited from another profile.
+ const cv=Object.fromEntries(chosen.map(p=>[profileKey(p),(f.c2cCv?.[profileKey(p)]??'').trim()]));
+ if(f.c2c)for(const p of chosen)check(cv[profileKey(p)]!==''&&Number.isFinite(Number(cv[profileKey(p)]))&&Number(cv[profileKey(p)])>=0,`${p.display_name||p.condition_id}의 C2C 상대 CV(%)를 0 이상의 숫자로 입력하세요.`);
+ check(chosen.length*f.pools.length*f.mappings.length*arrays*nReprogram*years.length<=2000,'한 요청의 최대 실행 수는 2,000입니다.');
  const checkpoint=f.checkpoint.trim();check(!checkpoint||/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(checkpoint),'checkpoint ID는 UUID여야 합니다.');
- return {schema_version:'1.2.0',profile_refs:chosen.map(p=>({id:p.profile_id,revision:p.revision})),model_id:'mnist_mlp_v1',checkpoint_id:checkpoint||null,pools:f.pools as ExperimentRequest['pools'],mappings:f.mappings as ExperimentRequest['mappings'],effects:{d2d:f.d2d,retention:f.retention,adc:f.adc,c2c:false},arrays,n_reprogram:1,years,seed:f.seed,hardware:{tile_size:f.tileSize as 64|128|256,adc_bits:f.adc?f.adcBits as 3|4|5|6|7|8:null,adc_order:f.adc?f.adcOrder:null,range_policy:f.adc?'validation_max_abs':null,preset_id:null},engines:{accuracy:f.engine as 'torch_reference'|'aihwkit_ideal',ppa:'off'}};
+ return {schema_version:f.c2c?'1.3.0':'1.2.0',profile_refs:chosen.map(p=>f.c2c?{id:p.profile_id,revision:p.revision,c2c:{cv_percent:Number(cv[profileKey(p)]),source:'manual_assumption' as const}}:{id:p.profile_id,revision:p.revision}),model_id:'mnist_mlp_v1',checkpoint_id:checkpoint||null,pools:f.pools as ExperimentRequest['pools'],mappings:f.mappings as ExperimentRequest['mappings'],effects:{d2d:f.d2d,retention:f.retention,adc:f.adc,c2c:f.c2c},arrays,n_reprogram:nReprogram,years,seed:f.seed,hardware:{tile_size:f.tileSize as 64|128|256,adc_bits:f.adc?f.adcBits as 3|4|5|6|7|8:null,adc_order:f.adc?f.adcOrder:null,range_policy:f.adc?'validation_max_abs':null,preset_id:null},engines:{accuracy:f.engine as 'torch_reference'|'aihwkit_ideal',ppa:'off'}};
 }
 export function buildAnalysis({kind,datasets,settings}:{kind:Kind;datasets:Dataset[];settings:Record<string,unknown>}){
  check(datasets.length>0,'분석할 데이터셋을 추가하세요.');

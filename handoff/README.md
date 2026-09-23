@@ -1,3 +1,11 @@
+> **C2C 웹 입력·측정 화면 (2026-09-23 후속):** [구현과 검증 기록](../docs/c2c-web-input-2026-09-23.md). 시뮬레이터에 C2C 토글·프로파일별 상대 CV(%)·재기록 횟수를 연결했고(1.3.0), 측정 화면은 파일 이름/열 이름에서 조건 ID·방향·열·단위를 미리 채우며 LTP/LTD 쌍 집계와 실행 차단 사유를 표시한다. 실제 브라우저로 A1 업로드 → 분석 1020 states → 프로필 발행 → C2C on 실행까지 확인했다. 같은 날 확인한 **NeuroSim 정정: 엔진은 `/opt/ctfm-engines/neurosim`에 있고 실행된다 — 남은 차단 요인은 preset 값**이다. 실측 IV/Retention 파서는 원본 파일 부재로 여전히 미착수.
+
+> **최신 인수인계 (2026-09-23, 브랜치 `claude/adc-order-comparison`):** [개발 담당 인수인계](03_developer-handoff-2026-09-23.md)를 먼저 읽으세요. 06 일괄 백엔드 검증(측정 파이프라인 A1~A5 실제 재실행, ADC 순서 비교, 전체 pytest 322 passed)을 원본 보고서·evidence·diff와 대조해 확정했습니다. NeuroSim 엔진 실행, 실측 IV/Retention 연결, 05 프론트 마무리는 여전히 남아 있으며 이번 게시로 완료된 것은 아닙니다. 팀 공유용 요약은 [백엔드 일괄 검증 결과](../docs/verification-backend-batch-2026-09-23.md)를 참고하세요.
+
+> **측정 결과 UI 후속 완료:** [표시 개선·실측 브라우저 검증](../docs/measurement-results-ui-2026-09-21.md). 계산 요약·접힐 때 미렌더링·50행 페이지 이동·후보 선택 유지를 구현했다. 서버 전송량 최적화는 별도다.
+
+> **최신 진행도·개발 인계:** [main 6c590ea 기준 확인 결과](02_measurement-fix-and-next-steps.md)를 먼저 읽으세요. CSV 수정은 이미 main에 병합됐고 팀의 HTTP/브라우저/엔진 검증이 추가됐습니다. ADC 순서 간 통제 비교·UI 개선·C2C·PPA는 남아 있습니다.
+
 > **웹·API·엔진 실제 실행 검증 (2026-09-21):** [검증 결과](../docs/verification-2026-09-21.md). 실측 CSV 10개 HTTP·브라우저 흐름, 실측 프로필 torch vs AIHWKit 일치, worker export O(n²) 정지와 시뮬레이터 ADC 지표 미표시를 수정했습니다. PPA는 여전히 blocked입니다.
 
 > **CSV 파서 수정:** [수정 내용·검증 결과](../docs/csv-parser-fix-2026-09-21.md)를 먼저 확인하세요. 최신 CSV 10개 파싱·분석 및 A1~A5 프로필 생성/발행 함수 검증을 완료했습니다. C2C/PPA는 후속 작업입니다.

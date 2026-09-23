@@ -1,0 +1,82 @@
+
+    def find_prefixed(root: Path, prefix: str) -> Iterator[os.DirEntry[str]]:
+        """Find all elements in root that begin with the prefix, case-insensitive."""
+        l_prefix = prefix.lower()
+>       for x in os.scandir(root):
+                 ^^^^^^^^^^^^^^^^
+E       PermissionError: [WinError 5] 액세스가 거부되었습니다: 'C:\\Users\\Public\\Documents\\ESTsoft\\CreatorTemp\\pytest-of-jmhwa'
+
+.venv\Lib\site-packages\_pytest\pathlib.py:176: PermissionError
+================================== FAILURES ===================================
+_____________ test_generated_shared_schemas_are_valid_and_current _____________
+
+    def test_generated_shared_schemas_are_valid_and_current():
+        result=subprocess.run([sys.executable,str(ROOT/"packages/contracts/export_schemas.py"),"--check"],capture_output=True,text=True)
+>       assert result.returncode==0,result.stdout+result.stderr
+E       AssertionError: Stale schemas: device-profile.schema.json, analysis-request.schema.json, analysis-result.schema.json, experiment-result.schema.json
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\jmhwa\\OneDrive\\바탕 화면\\ctfm-cim-simulations\\tmp\\fix-measurement-csv\\.venv\\Scri...le.schema.json, analysis-request.schema.json, analysis-result.schema.json, experiment-result.schema.json\n', stderr='').returncode
+
+tests\contract\test_shared_schemas.py:9: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\_pytest\cacheprovider.py:475
+  C:\Users\jmhwa\OneDrive\바탕 화면\ctfm-cim-simulations\tmp\fix-measurement-csv\.venv\Lib\site-packages\_pytest\cacheprovider.py:475: PytestCacheWarning: could not create cache path C:\Users\jmhwa\OneDrive\바탕 화면\ctfm-cim-simulations\tmp\fix-measurement-csv\.pytest_cache\v\cache\nodeids: [WinError 5] 액세스가 거부되었습니다: 'C:\\Users\\jmhwa\\OneDrive\\바탕 화면\\ctfm-cim-simulations\\tmp\\fix-measurement-csv\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+.venv\Lib\site-packages\_pytest\cacheprovider.py:429
+  C:\Users\jmhwa\OneDrive\바탕 화면\ctfm-cim-simulations\tmp\fix-measurement-csv\.venv\Lib\site-packages\_pytest\cacheprovider.py:429: PytestCacheWarning: could not create cache path C:\Users\jmhwa\OneDrive\바탕 화면\ctfm-cim-simulations\tmp\fix-measurement-csv\.pytest_cache\v\cache\lastfailed: [WinError 5] 액세스가 거부되었습니다: 'C:\\Users\\jmhwa\\OneDrive\\바탕 화면\\ctfm-cim-simulations\\tmp\\fix-measurement-csv\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:137: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:123: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:102: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:147: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:112: Set CTFM_A1_FILE to the original A1 measurement file
+ERROR apps/api/tests/test_api.py::test_capabilities_never_advertise_unimplemented_execution
+ERROR apps/api/tests/test_api.py::test_valid_request_cannot_create_a_fake_job
+ERROR apps/api/tests/test_api.py::test_request_constraints_reach_http_boundary[changes0]
+ERROR apps/api/tests/test_api.py::test_request_constraints_reach_http_boundary[changes1]
+ERROR apps/api/tests/test_api.py::test_request_constraints_reach_http_boundary[changes2]
+ERROR apps/api/tests/test_api.py::test_request_constraints_reach_http_boundary[changes3]
+ERROR apps/api/tests/test_api.py::test_request_constraints_reach_http_boundary[changes4]
+ERROR apps/api/tests/test_api.py::test_unsupported_effect_has_explicit_error_code
+ERROR apps/api/tests/test_api.py::test_malformed_or_nonfinite_json_has_serializable_error[{"seed":]
+ERROR apps/api/tests/test_api.py::test_malformed_or_nonfinite_json_has_serializable_error[{"years":[NaN]}]
+ERROR apps/api/tests/test_api.py::test_malformed_or_nonfinite_json_has_serializable_error[{"years":[Infinity]}]
+ERROR apps/api/tests/test_api.py::test_malformed_or_nonfinite_json_has_serializable_error[null]
+ERROR apps/api/tests/test_api.py::test_malformed_or_nonfinite_json_has_serializable_error[[]]
+ERROR apps/api/tests/test_api.py::test_routing_errors_use_common_envelope[get-/api/v1/missing-404]
+ERROR apps/api/tests/test_api.py::test_routing_errors_use_common_envelope[put-/api/v1/capabilities-405]
+ERROR apps/api/tests/test_api.py::test_openapi_exposes_the_real_request_and_error_contracts
+ERROR apps/api/tests/test_api.py::test_deep_invalid_json_is_rejected_with_the_common_envelope[64]
+ERROR apps/api/tests/test_api.py::test_deep_invalid_json_is_rejected_with_the_common_envelope[900]
+ERROR apps/api/tests/test_api.py::test_deep_invalid_json_is_rejected_with_the_common_envelope[957]
+ERROR apps/api/tests/test_storage.py::test_atomic_claim_cancel_and_completion
+ERROR apps/api/tests/test_storage.py::test_queued_cancel_never_runs - Permiss...
+ERROR apps/api/tests/test_storage.py::test_recovery_marks_orphan_running_failed_without_retry
+ERROR apps/api/tests/test_storage.py::test_managed_artifact_never_overwrites_and_detects_tampering
+ERROR apps/api/tests/test_storage.py::test_profile_publication_is_immutable_and_revision_ids_are_separate
+ERROR apps/api/tests/test_workflow_api.py::test_upload_uses_managed_id_and_not_user_filename
+ERROR apps/api/tests/test_workflow_api.py::test_unsupported_upload_has_no_persisted_success[old.xls-excel]
+ERROR apps/api/tests/test_workflow_api.py::test_unsupported_upload_has_no_persisted_success[fake.xlsx-not a ZIP]
+ERROR apps/api/tests/test_workflow_api.py::test_unsupported_upload_has_no_persisted_success[~$temporary.xlsx-tmp]
+ERROR apps/api/tests/test_workflow_api.py::test_unsupported_upload_has_no_persisted_success[code.exe-binary]
+ERROR apps/api/tests/test_workflow_api.py::test_missing_profile_rejected_before_enqueue
+ERROR apps/api/tests/test_workflow_api.py::test_analysis_requires_existing_files_and_explicit_mapping
+ERROR apps/api/tests/test_workflow_api.py::test_profile_import_rejects_nonobject_manifest[manifest0]
+ERROR apps/api/tests/test_workflow_api.py::test_profile_import_rejects_nonobject_manifest[None]
+ERROR apps/worker/tests/test_lifecycle.py::test_child_stops_when_its_supervisor_exits
+ERROR apps/worker/tests/test_worker.py::test_analysis_job_executes_in_subprocess_and_exports
+ERROR apps/worker/tests/test_worker.py::test_cancel_stops_only_owned_running_subprocess
+ERROR apps/worker/tests/test_worker.py::test_second_worker_cannot_acquire_same_storage
+ERROR apps/worker/tests/test_worker.py::test_spreadsheet_exports_keep_untrusted_strings_as_text
+ERROR apps/worker/tests/test_worker.py::test_spreadsheet_export_scales_to_measured_table_size
+ERROR tests/contract/test_openapi_export.py::test_export_and_read_only_staleness_check
+ERROR tests/e2e/test_workflow.py::test_upload_analysis_review_publish_import_revision_and_queue
+FAILED tests/contract/test_shared_schemas.py::test_generated_shared_schemas_are_valid_and_current
+1 failed, 227 passed, 5 skipped, 2 warnings, 41 errors in 589.02s (0:09:49)
+
+[exited with code 0]

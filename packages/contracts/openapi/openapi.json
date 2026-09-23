@@ -912,9 +912,90 @@
                 }
               }
             }
+          },
+          {
+            "description": "1.2.0 keeps exactly its original meaning: C2C is unavailable and every record is a single write. Only a 1.3.0 request may turn C2C on or reprogram more than once.",
+            "if": {
+              "properties": {
+                "schema_version": {
+                  "const": "1.2.0"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "effects": {
+                  "properties": {
+                    "c2c": {
+                      "const": false
+                    }
+                  }
+                },
+                "n_reprogram": {
+                  "const": 1
+                }
+              }
+            }
+          },
+          {
+            "description": "C2C on: every referenced profile revision must state its own manual relative CV -- never inherited or copied from another profile in the same request.",
+            "if": {
+              "properties": {
+                "effects": {
+                  "properties": {
+                    "c2c": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "profile_refs": {
+                  "items": {
+                    "required": [
+                      "id",
+                      "revision",
+                      "c2c"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "description": "C2C off: no profile_refs entry may carry manual C2C data (it must not look pre-filled), and a single write is required.",
+            "if": {
+              "properties": {
+                "effects": {
+                  "properties": {
+                    "c2c": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "n_reprogram": {
+                  "const": 1
+                },
+                "profile_refs": {
+                  "items": {
+                    "not": {
+                      "required": [
+                        "c2c"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
-        "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error.",
+        "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error. v1.2.0 requests keep their original meaning (C2C unavailable, single write). v1.3.0 adds an optional manual-assumption C2C model per docs/completion-plan-2026-09-21.md P2: relative CV in percent per referenced profile revision, plus 1-100 reprogram iterations; off (the default reading of a 1.2.0 request) is unchanged.",
         "properties": {
           "arrays": {
             "maximum": 100.0,
@@ -935,7 +1016,7 @@
                 "type": "boolean"
               },
               "c2c": {
-                "const": false
+                "type": "boolean"
               },
               "d2d": {
                 "type": "boolean"
@@ -1032,7 +1113,9 @@
             "const": "mnist_mlp_v1"
           },
           "n_reprogram": {
-            "const": 1
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "type": "integer"
           },
           "pools": {
             "items": {
@@ -1052,6 +1135,24 @@
             "items": {
               "additionalProperties": false,
               "properties": {
+                "c2c": {
+                  "additionalProperties": false,
+                  "description": "Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio).",
+                  "properties": {
+                    "cv_percent": {
+                      "minimum": 0.0,
+                      "type": "number"
+                    },
+                    "source": {
+                      "const": "manual_assumption"
+                    }
+                  },
+                  "required": [
+                    "cv_percent",
+                    "source"
+                  ],
+                  "type": "object"
+                },
                 "id": {
                   "format": "uuid",
                   "type": "string"
@@ -1073,7 +1174,10 @@
             "uniqueItems": true
           },
           "schema_version": {
-            "const": "1.2.0"
+            "enum": [
+              "1.2.0",
+              "1.3.0"
+            ]
           },
           "seed": {
             "maximum": 4294967295.0,
@@ -1110,7 +1214,7 @@
           "hardware",
           "engines"
         ],
-        "title": "CTFM first-release experiment request v1.2.0",
+        "title": "CTFM first-release experiment request v1.2.0/v1.3.0",
         "type": "object"
       },
       "ExperimentResult": {
@@ -1213,7 +1317,10 @@
           "schema_version": {
             "anyOf": [
               {
-                "const": "1.2.0",
+                "enum": [
+                  "1.2.0",
+                  "1.3.0"
+                ],
                 "type": "string"
               },
               {
@@ -2469,6 +2576,18 @@
               }
             ],
             "title": "Reason"
+          },
+          "reprogram_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reprogram Index"
           },
           "retention_loss_pp": {
             "anyOf": [

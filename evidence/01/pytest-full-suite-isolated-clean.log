@@ -1,0 +1,18 @@
+exit=1
+>       assert result.returncode==0,result.stdout+result.stderr
+E       AssertionError: Stale schemas: device-profile.schema.json, analysis-request.schema.json, analysis-result.schema.json, experiment-result.schema.json
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\jmhwa\\OneDrive\\πŸ≈¡ »≠∏È\\ctfm-cim-simulations\\tmp\\fix-measurement-csv\\.venv\\Scri...le.schema.json, analysis-request.schema.json, analysis-result.schema.json, experiment-result.schema.json\n', stderr='').returncode
+
+tests\contract\test_shared_schemas.py:9: AssertionError
+=========================== short test summary info ===========================
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:137: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:123: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:102: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:147: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:112: Set CTFM_A1_FILE to the original A1 measurement file
+FAILED tests/contract/test_shared_schemas.py::test_generated_shared_schemas_are_valid_and_current
+1 failed, 268 passed, 5 skipped in 79.95s (0:01:19)
+
+[exited with code 0]

@@ -3,6 +3,77 @@ from pathlib import Path
 from ctfm_api.storage import Store, sha256
 from ctfm_worker.runner import run_once
 
+
+def test_experiment_summary_accounts_for_the_reprogram_multiplier(tmp_path, monkeypatch):
+    """execute.py recomputes summary.requested/skipped independently of
+    run_experiment's own (correct) total -- and that duplicate formula did not
+    multiply by n_reprogram, so a C2C request with n_reprogram>1 silently got
+    requested=1 and skipped=-1 through this exact path (only visible through
+    the real worker, never through run_experiment() called directly -- see
+    local_report/04_REPORT_c2c-backend.md for how this was actually found)."""
+    import hashlib
+    import json
+    from unittest.mock import patch
+    from ctfm.measurement import PARSER_VERSION, DEFAULTS
+    from ctfm.profiles import build_profile, publish_profile
+    from ctfm.simulation.torch_runner import create_model
+    from ctfm_worker.execute import execute
+
+    monkeypatch.setenv("CTFM_STORAGE_ROOT", str(tmp_path))
+    store = Store(tmp_path)
+    sha = "a" * 64
+    source = dict(file_id="synthetic-pulse", sha256=sha, filename="synthetic.csv", sheet=None,
+                 device_id="fixture-device", condition_id="SYNTHETIC",
+                 columns={"time_s": "t", "vgs_v": "v", "id_a": "i"},
+                 units={"time_s": "s", "vgs_v": "V", "id_a": "A"}, read_vgs_v=0, vds_v=.1,
+                 direction="ltp", source_rows=list(range(1, 12)))
+    states = []
+    for i, g in enumerate([1e-5, 2e-5, 4e-5, 5e-5]):
+        row = i + 3
+        sid = hashlib.sha256(json.dumps([sha, None, row, PARSER_VERSION], separators=(",", ":")).encode()).hexdigest()
+        states.append(dict(state_id=sid, source_id="synthetic-pulse", source_row=row, transition_row=row + 2,
+                           time_s=6. + i, direction="ltp", pulse_step=None, extraction_index=i + 1,
+                           id_a=g * .1, vgs_v=0., conductance_s=g, selected=True, exclusion_reason=None))
+    analysis = dict(kind="pulse_states", condition_id="SYNTHETIC", states=states, provenance=[source], settings=dict(DEFAULTS))
+    d2d = dict(kind="d2d", condition_id="SYNTHETIC",
+              d2d=dict(status="available", cv=.1, source_kind="iv_proxy", physical_device_count=2,
+                      matched_conditions=1, distribution="assumed_lognormal", analysis_id=None,
+                      assumption_ids=["d2d_lognormal"]))
+    fit = dict(a=3e-6, b=-.5e-6, rmse=0., r_squared=1., n=3, time_min_s=10., time_max_s=100.)
+    retention = dict(kind="retention", condition_id="SYNTHETIC",
+                     retention=dict(status="available", program_fit=fit, erase_fit=fit,
+                                   read_vgs_v=0., vds_v=.1, source_label="synthetic fixture"))
+    built = build_profile("SYNTHETIC", analysis, [s["state_id"] for s in states], d2d, retention, display_name="SYNTHETIC ONLY")
+    built["manifest"] = publish_profile(built["manifest"], built["states"], "worker test",
+                                        "Synthetic numerical validation only; no device measurement.")
+    store.save_profile(built["manifest"], built["states"])
+
+    request = dict(schema_version="1.3.0",
+                  profile_refs=[dict(id=built["manifest"]["profile_id"], revision=1,
+                                     c2c=dict(cv_percent=5, source="manual_assumption"))],
+                  model_id="mnist_mlp_v1", checkpoint_id=None, pools=["combined"], mappings=["fixed_reference"],
+                  effects=dict(d2d=False, retention=False, adc=False, c2c=True),
+                  arrays=1, n_reprogram=2, years=[0], seed=20260917,
+                  hardware=dict(tile_size=64, adc_bits=None, adc_order=None, range_policy=None, preset_id=None),
+                  engines=dict(accuracy="torch_reference", ppa="off"))
+    item, job = store.enqueue("experiment", request)
+    claimed = store.claim()
+    assert claimed["id"] == job["id"]
+    import numpy as np
+    train = np.zeros((60000, 784), dtype=np.uint8); test = np.zeros((10000, 784), dtype=np.uint8)
+    data = (train, np.zeros(60000, dtype=np.uint8), test, np.zeros(10000, dtype=np.uint8), [{"synthetic": True}])
+    with patch("ctfm.simulation.load_mnist", return_value=data), patch("ctfm.simulation.train_model", return_value=(create_model(), [])):
+        execute(job["id"])
+    # execute() writes worker-result.json but does not itself call store.finish
+    # (runner.run_once does that after the real subprocess exits); read the
+    # file directly, exactly what execute() actually produced.
+    summary = json.loads((store.job_dir(job["id"]) / "worker-result.json").read_text(encoding="utf-8"))["summary"]
+    # 1 profile * 1 pool * 1 mapping * 1 array * 2 reprogram * 1 year = 2.
+    assert summary["requested"] == 2, summary
+    assert summary["completed"] == 2, summary
+    assert summary["skipped"] == 0, summary
+
+
 def test_analysis_job_executes_in_subprocess_and_exports(tmp_path):
     store=Store(tmp_path)
     data=b"time,id,gate\n5,0.000001,0\n6,0.000001,0\n6.1,0.000001,0\n6.2,0.000001,-10\n6.3,0.000001,0\n7,0.000002,0\n7.1,0.000002,0\n7.2,0.000002,-10\n7.3,0.000002,0\n"

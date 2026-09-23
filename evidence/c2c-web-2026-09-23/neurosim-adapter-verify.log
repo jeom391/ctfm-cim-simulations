@@ -1,0 +1,43 @@
+      {
+        "id": "read_voltage",
+        "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly"
+      },
+      {
+        "id": "input_encoding",
+        "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity"
+      },
+      {
+        "id": "adc_position",
+        "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group"
+      }
+    ],
+    "trace_sample": "test[:256]",
+    "time_basis": "nominal t_ref",
+    "schedule_check": {
+      "assumed_read_window_s": null,
+      "engine_column_read_latency_s": null,
+      "status": "not_performed",
+      "detail": "preset states no read_pulse_width_s"
+    },
+    "coverage": null,
+    "build": null,
+    "blocking_reasons": [
+      "No preset supplied; PPA is off for the first release"
+    ],
+    "incomplete_reasons": [
+      "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+    ],
+    "reasons": [
+      "No preset supplied; PPA is off for the first release",
+      "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+    ]
+  }
+}
+
+writer_parity: OK
+engine_roundtrip: OK
+preset_gate_closed: OK
+assembled_inputs_accepted: OK
+EXIT=True
+
+[exited with code 0]

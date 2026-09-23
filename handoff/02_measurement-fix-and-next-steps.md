@@ -49,6 +49,15 @@ uv run --locked python scripts/measured_workflow.py --conditions A1 --adc-order 
 
 전체 목표와 세부 완료 기준은 [마무리 계획 P0~P4](../docs/completion-plan-2026-09-21.md)를 따른다. P0의 LTP/LTD 실측 경로와 P1의 일부 실행 검증이 전진한 상태이며, 전체 시뮬레이터 완료로 보고하지 않는다. Retention/D2D의 실제 데이터 검증 범위도 따로 기록한다.
 
+## 06 작업 갱신 (2026-09-23, local_report/06_TASK_backend-batch.md)
+
+- **정확도/측정 백엔드(A)**: `scripts/measured_workflow.py`를 격리된 API+worker 인스턴스(포트 8100, 별도 storage root)에 대해 실행해 A1~A5 전 조건의 업로드→분석→프로필→발행→ZIP export가 실제 HTTP로 성공함을 재확인(각 1020 states). A1 조건에서 실제 MNIST 실험도 실행: D0=0.9651, D1=0.965, M0=0.9641, ALL=0.9578(기존 문서 수치와 동일, 새 checkpoint로 재현). `--compare-adc-orders`로 동일 checkpoint·profile에서 ADC 순서만 바꾼 실행도 재확인(모든 비교 불변식 통과, accuracy_delta_pp=-0.42). 전체 pytest는 (환경 문제였던 TMPDIR 픽스 후) 322 passed / 5 skipped, 0 error.
+- **실측 IV/Retention 연결은 이번에도 진행하지 못했다** — 원본 파일(`관련 자료/IV Sweep/`, `관련 자료/Retention/`, git 제외 폴더)은 존재하지만, IV 파일은 한 시트에 Vg/Id/Ig 열이 여러 번 반복되는 계측기 레이아웃이라 현재 `parse_table`이 인식하는 Time/MeasResult1/MeasResult2 단일 레이아웃과 다르고, Retention 파일은 program/erase가 서로 다른 time 축을 쓰는 2트랙 구조라 `analyze(kind='retention')`이 기대하는 공유 time_s와 형태가 다르다. C2C와 마찬가지로 "형식 미확정" 상태로 보고 새 파서를 만들지 않았다 — 소자팀 확인 없이 임의로 열/시트를 골라 연결하면 근거 없는 매핑이 된다.
+- **필드 계약(A5)**: `mapping_errors`는 실제로 설정되지만 `adc`/`adc_metrics`는 백엔드가 아직 채우지 않는다(프런트는 이미 `mapping_metrics ?? mapping_errors`, `adc_metrics ?? adc`로 양쪽을 허용). 이름 통일은 이번에도 하지 않음 — 위 "다음 구현 순서 2"의 그대로 남은 항목.
+- **NeuroSim(B/C)**: 이번 세션의 실제 환경(WSL Ubuntu, g++13.3.0 확인됨)에는 `/opt/ctfm-engines/neurosim` 등 엔진 checkout 자체가 없음을 전체 파일시스템 검색으로 확인했다 — 과거 문서의 "빌드 성공" 기록은 이번 세션에서 재현 가능한 상태가 아니다. crash 원인 수정·PPA 실제 실행은 여전히 차단. `validated_for_ctfm`을 임의로 true로 바꾸지 않는 게이트 자체는 코드상 정상 동작 확인(변경 없음).
+- **웹 05(측정 화면 재구성/쌍 검증 UI)는 사용자 지시로 중단된 상태 그대로다** — 이번 06 작업에서 프런트 코드는 전혀 건드리지 않았다. `local_report/05_REPORT_measurement-web-flow.md` 참고.
+- 세부 근거: `local_report/06_REPORT_backend-batch.md`, `local_report/evidence/06/`.
+
 ## 개발 담당 전달 메시지
 
 > 최신 main과 measured_workflow.py 확인했습니다. CSV 분석→프로필→실측 MNIST 실행 및 엔진별 대조까지 진행된 점 확인했습니다. 남은 작업은 같은 조건의 ADC 순서 비교, 측정 화면 JSON 정리와 결과 필드 계약 통일, C2C 수동 입력, NeuroSim 조건부 PPA 연결·crash 수정입니다. 특히 preset 미제공은 소자팀 대기 항목으로 두기보다 확정된 가정 모델 설계에 맞춰 구현할 부분입니다. handoff/02_measurement-fix-and-next-steps.md에 검증 범위와 다음 작업을 정리했으니 읽고 이어서 진행해주세요.

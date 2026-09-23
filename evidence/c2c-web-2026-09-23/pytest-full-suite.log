@@ -1,0 +1,14 @@
+................................................................sssss... [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 88%]
+.......................................                                  [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:137: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:123: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:102: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:147: Set CTFM_A1_FILE to the original A1 measurement file
+SKIPPED [1] packages\ctfm-core\tests\test_measured_a1_regression.py:112: Set CTFM_A1_FILE to the original A1 measurement file
+322 passed, 5 skipped in 422.11s (0:07:02)
+
+[exited with code 0]

@@ -1,0 +1,49 @@
+{
+  "summaries": {
+    "candidate_count": 1020,
+    "pools": {
+      "combined": {
+        "available": true,
+        "common_hi_s": null,
+        "common_lo_s": null,
+        "g_max_s": 4.12e-05,
+        "g_min_s": 5.529999999999999e-07,
+        "reason": null,
+        "state_ids": "<1020 ids omitted>"
+      },
+      "common": {
+        "available": false,
+        "common_hi_s": 8.779999999999999e-06,
+        "common_lo_s": 1.4799999999999999e-05,
+        "g_max_s": null,
+        "g_min_s": null,
+        "reason": "no_common_range",
+        "state_ids": "<0 ids omitted>"
+      },
+      "ltd": {
+        "available": true,
+        "common_hi_s": null,
+        "common_lo_s": null,
+        "g_max_s": 8.779999999999999e-06,
+        "g_min_s": 5.529999999999999e-07,
+        "reason": null,
+        "state_ids": "<510 ids omitted>"
+      },
+      "ltp": {
+        "available": true,
+        "common_hi_s": null,
+        "common_lo_s": null,
+        "g_max_s": 4.12e-05,
+        "g_min_s": 1.4799999999999999e-05,
+        "reason": null,
+        "state_ids": "<510 ids omitted>"
+      }
+    },
+    "positive_candidate_count": 1020
+  },
+  "condition_id": "A1",
+  "note": "browser upload of data/reference/ltp-ltd-2026-09-21/A1 LTP+LTD; states array omitted for size",
+  "analysis_id": "d020d0b0-e287-45ab-8144-7aa02569b4c4",
+  "kind": "pulse_states",
+  "status": "succeeded"
+}

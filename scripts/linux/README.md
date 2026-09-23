@@ -45,12 +45,21 @@ Windows workspace(`uv.lock`, torch 2.14.0+cpu)는 이 환경과 분리돼 있으
 따라서 가용성 판정은 import이 아니라 `engine_capabilities()`의 parity probe여야 합니다.
 `sweep_torch_abi.sh`로 언제든 재확인할 수 있습니다.
 
-**NeuroSim V1.4는 이 프로젝트의 모델 형상에서 죽습니다.** `CopyPEArray` 내부 SIGSEGV가 확인된
-형상: 784×128×10, 784×128×128, 1024×10, 128×10, 그리고 출력이 96 미만인 모든 레이어.
-반면 폭이 균일한 다층 FC(1024×128 2층·3층)와 단일 wide 레이어(784×128, 512×64, 1024×128)는
-정상 실행됩니다. 일반 규칙은 주장하지 않으며, `topology_support()`는 실측된 형상만 거부하고
-나머지는 실행을 허용합니다. `run_engine()`이 subprocess로 띄우므로 crash는 worker를 죽이지 않고
-음수 return code의 `failed`로 보고됩니다.
+**NeuroSim V1.4의 crash는 형상이 아니라 (형상, subArray) 쌍에 달려 있습니다.** `CopyPEArray`
+내부 SIGSEGV가 실제로 관측된 쌍만 `ctfm.adapters.neurosim.MEASURED_TOPOLOGIES`에 기록합니다.
+`mnist_mlp_v1`(784×128×10)은 subArray 64·128에서 죽지만 **256에서는 완주**하고, 257·260·320은
+subArray 64에서 죽는 반면 512는 완주합니다. crash는 fan_in에 단조롭지 않습니다.
+
+이 문서의 이전 판에 있던 두 문장은 2026-09-20 직접 측정으로 **반증됐습니다**(근거:
+`docs/implementation-status.md` 8절).
+
+- ~~"출력이 96 미만인 모든 레이어가 crash"~~ — `128×10`, `256×10`, `1024×10`, `256×64`는
+  subArray 64에서 모두 완주합니다.
+- ~~"mnist_mlp_v1은 현재 엔진으로 평가할 수 없다"~~ — subArray 256에서 완주합니다.
+
+따라서 일반 규칙은 주장하지 않습니다. `topology_support()`는 **측정에서 죽은 쌍만** 거부하고
+측정되지 않은 쌍은 시도하게 둡니다. `run_engine()`이 별도 process group의 subprocess로 띄우므로
+crash는 worker를 죽이지 않고 음수 return code의 `failed`로 보고됩니다.
 
 **layer-by-layer 출력은 재빌드가 필요합니다.** `Param.cpp`의 `pipeline = true`가 기본이라 기본
 빌드는 Pipelined Process 수치만 냅니다. 파서의 layer-by-layer 경로는 `pipeline = false`로 빌드한

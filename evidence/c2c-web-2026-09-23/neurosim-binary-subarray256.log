@@ -1,0 +1,32 @@
+EXIT=True
+{
+  "argv": [
+    "/opt/ctfm-engines/neurosim/Inference_pytorch/NeuroSIM/main",
+    "/tmp/ns-256/NetWork_ctfm_mlp.csv",
+    "8",
+    "8",
+    "256",
+    "256",
+    "/tmp/ns-256/traces/weight_layer1.csv",
+    "/tmp/ns-256/traces/input_layer1.csv",
+    "/tmp/ns-256/traces/weight_layer2.csv",
+    "/tmp/ns-256/traces/input_layer2.csv"
+  ],
+  "network_csv_rows": [
+    "1,1,784,1,1,128,0,1",
+    "1,1,128,1,1,10,0,1"
+  ],
+  "returncode": 0,
+  "parsed_si": {
+    "chip_area_m2": 1.16514e-06,
+    "chip_array_area_m2": 3.1973199999999997e-07,
+    "chip_adc_area_m2": 1.5213999999999998e-07,
+    "readLatency_s": null,
+    "readDynamicEnergy_j": null,
+    "leakage_w": null,
+    "tops": 0.300019
+  },
+  "engine_defaults_note": "NeuroSim stock Param.cpp: SRAM cell, 22 nm; not a CTFM preset"
+}
+
+[exited with code 0]

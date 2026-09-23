@@ -2,6 +2,10 @@
 
 ---
 
+> **2026-09-23 후속 작업 (Claude, 같은 날 두 번째 세션):** 이 문서 아래 본문의 두 가지 상태가 실제와 달라 정정한다. ① **NeuroSim 엔진은 있다.** 5절의 "B(NeuroSim 실행) blocked — 엔진 checkout 자체가 없음"은 **오판**이었다. `/opt/ctfm-engines/neurosim`이 문서 기록과 같은 commit `ac828e67…`로 존재하고 바이너리도 빌드돼 있으며, `verify_neurosim_adapter.py` 4개 검사 전부 통과(exit 0), `mnist_mlp_v1`을 subArray 256에서 실제로 완주시켰다(returncode 0). 남은 차단 요인은 엔진이 아니라 **preset 값(A1~A7·B1~B6 전부 null)**이며 이는 소자팀 결정이므로 채우지 않았다. ② **C2C 웹 입력과 측정 화면 개선은 이제 연결됐다** — 4절 "웹 C2C 입력은 04까지 미연결"과 6절 "프론트 05 보류"의 해당 범위는 이 세션에서 구현·검증했다. 실제 브라우저로 A1 LTP/LTD 두 파일 업로드 → 분석(1020 states) → 프로필 발행 → C2C on(CV 5%, 재기록 2회) 시뮬레이션 실행까지 통과했다. 상세는 [docs/c2c-web-input-2026-09-23.md](../docs/c2c-web-input-2026-09-23.md). ③ **여전히 남은 것**: 실측 IV/Retention 파서(원본 `관련 자료/` 폴더가 이 체크아웃에 없어 미착수), NeuroSim preset과 실제 PPA 수치, `mapping_errors`/`adc` 필드 계약 이름 통일.
+
+---
+
 # 개발 담당 인수인계 — 2026-09-23
 
 > **먼저 코드 전달 상태를 확인하세요.** 이 문서를 올리기 직전 원격 main은 `6c590ea`였고, 원격 UI 브랜치는 `05a872d`였습니다. Claude의 최신 로컬 브랜치 `claude/adc-order-comparison`, HEAD `2b0a830`은 GitHub에서 확인되지 않았습니다. **이 문서 업로드는 최신 구현 코드 업로드나 병합을 뜻하지 않습니다.**

@@ -1,0 +1,2111 @@
+{
+  "experiment_id": "073297ba-27bd-4bc1-9286-b89fb2d54772",
+  "job_id": "bd129fb0-ec4d-4169-b077-8fe55414c928",
+  "status": "succeeded",
+  "schema_version": "1.3.0",
+  "requested_config": {
+    "arrays": 1,
+    "checkpoint_id": null,
+    "effects": {
+      "adc": false,
+      "c2c": true,
+      "d2d": false,
+      "retention": false
+    },
+    "engines": {
+      "accuracy": "torch_reference",
+      "ppa": "off"
+    },
+    "hardware": {
+      "adc_bits": null,
+      "adc_order": null,
+      "preset_id": null,
+      "range_policy": null,
+      "tile_size": 64
+    },
+    "mappings": [
+      "fixed_reference"
+    ],
+    "model_id": "mnist_mlp_v1",
+    "n_reprogram": 2,
+    "pools": [
+      "combined"
+    ],
+    "profile_refs": [
+      {
+        "c2c": {
+          "cv_percent": 5,
+          "source": "manual_assumption"
+        },
+        "id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      }
+    ],
+    "schema_version": "1.3.0",
+    "seed": 20260917,
+    "years": [
+      0
+    ]
+  },
+  "resolved_config": {
+    "arrays": 1,
+    "checkpoint_id": null,
+    "effects": {
+      "adc": false,
+      "c2c": true,
+      "d2d": false,
+      "retention": false
+    },
+    "engines": {
+      "accuracy": "torch_reference",
+      "ppa": "off"
+    },
+    "hardware": {
+      "adc_bits": null,
+      "adc_order": null,
+      "preset_id": null,
+      "range_policy": null,
+      "tile_size": 64
+    },
+    "mappings": [
+      "fixed_reference"
+    ],
+    "model_id": "mnist_mlp_v1",
+    "n_reprogram": 2,
+    "pools": [
+      "combined"
+    ],
+    "profile_refs": [
+      {
+        "c2c": {
+          "cv_percent": 5,
+          "source": "manual_assumption"
+        },
+        "id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      }
+    ],
+    "profiles": [
+      {
+        "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+        "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      }
+    ],
+    "schema_version": "1.3.0",
+    "seed": 20260917,
+    "split_seed": 20260917,
+    "years": [
+      0
+    ]
+  },
+  "effective_config": {
+    "arrays": 1,
+    "candidates": [
+      {
+        "c2c": {
+          "cv_percent": 5,
+          "cv_ratio": 0.05,
+          "source": "manual_assumption"
+        },
+        "candidate_id": "candidate-1",
+        "hardware": {
+          "adc_bits": null,
+          "adc_order": null,
+          "bounds": null,
+          "calibration_filename": null,
+          "calibration_sha256": null,
+          "preset_id": null,
+          "range_policy": null,
+          "tile_size": 64
+        },
+        "mapping": "fixed_reference",
+        "mapping_artifact": "candidate-1-mapping.npz",
+        "mapping_errors": [
+          {
+            "errors": {
+              "mae": 0.0028153585225904505,
+              "max_error": 0.03563651670699168,
+              "rmse": 0.007025908802022152
+            },
+            "g_max_s": 4.12e-05,
+            "g_min_s": 5.529999999999999e-07,
+            "layer": "fc1",
+            "scale": 11841.269862940118,
+            "shape": [
+              128,
+              784
+            ]
+          },
+          {
+            "errors": {
+              "mae": 0.008057019552429684,
+              "max_error": 0.04408420828377585,
+              "rmse": 0.013907851947070279
+            },
+            "g_max_s": 4.12e-05,
+            "g_min_s": 5.529999999999999e-07,
+            "layer": "fc2",
+            "scale": 14664.553615220855,
+            "shape": [
+              10,
+              128
+            ]
+          }
+        ],
+        "pool": "combined",
+        "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+        "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "profile_revision": 1
+      }
+    ],
+    "checkpoint_id": "e94d24a4-6d68-483c-a3c8-fc277cbb55e9",
+    "dac": "ideal",
+    "device": "cpu",
+    "digital_bias": "unchanged",
+    "disabled_effects": [
+      "programming_noise",
+      "forward_noise",
+      "PCM_drift",
+      "compensation",
+      "IR_drop",
+      "nonlinear_IV",
+      "endurance"
+    ],
+    "dtype": "float32",
+    "effect_owners": {
+      "adc": "ctfm.simulation.torch_runner",
+      "c2c": "ctfm.simulation.math",
+      "d2d": "ctfm.simulation.math",
+      "retention": "ctfm.simulation.math"
+    },
+    "effects": {
+      "adc": false,
+      "c2c": true,
+      "d2d": false,
+      "retention": false
+    },
+    "engines": {
+      "accuracy": "torch_reference",
+      "ppa": "off"
+    },
+    "hardware": {
+      "adc_bits": null,
+      "adc_order": null,
+      "preset_id": null,
+      "range_policy": null,
+      "tile_size": 64
+    },
+    "input_encoding": {
+      "bits": 8,
+      "range_source": "digital checkpoint maximum over the 5k validation split",
+      "ranges": {
+        "fc1": 1.0,
+        "fc2": 10.948042869567871
+      },
+      "schedule": "LSB-first fixed 8 cycles, zero cycles not skipped",
+      "signedness": "unsigned"
+    },
+    "mapping_scale_policy": "fixed_nominal",
+    "mappings": [
+      "fixed_reference"
+    ],
+    "model_id": "mnist_mlp_v1",
+    "n_reprogram": 2,
+    "partial_sum_units": "siemens x input bit; physical current is this times the measured VDS",
+    "pools": [
+      "combined"
+    ],
+    "profile_refs": [
+      {
+        "c2c": {
+          "cv_percent": 5,
+          "source": "manual_assumption"
+        },
+        "id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      }
+    ],
+    "schema_version": "1.3.0",
+    "seed": 20260917,
+    "split_seed": 20260917,
+    "years": [
+      0
+    ]
+  },
+  "provenance": {
+    "checkpoint": {
+      "batch_size": 256,
+      "checkpoint_id": "e94d24a4-6d68-483c-a3c8-fc277cbb55e9",
+      "checkpoint_policy": "last_epoch",
+      "dataset_sha256": "dca7dfbd3bd5e39187ba3cc72d1abf62122fb540c649fd82a061945a76b6be44",
+      "device": "cpu",
+      "dtype": "float32",
+      "epochs": 5,
+      "learning_rate": 0.001,
+      "model_id": "mnist_mlp_v1",
+      "normalization": "uint8 / 255",
+      "optimizer": "Adam",
+      "sha256": "ab822e89a0afafe9ef071871564c987aa8910736578e8e7b263b53c625fa9625",
+      "split_seed": 20260917,
+      "split_sha256": "d633100cfb366988a8ab624603277b1df2e7af896d86dbd05ad115f264ba2577",
+      "training_seed": 20260917
+    },
+    "code_sha256": {
+      "adapters/__init__.py": "899af57d24661db248485de0d05cb6647c28cde34d2d65b7aed493f9e52504b4",
+      "adapters/neurosim.py": "76e3730e719c96cfce83c04fd1835f485f2c7a5af669d30a0cee2d41c7f469e0",
+      "adapters/neurosim_build.py": "8814cf3f2790d38f541bf649bd9838caf0123a1279d4b47857321edb966aaae3",
+      "simulation/__init__.py": "c38a719e53644828e26b66adb05db1957b4ae0d28c8f3852df44ed3b6ec2b4aa",
+      "simulation/data.py": "ed7903f07d3f417648f8a1222178220c5b09e480802ae5b887fcd214e4233b10",
+      "simulation/math.py": "4c7549f7eb1c941697816108f4eb08b7c7fa0f9f54c4e26f2e27f89e74baf180",
+      "simulation/torch_runner.py": "b69fd05606fe4eb87845e46ae8548f75297b394613cf6cb9f3b302bcfac29698"
+    },
+    "cpu_threads": 4,
+    "d2d_seed_policy": "SHA256(compact UTF-8 JSON [root_seed,profile_hash,array_index,layer,polarity]) first 8 bytes big-endian uint64; NumPy PCG64 standard_normal row-major",
+    "dataset": [
+      {
+        "filename": "train-images-idx3-ubyte.gz",
+        "md5": "f68b3c2dcbeaaa9fbdd348bbdeb94873",
+        "sha256": "440fcabf73cc546fa21475e81ea370265605f56be210a4024d2ca8f203523609",
+        "size_bytes": 9912422,
+        "url": "https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz"
+      },
+      {
+        "filename": "train-labels-idx1-ubyte.gz",
+        "md5": "d53e105ee54ea40749a09fcbcd1e9432",
+        "sha256": "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c",
+        "size_bytes": 28881,
+        "url": "https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz"
+      },
+      {
+        "filename": "t10k-images-idx3-ubyte.gz",
+        "md5": "9fb629c4189551a2d022fa330f9573f3",
+        "sha256": "8d422c7b0a1c1c79245a5bcf07fe86e33eeafee792b84584aec276f5a2dbc4e6",
+        "size_bytes": 1648877,
+        "url": "https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz"
+      },
+      {
+        "filename": "t10k-labels-idx1-ubyte.gz",
+        "md5": "ec29112dd5afa0611ce80d1b7f02629c",
+        "sha256": "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6",
+        "size_bytes": 4542,
+        "url": "https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz"
+      }
+    ],
+    "dataset_sha256": "dca7dfbd3bd5e39187ba3cc72d1abf62122fb540c649fd82a061945a76b6be44",
+    "deterministic_algorithms": true,
+    "engines": {
+      "aihwkit_ideal": {
+        "available": false,
+        "reason": "AIHWKit import or ideal parity probe failed (ModuleNotFoundError)",
+        "version": null
+      },
+      "neurosim": {
+        "available": false,
+        "reason": "No validated CTFM equivalent-circuit preset; first-release PPA is off. Engine not built: NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+        "version": null
+      },
+      "torch_reference": {
+        "available": true,
+        "reason": null,
+        "version": "2.14.0+cpu"
+      }
+    },
+    "numpy": "2.4.6",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "profiles": "<omitted, 289273 bytes of state provenance>",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "split": {
+      "algorithm": "torch.randperm CPU; first 55000 train",
+      "seed": 20260917,
+      "sha256": "d633100cfb366988a8ab624603277b1df2e7af896d86dbd05ad115f264ba2577",
+      "test": 10000,
+      "train": 55000,
+      "validation": 5000
+    },
+    "torch": "2.14.0+cpu",
+    "trace": {
+      "count": 256,
+      "filename": "trace-test-first-256.npz",
+      "sha256": "6232be0b581bf793af7f32fed3471306993034e640d6ca79ffccb9980271c6f5",
+      "source": "first 256 official test examples; also the PPA activation trace source"
+    },
+    "training_epoch_losses": [
+      0.5451978338935158,
+      0.24435542899912055,
+      0.1865454396616329,
+      0.15142928836562417,
+      0.12698870701789855
+    ]
+  },
+  "assumptions": [
+    {
+      "description": "ID/0.1 V is effective G in a linear MAC approximation; gate-input linearity is not established",
+      "evidence_kind": "assumed",
+      "id": "linear_mac"
+    },
+    {
+      "description": "The two differential devices can be independently programmed along each selected measured path",
+      "evidence_kind": "assumed",
+      "id": "independent_state_programming"
+    },
+    {
+      "description": "Original digital bias, ideal DAC and fixed mapping scale; no gain or drift compensation",
+      "evidence_kind": "assumed",
+      "id": "digital_bias"
+    },
+    {
+      "description": "Mean-one positive lognormal distribution from a manually assumed relative CV, drawn independently per reprogram/layer/plane; not a measured CTFM cycle-to-cycle distribution (docs/completion-plan-2026-09-21.md P2)",
+      "evidence_kind": "assumed",
+      "id": "manual_lognormal_c2c"
+    },
+    {
+      "description": "Activations are unsigned 8 bit driven LSB-first over a fixed 8 cycle schedule with no zero-cycle skipping; only nonnegative pixel and ReLU activations are in scope",
+      "evidence_kind": "assumed",
+      "id": "unsigned_8bit_bitserial"
+    },
+    {
+      "description": "The hidden input range r is the digital checkpoint maximum over the 5k validation split, held fixed across bits, arrays and retention timepoints",
+      "evidence_kind": "assumed",
+      "id": "hidden_range_from_digital_checkpoint"
+    }
+  ],
+  "warnings": [
+    "AIHWKit ideal is unavailable; no AIHWKit parity claim is made for this run."
+  ],
+  "runs": [
+    {
+      "kind": "D0",
+      "status": "succeeded",
+      "accuracy": 0.9645,
+      "loss_vs_digital_pp": 0.0,
+      "adc": {
+        "fc1": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        },
+        "fc2": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        }
+      },
+      "correct": 9645,
+      "engine": "torch_reference",
+      "hardware": {
+        "adc_bits": null,
+        "adc_order": null,
+        "preset_id": null,
+        "range_policy": null,
+        "tile_size": null
+      },
+      "mapping_errors": null,
+      "n": 10000,
+      "ppa": {
+        "area_m2": null,
+        "blocking_reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        ],
+        "build": null,
+        "candidate": {
+          "candidate_id": "candidate-1",
+          "mapping": "fixed_reference",
+          "pool": "combined",
+          "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+          "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+          "profile_revision": 1
+        },
+        "conductance": {
+          "max_conductance_s": 4.12e-05,
+          "min_conductance_s": 5.529999999999999e-07,
+          "reason": null,
+          "resistance_off_ohm": 1808318.2640144667,
+          "resistance_on_ohm": 24271.844660194176
+        },
+        "coverage": null,
+        "energy_j_per_inference": null,
+        "engine": {
+          "available": false,
+          "binary": "\\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "binary_sha256": null,
+          "commit": null,
+          "compiler": null,
+          "reason": "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        },
+        "engine_totals": null,
+        "incomplete_reasons": [
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "latency_s_per_inference": null,
+        "model_mismatches": [
+          {
+            "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+            "id": "nonuniform_states"
+          },
+          {
+            "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+            "id": "cells_per_weight"
+          },
+          {
+            "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+            "id": "differential_planes"
+          },
+          {
+            "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+            "id": "read_voltage"
+          },
+          {
+            "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+            "id": "input_encoding"
+          },
+          {
+            "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+            "id": "adc_position"
+          }
+        ],
+        "normalization": [
+          {
+            "activation_divisor": 1.0078740157480315,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.00392156862745098,
+              "relative_to_peak": 0.00392156862745098,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc1",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              128,
+              784
+            ],
+            "weight_divisor": 0.4851019551434855
+          },
+          {
+            "activation_divisor": 3.521043672336368,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.019309645139344633,
+              "relative_to_peak": 0.005527250270186805,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc2",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              10,
+              128
+            ],
+            "weight_divisor": 0.6007635762372355
+          }
+        ],
+        "preset": {
+          "assumed_equivalent_circuit": false,
+          "missing_fields": [],
+          "model_mismatches": [
+            {
+              "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+              "id": "nonuniform_states"
+            },
+            {
+              "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+              "id": "cells_per_weight"
+            },
+            {
+              "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+              "id": "differential_planes"
+            },
+            {
+              "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+              "id": "read_voltage"
+            },
+            {
+              "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+              "id": "input_encoding"
+            },
+            {
+              "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+              "id": "adc_position"
+            }
+          ],
+          "preset_hash": null,
+          "preset_id": null,
+          "problems": [
+            "No preset supplied; PPA is off for the first release"
+          ],
+          "status": "unsupported"
+        },
+        "preset_artifact": {
+          "filename": "neurosim-preset.json",
+          "sha256": "dee58359de8c8ae9a96d441a33dc321f4c79ccae813b8c2c06a8bafadf20303a"
+        },
+        "raw_output": null,
+        "reason": "No preset supplied; PPA is off for the first release | NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main | Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency",
+        "reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "schedule_check": {
+          "assumed_read_window_s": null,
+          "detail": "preset states no read_pulse_width_s",
+          "engine_column_read_latency_s": null,
+          "status": "not_performed"
+        },
+        "status": "unsupported",
+        "time_basis": "nominal t_ref",
+        "trace_sample": "test[:256] first example per layer"
+      },
+      "profile_ref": null,
+      "run_id": "D0"
+    },
+    {
+      "kind": "D1",
+      "status": "succeeded",
+      "accuracy": 0.9643,
+      "loss_vs_digital_pp": 0.019999999999997797,
+      "adc": {
+        "fc1": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        },
+        "fc2": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        }
+      },
+      "correct": 9643,
+      "engine": "torch_reference",
+      "hardware": {
+        "adc_bits": null,
+        "adc_order": null,
+        "preset_id": null,
+        "range_policy": null,
+        "tile_size": null
+      },
+      "mapping_errors": null,
+      "n": 10000,
+      "ppa": {
+        "area_m2": null,
+        "blocking_reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        ],
+        "build": null,
+        "candidate": {
+          "candidate_id": "candidate-1",
+          "mapping": "fixed_reference",
+          "pool": "combined",
+          "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+          "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+          "profile_revision": 1
+        },
+        "conductance": {
+          "max_conductance_s": 4.12e-05,
+          "min_conductance_s": 5.529999999999999e-07,
+          "reason": null,
+          "resistance_off_ohm": 1808318.2640144667,
+          "resistance_on_ohm": 24271.844660194176
+        },
+        "coverage": null,
+        "energy_j_per_inference": null,
+        "engine": {
+          "available": false,
+          "binary": "\\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "binary_sha256": null,
+          "commit": null,
+          "compiler": null,
+          "reason": "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        },
+        "engine_totals": null,
+        "incomplete_reasons": [
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "latency_s_per_inference": null,
+        "model_mismatches": [
+          {
+            "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+            "id": "nonuniform_states"
+          },
+          {
+            "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+            "id": "cells_per_weight"
+          },
+          {
+            "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+            "id": "differential_planes"
+          },
+          {
+            "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+            "id": "read_voltage"
+          },
+          {
+            "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+            "id": "input_encoding"
+          },
+          {
+            "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+            "id": "adc_position"
+          }
+        ],
+        "normalization": [
+          {
+            "activation_divisor": 1.0078740157480315,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.00392156862745098,
+              "relative_to_peak": 0.00392156862745098,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc1",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              128,
+              784
+            ],
+            "weight_divisor": 0.4851019551434855
+          },
+          {
+            "activation_divisor": 3.521043672336368,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.019309645139344633,
+              "relative_to_peak": 0.005527250270186805,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc2",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              10,
+              128
+            ],
+            "weight_divisor": 0.6007635762372355
+          }
+        ],
+        "preset": {
+          "assumed_equivalent_circuit": false,
+          "missing_fields": [],
+          "model_mismatches": [
+            {
+              "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+              "id": "nonuniform_states"
+            },
+            {
+              "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+              "id": "cells_per_weight"
+            },
+            {
+              "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+              "id": "differential_planes"
+            },
+            {
+              "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+              "id": "read_voltage"
+            },
+            {
+              "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+              "id": "input_encoding"
+            },
+            {
+              "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+              "id": "adc_position"
+            }
+          ],
+          "preset_hash": null,
+          "preset_id": null,
+          "problems": [
+            "No preset supplied; PPA is off for the first release"
+          ],
+          "status": "unsupported"
+        },
+        "preset_artifact": {
+          "filename": "neurosim-preset.json",
+          "sha256": "dee58359de8c8ae9a96d441a33dc321f4c79ccae813b8c2c06a8bafadf20303a"
+        },
+        "raw_output": null,
+        "reason": "No preset supplied; PPA is off for the first release | NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main | Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency",
+        "reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "schedule_check": {
+          "assumed_read_window_s": null,
+          "detail": "preset states no read_pulse_width_s",
+          "engine_column_read_latency_s": null,
+          "status": "not_performed"
+        },
+        "status": "unsupported",
+        "time_basis": "nominal t_ref",
+        "trace_sample": "test[:256] first example per layer"
+      },
+      "profile_ref": null,
+      "run_id": "D1"
+    },
+    {
+      "kind": "M0",
+      "status": "succeeded",
+      "accuracy": 0.9644,
+      "loss_vs_digital_pp": 0.009999999999998899,
+      "loss_vs_mapped_pp": 0.0,
+      "adc": {
+        "fc1": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        },
+        "fc2": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        }
+      },
+      "candidate_id": "candidate-1",
+      "correct": 9644,
+      "engine": "torch_reference",
+      "hardware": {
+        "adc_bits": null,
+        "adc_order": null,
+        "preset_id": null,
+        "range_policy": null,
+        "tile_size": null
+      },
+      "mapping": "fixed_reference",
+      "mapping_errors": [
+        {
+          "errors": {
+            "mae": 0.0028153585225904505,
+            "max_error": 0.03563651670699168,
+            "rmse": 0.007025908802022152
+          },
+          "g_max_s": 4.12e-05,
+          "g_min_s": 5.529999999999999e-07,
+          "layer": "fc1",
+          "scale": 11841.269862940118,
+          "shape": [
+            128,
+            784
+          ]
+        },
+        {
+          "errors": {
+            "mae": 0.008057019552429684,
+            "max_error": 0.04408420828377585,
+            "rmse": 0.013907851947070279
+          },
+          "g_max_s": 4.12e-05,
+          "g_min_s": 5.529999999999999e-07,
+          "layer": "fc2",
+          "scale": 14664.553615220855,
+          "shape": [
+            10,
+            128
+          ]
+        }
+      ],
+      "n": 10000,
+      "pool": "combined",
+      "ppa": {
+        "area_m2": null,
+        "blocking_reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        ],
+        "build": null,
+        "candidate": {
+          "candidate_id": "candidate-1",
+          "mapping": "fixed_reference",
+          "pool": "combined",
+          "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+          "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+          "profile_revision": 1
+        },
+        "conductance": {
+          "max_conductance_s": 4.12e-05,
+          "min_conductance_s": 5.529999999999999e-07,
+          "reason": null,
+          "resistance_off_ohm": 1808318.2640144667,
+          "resistance_on_ohm": 24271.844660194176
+        },
+        "coverage": null,
+        "energy_j_per_inference": null,
+        "engine": {
+          "available": false,
+          "binary": "\\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "binary_sha256": null,
+          "commit": null,
+          "compiler": null,
+          "reason": "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        },
+        "engine_totals": null,
+        "incomplete_reasons": [
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "latency_s_per_inference": null,
+        "model_mismatches": [
+          {
+            "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+            "id": "nonuniform_states"
+          },
+          {
+            "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+            "id": "cells_per_weight"
+          },
+          {
+            "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+            "id": "differential_planes"
+          },
+          {
+            "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+            "id": "read_voltage"
+          },
+          {
+            "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+            "id": "input_encoding"
+          },
+          {
+            "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+            "id": "adc_position"
+          }
+        ],
+        "normalization": [
+          {
+            "activation_divisor": 1.0078740157480315,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.00392156862745098,
+              "relative_to_peak": 0.00392156862745098,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc1",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              128,
+              784
+            ],
+            "weight_divisor": 0.4851019551434855
+          },
+          {
+            "activation_divisor": 3.521043672336368,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.019309645139344633,
+              "relative_to_peak": 0.005527250270186805,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc2",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              10,
+              128
+            ],
+            "weight_divisor": 0.6007635762372355
+          }
+        ],
+        "preset": {
+          "assumed_equivalent_circuit": false,
+          "missing_fields": [],
+          "model_mismatches": [
+            {
+              "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+              "id": "nonuniform_states"
+            },
+            {
+              "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+              "id": "cells_per_weight"
+            },
+            {
+              "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+              "id": "differential_planes"
+            },
+            {
+              "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+              "id": "read_voltage"
+            },
+            {
+              "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+              "id": "input_encoding"
+            },
+            {
+              "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+              "id": "adc_position"
+            }
+          ],
+          "preset_hash": null,
+          "preset_id": null,
+          "problems": [
+            "No preset supplied; PPA is off for the first release"
+          ],
+          "status": "unsupported"
+        },
+        "preset_artifact": {
+          "filename": "neurosim-preset.json",
+          "sha256": "dee58359de8c8ae9a96d441a33dc321f4c79ccae813b8c2c06a8bafadf20303a"
+        },
+        "raw_output": null,
+        "reason": "No preset supplied; PPA is off for the first release | NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main | Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency",
+        "reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "schedule_check": {
+          "assumed_read_window_s": null,
+          "detail": "preset states no read_pulse_width_s",
+          "engine_column_read_latency_s": null,
+          "status": "not_performed"
+        },
+        "status": "unsupported",
+        "time_basis": "nominal t_ref",
+        "trace_sample": "test[:256] first example per layer"
+      },
+      "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+      "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+      "profile_ref": {
+        "id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      },
+      "profile_revision": 1,
+      "run_id": "candidate-1-M0",
+      "validation_accuracy": 0.9584
+    },
+    {
+      "kind": "ALL",
+      "status": "succeeded",
+      "accuracy": 0.9644,
+      "loss_vs_digital_pp": 0.009999999999998899,
+      "loss_vs_mapped_pp": 0.0,
+      "retention_loss_pp": 0.0,
+      "years": 0.0,
+      "array_index": 0,
+      "reprogram_index": 0,
+      "adc": {
+        "fc1": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        },
+        "fc2": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        }
+      },
+      "array_artifact": null,
+      "c2c_diagnostics": {
+        "fc1_minus": {
+          "factor_empirical_cv": 0.04985710992130884,
+          "factor_mean": 1.0001604152191508,
+          "factor_std": 0.04986510776052309,
+          "max_s": 4.093461642771309e-05,
+          "min_s": 4.5447889279436606e-07,
+          "outside_observed_fraction": 0.26673110650510207,
+          "seed": 6030232609679584688
+        },
+        "fc1_plus": {
+          "factor_empirical_cv": 0.050063548032125434,
+          "factor_mean": 1.0000956129709382,
+          "factor_std": 0.05006833475668849,
+          "max_s": 2.9395473894365022e-05,
+          "min_s": 4.468606436696368e-07,
+          "outside_observed_fraction": 0.2429149394132653,
+          "seed": 2966308138984324890
+        },
+        "fc2_minus": {
+          "factor_empirical_cv": 0.04916132076612081,
+          "factor_mean": 1.0003456339649135,
+          "factor_std": 0.04917831258833759,
+          "max_s": 4.0390983337532086e-05,
+          "min_s": 4.6791398194981177e-07,
+          "outside_observed_fraction": 0.2578125,
+          "seed": 2254725135775566197
+        },
+        "fc2_plus": {
+          "factor_empirical_cv": 0.04920417519953729,
+          "factor_mean": 1.0011555078670569,
+          "factor_std": 0.049261031011072404,
+          "max_s": 3.7766365193422564e-05,
+          "min_s": 4.643616729795589e-07,
+          "outside_observed_fraction": 0.23359375,
+          "seed": 15696576465461307442
+        }
+      },
+      "calibration_sha256": null,
+      "candidate_id": "candidate-1",
+      "correct": 9644,
+      "d2d_diagnostics": null,
+      "effects": {
+        "adc": false,
+        "c2c": true,
+        "d2d": false,
+        "retention": false
+      },
+      "engine": "torch_reference",
+      "hardware": {
+        "adc_bits": null,
+        "adc_order": null,
+        "bounds": null,
+        "calibration_filename": null,
+        "calibration_sha256": null,
+        "preset_id": null,
+        "range_policy": null,
+        "tile_size": 64
+      },
+      "mapping": "fixed_reference",
+      "mapping_errors": [
+        {
+          "errors": {
+            "mae": 0.0028153585225904505,
+            "max_error": 0.03563651670699168,
+            "rmse": 0.007025908802022152
+          },
+          "g_max_s": 4.12e-05,
+          "g_min_s": 5.529999999999999e-07,
+          "layer": "fc1",
+          "scale": 11841.269862940118,
+          "shape": [
+            128,
+            784
+          ]
+        },
+        {
+          "errors": {
+            "mae": 0.008057019552429684,
+            "max_error": 0.04408420828377585,
+            "rmse": 0.013907851947070279
+          },
+          "g_max_s": 4.12e-05,
+          "g_min_s": 5.529999999999999e-07,
+          "layer": "fc2",
+          "scale": 14664.553615220855,
+          "shape": [
+            10,
+            128
+          ]
+        }
+      ],
+      "n": 10000,
+      "pool": "combined",
+      "ppa": {
+        "area_m2": null,
+        "blocking_reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        ],
+        "build": null,
+        "candidate": {
+          "candidate_id": "candidate-1",
+          "mapping": "fixed_reference",
+          "pool": "combined",
+          "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+          "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+          "profile_revision": 1
+        },
+        "conductance": {
+          "max_conductance_s": 4.12e-05,
+          "min_conductance_s": 5.529999999999999e-07,
+          "reason": null,
+          "resistance_off_ohm": 1808318.2640144667,
+          "resistance_on_ohm": 24271.844660194176
+        },
+        "coverage": null,
+        "energy_j_per_inference": null,
+        "engine": {
+          "available": false,
+          "binary": "\\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "binary_sha256": null,
+          "commit": null,
+          "compiler": null,
+          "reason": "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        },
+        "engine_totals": null,
+        "incomplete_reasons": [
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "latency_s_per_inference": null,
+        "model_mismatches": [
+          {
+            "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+            "id": "nonuniform_states"
+          },
+          {
+            "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+            "id": "cells_per_weight"
+          },
+          {
+            "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+            "id": "differential_planes"
+          },
+          {
+            "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+            "id": "read_voltage"
+          },
+          {
+            "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+            "id": "input_encoding"
+          },
+          {
+            "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+            "id": "adc_position"
+          }
+        ],
+        "normalization": [
+          {
+            "activation_divisor": 1.0078740157480315,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.00392156862745098,
+              "relative_to_peak": 0.00392156862745098,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc1",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              128,
+              784
+            ],
+            "weight_divisor": 0.4851019551434855
+          },
+          {
+            "activation_divisor": 3.521043672336368,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.019309645139344633,
+              "relative_to_peak": 0.005527250270186805,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc2",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              10,
+              128
+            ],
+            "weight_divisor": 0.6007635762372355
+          }
+        ],
+        "preset": {
+          "assumed_equivalent_circuit": false,
+          "missing_fields": [],
+          "model_mismatches": [
+            {
+              "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+              "id": "nonuniform_states"
+            },
+            {
+              "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+              "id": "cells_per_weight"
+            },
+            {
+              "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+              "id": "differential_planes"
+            },
+            {
+              "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+              "id": "read_voltage"
+            },
+            {
+              "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+              "id": "input_encoding"
+            },
+            {
+              "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+              "id": "adc_position"
+            }
+          ],
+          "preset_hash": null,
+          "preset_id": null,
+          "problems": [
+            "No preset supplied; PPA is off for the first release"
+          ],
+          "status": "unsupported"
+        },
+        "preset_artifact": {
+          "filename": "neurosim-preset.json",
+          "sha256": "dee58359de8c8ae9a96d441a33dc321f4c79ccae813b8c2c06a8bafadf20303a"
+        },
+        "raw_output": null,
+        "reason": "No preset supplied; PPA is off for the first release | NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main | Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency",
+        "reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "schedule_check": {
+          "assumed_read_window_s": null,
+          "detail": "preset states no read_pulse_width_s",
+          "engine_column_read_latency_s": null,
+          "status": "not_performed"
+        },
+        "status": "unsupported",
+        "time_basis": "nominal t_ref",
+        "trace_sample": "test[:256] first example per layer"
+      },
+      "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+      "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+      "profile_ref": {
+        "id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      },
+      "profile_revision": 1,
+      "record_artifact": "candidate-1-array-0-record-0.json",
+      "retention": {
+        "extrapolated": false,
+        "ratio": 1.0,
+        "status": "valid",
+        "years": 0
+      },
+      "run_id": "candidate-1-array-0-record-0-year-0"
+    },
+    {
+      "kind": "ALL",
+      "status": "succeeded",
+      "accuracy": 0.9641,
+      "loss_vs_digital_pp": 0.0400000000000067,
+      "loss_vs_mapped_pp": 0.030000000000007798,
+      "retention_loss_pp": 0.0,
+      "years": 0.0,
+      "array_index": 0,
+      "reprogram_index": 1,
+      "adc": {
+        "fc1": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        },
+        "fc2": {
+          "clip_abs_error_sum": 0.0,
+          "clipped_count": 0,
+          "count": 0,
+          "mean_clip_abs_error": null,
+          "mean_quantization_abs_error": null,
+          "quantization_abs_error_sum": 0.0,
+          "saturation_ratio": null
+        }
+      },
+      "array_artifact": null,
+      "c2c_diagnostics": {
+        "fc1_minus": {
+          "factor_empirical_cv": 0.05006235714735153,
+          "factor_mean": 0.9999156519174117,
+          "factor_std": 0.0500581344835163,
+          "max_s": 4.0941228718087675e-05,
+          "min_s": 4.463566530335973e-07,
+          "outside_observed_fraction": 0.26998963647959184,
+          "seed": 1284096049425467301
+        },
+        "fc1_plus": {
+          "factor_empirical_cv": 0.050078505028724914,
+          "factor_mean": 1.0000024733611244,
+          "factor_std": 0.050078628890952416,
+          "max_s": 2.805756203423598e-05,
+          "min_s": 4.35272577426393e-07,
+          "outside_observed_fraction": 0.2430046237244898,
+          "seed": 11735526418155569964
+        },
+        "fc2_minus": {
+          "factor_empirical_cv": 0.04955022569899121,
+          "factor_mean": 0.9995705848940772,
+          "factor_std": 0.04952894808357418,
+          "max_s": 3.904585512305867e-05,
+          "min_s": 4.7114849396247826e-07,
+          "outside_observed_fraction": 0.26640625,
+          "seed": 18079230499685805141
+        },
+        "fc2_plus": {
+          "factor_empirical_cv": 0.04945860729027985,
+          "factor_mean": 1.0009845913853996,
+          "factor_std": 0.04950730380895172,
+          "max_s": 3.3767721675718646e-05,
+          "min_s": 4.820277339389621e-07,
+          "outside_observed_fraction": 0.2484375,
+          "seed": 16239589144997922083
+        }
+      },
+      "calibration_sha256": null,
+      "candidate_id": "candidate-1",
+      "correct": 9641,
+      "d2d_diagnostics": null,
+      "effects": {
+        "adc": false,
+        "c2c": true,
+        "d2d": false,
+        "retention": false
+      },
+      "engine": "torch_reference",
+      "hardware": {
+        "adc_bits": null,
+        "adc_order": null,
+        "bounds": null,
+        "calibration_filename": null,
+        "calibration_sha256": null,
+        "preset_id": null,
+        "range_policy": null,
+        "tile_size": 64
+      },
+      "mapping": "fixed_reference",
+      "mapping_errors": [
+        {
+          "errors": {
+            "mae": 0.0028153585225904505,
+            "max_error": 0.03563651670699168,
+            "rmse": 0.007025908802022152
+          },
+          "g_max_s": 4.12e-05,
+          "g_min_s": 5.529999999999999e-07,
+          "layer": "fc1",
+          "scale": 11841.269862940118,
+          "shape": [
+            128,
+            784
+          ]
+        },
+        {
+          "errors": {
+            "mae": 0.008057019552429684,
+            "max_error": 0.04408420828377585,
+            "rmse": 0.013907851947070279
+          },
+          "g_max_s": 4.12e-05,
+          "g_min_s": 5.529999999999999e-07,
+          "layer": "fc2",
+          "scale": 14664.553615220855,
+          "shape": [
+            10,
+            128
+          ]
+        }
+      ],
+      "n": 10000,
+      "pool": "combined",
+      "ppa": {
+        "area_m2": null,
+        "blocking_reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        ],
+        "build": null,
+        "candidate": {
+          "candidate_id": "candidate-1",
+          "mapping": "fixed_reference",
+          "pool": "combined",
+          "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+          "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+          "profile_revision": 1
+        },
+        "conductance": {
+          "max_conductance_s": 4.12e-05,
+          "min_conductance_s": 5.529999999999999e-07,
+          "reason": null,
+          "resistance_off_ohm": 1808318.2640144667,
+          "resistance_on_ohm": 24271.844660194176
+        },
+        "coverage": null,
+        "energy_j_per_inference": null,
+        "engine": {
+          "available": false,
+          "binary": "\\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "binary_sha256": null,
+          "commit": null,
+          "compiler": null,
+          "reason": "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+        },
+        "engine_totals": null,
+        "incomplete_reasons": [
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "latency_s_per_inference": null,
+        "model_mismatches": [
+          {
+            "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+            "id": "nonuniform_states"
+          },
+          {
+            "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+            "id": "cells_per_weight"
+          },
+          {
+            "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+            "id": "differential_planes"
+          },
+          {
+            "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+            "id": "read_voltage"
+          },
+          {
+            "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+            "id": "input_encoding"
+          },
+          {
+            "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+            "id": "adc_position"
+          }
+        ],
+        "normalization": [
+          {
+            "activation_divisor": 1.0078740157480315,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.00392156862745098,
+              "relative_to_peak": 0.00392156862745098,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc1",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              128,
+              784
+            ],
+            "weight_divisor": 0.4851019551434855
+          },
+          {
+            "activation_divisor": 3.521043672336368,
+            "activation_fidelity": {
+              "accuracy_path_levels": 256,
+              "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+              "effective_bits_for_this_signal": 7,
+              "encoding": "twos_complement_sign_first",
+              "engine_bits": 8,
+              "levels_available_to_this_signal": 128,
+              "max_abs_difference_from_unsigned_codes": 0.019309645139344633,
+              "relative_to_peak": 0.005527250270186805,
+              "signal_is_nonnegative": true
+            },
+            "layer": "fc2",
+            "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+            "shape": [
+              10,
+              128
+            ],
+            "weight_divisor": 0.6007635762372355
+          }
+        ],
+        "preset": {
+          "assumed_equivalent_circuit": false,
+          "missing_fields": [],
+          "model_mismatches": [
+            {
+              "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+              "id": "nonuniform_states"
+            },
+            {
+              "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+              "id": "cells_per_weight"
+            },
+            {
+              "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+              "id": "differential_planes"
+            },
+            {
+              "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+              "id": "read_voltage"
+            },
+            {
+              "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+              "id": "input_encoding"
+            },
+            {
+              "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+              "id": "adc_position"
+            }
+          ],
+          "preset_hash": null,
+          "preset_id": null,
+          "problems": [
+            "No preset supplied; PPA is off for the first release"
+          ],
+          "status": "unsupported"
+        },
+        "preset_artifact": {
+          "filename": "neurosim-preset.json",
+          "sha256": "dee58359de8c8ae9a96d441a33dc321f4c79ccae813b8c2c06a8bafadf20303a"
+        },
+        "raw_output": null,
+        "reason": "No preset supplied; PPA is off for the first release | NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main | Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency",
+        "reasons": [
+          "No preset supplied; PPA is off for the first release",
+          "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+          "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+        ],
+        "schedule_check": {
+          "assumed_read_window_s": null,
+          "detail": "preset states no read_pulse_width_s",
+          "engine_column_read_latency_s": null,
+          "status": "not_performed"
+        },
+        "status": "unsupported",
+        "time_basis": "nominal t_ref",
+        "trace_sample": "test[:256] first example per layer"
+      },
+      "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+      "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+      "profile_ref": {
+        "id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      },
+      "profile_revision": 1,
+      "record_artifact": "candidate-1-array-0-record-1.json",
+      "retention": {
+        "extrapolated": false,
+        "ratio": 1.0,
+        "status": "valid",
+        "years": 0
+      },
+      "run_id": "candidate-1-array-0-record-1-year-0"
+    }
+  ],
+  "summary": {
+    "array_statistics": [
+      {
+        "accuracy": {
+          "interpretation": "distribution across seeded arrays; each array contributes its own mean over n_reprogram reprograms, not one sample per reprogram",
+          "mean": 0.96425,
+          "n": 1,
+          "p05": 0.96425,
+          "p50": 0.96425,
+          "p95": 0.96425,
+          "std": null,
+          "values": [
+            0.96425
+          ]
+        },
+        "candidate_id": "candidate-1",
+        "invalid_arrays": 0,
+        "mapping": "fixed_reference",
+        "pool": "combined",
+        "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+        "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "profile_revision": 1,
+        "reprogram_accuracy_by_array": {
+          "0": {
+            "interpretation": "distribution across the 2 reprograms of this one array (array_index=0), not across different arrays",
+            "mean": 0.96425,
+            "n": 2,
+            "p05": 0.9641149999999999,
+            "p50": 0.96425,
+            "p95": 0.964385,
+            "std": 0.00021213203435601938,
+            "values": [
+              0.9644,
+              0.9641
+            ]
+          }
+        },
+        "requested_arrays": 1,
+        "requested_reprogram": 2,
+        "years": 0
+      }
+    ],
+    "completed": 2,
+    "digital_accuracy": 0.9645,
+    "elapsed_seconds": 60.79699999999957,
+    "failed": 0,
+    "recommendations": [
+      {
+        "candidate_id": "candidate-1",
+        "mapping": "fixed_reference",
+        "pool": "combined",
+        "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+        "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "selection": "nominal M0 validation accuracy; canonical pool/mapping order breaks ties",
+        "validation_accuracy": 0.9584
+      }
+    ],
+    "record_counts": {
+      "invalid": 0,
+      "skipped": 0,
+      "succeeded": 5
+    },
+    "requested": 2,
+    "skipped": 0
+  },
+  "artifacts": [
+    {
+      "id": "a2eb29f3-b6e6-45a4-9460-102ce8daa503",
+      "kind": "json",
+      "filename": "candidate-1-array-0-record-0.json",
+      "media_type": "application/json",
+      "sha256": "51e56b3cec4579c6878e43fccfaedac86d5b67e78bbf290ff93f654906ff8bd7",
+      "size_bytes": 2166,
+      "download_url": "/api/v1/artifacts/a2eb29f3-b6e6-45a4-9460-102ce8daa503/download"
+    },
+    {
+      "id": "d7b51930-7943-4765-a494-2d8ab3e00b96",
+      "kind": "json",
+      "filename": "candidate-1-array-0-record-1.json",
+      "media_type": "application/json",
+      "sha256": "5be5227f8b66ba94175fc3242927ce9ad6a5db613fb4de59ae16f9e3e76bbb7a",
+      "size_bytes": 2166,
+      "download_url": "/api/v1/artifacts/d7b51930-7943-4765-a494-2d8ab3e00b96/download"
+    },
+    {
+      "id": "d5682bd5-8aaf-4ed4-9cd2-4b1e64909c18",
+      "kind": "json",
+      "filename": "candidate-1-mapping.json",
+      "media_type": "application/json",
+      "sha256": "efe8c526a98bbf7403893f71400ed2327e9924e858de79da53af4024bbab7270",
+      "size_bytes": 361895,
+      "download_url": "/api/v1/artifacts/d5682bd5-8aaf-4ed4-9cd2-4b1e64909c18/download"
+    },
+    {
+      "id": "442aa68e-03a7-4f01-9728-39749e3ac212",
+      "kind": "npz",
+      "filename": "candidate-1-mapping.npz",
+      "media_type": "application/octet-stream",
+      "sha256": "2d92a5102125be3e00a3a9b274622cda21c51da98847979032275d2e60d5125b",
+      "size_bytes": 394599,
+      "download_url": "/api/v1/artifacts/442aa68e-03a7-4f01-9728-39749e3ac212/download"
+    },
+    {
+      "id": "689f0106-775a-4f79-87ed-2a18896e5ad7",
+      "kind": "pt",
+      "filename": "checkpoint.pt",
+      "media_type": "application/octet-stream",
+      "sha256": "ab822e89a0afafe9ef071871564c987aa8910736578e8e7b263b53c625fa9625",
+      "size_bytes": 409885,
+      "download_url": "/api/v1/artifacts/689f0106-775a-4f79-87ed-2a18896e5ad7/download"
+    },
+    {
+      "id": "710b84ac-d33f-45fb-b150-e7e20578d5c1",
+      "kind": "csv",
+      "filename": "input_fc1.csv",
+      "media_type": "application/vnd.ms-excel",
+      "sha256": "eee6ee0c18a812a08c42b57ae50378d05c7d64ba8c02ae56c47d6b38bd95a854",
+      "size_bytes": 13328,
+      "download_url": "/api/v1/artifacts/710b84ac-d33f-45fb-b150-e7e20578d5c1/download"
+    },
+    {
+      "id": "5288339b-607a-4f3a-8abf-002add22eec4",
+      "kind": "csv",
+      "filename": "input_fc2.csv",
+      "media_type": "application/vnd.ms-excel",
+      "sha256": "52c9c0ddc638f64210afa2667879038c2ced6114bf0e72b8c260026716047df9",
+      "size_bytes": 2176,
+      "download_url": "/api/v1/artifacts/5288339b-607a-4f3a-8abf-002add22eec4/download"
+    },
+    {
+      "id": "7cf6f3ff-bf01-424e-820c-f90fc5174b54",
+      "kind": "csv",
+      "filename": "NetWork_ctfm.csv",
+      "media_type": "application/vnd.ms-excel",
+      "sha256": "114b5b47b41884e33c25108561b608a73f753ed1aefc4173feb650a3c7c873ef",
+      "size_bytes": 41,
+      "download_url": "/api/v1/artifacts/7cf6f3ff-bf01-424e-820c-f90fc5174b54/download"
+    },
+    {
+      "id": "332e358f-e5bb-4594-ab99-b52af5d5c369",
+      "kind": "csv",
+      "filename": "weight_fc1.csv",
+      "media_type": "application/vnd.ms-excel",
+      "sha256": "b7009bc867c335d05b1152e5a122fdf5d071c5c1c94f1311cc8ff3f681eb6143",
+      "size_bytes": 1104656,
+      "download_url": "/api/v1/artifacts/332e358f-e5bb-4594-ab99-b52af5d5c369/download"
+    },
+    {
+      "id": "b9cb1ac9-d0b4-44d8-9f30-02c54fef6bc8",
+      "kind": "csv",
+      "filename": "weight_fc2.csv",
+      "media_type": "application/vnd.ms-excel",
+      "sha256": "81ccb6687711a1e7b58b37ef24aa2b662040e88dfd484da0c2056dfca822d05d",
+      "size_bytes": 14208,
+      "download_url": "/api/v1/artifacts/b9cb1ac9-d0b4-44d8-9f30-02c54fef6bc8/download"
+    },
+    {
+      "id": "082de969-9625-4f7b-b558-210b04519d33",
+      "kind": "json",
+      "filename": "neurosim-preset.json",
+      "media_type": "application/json",
+      "sha256": "dee58359de8c8ae9a96d441a33dc321f4c79ccae813b8c2c06a8bafadf20303a",
+      "size_bytes": 1813,
+      "download_url": "/api/v1/artifacts/082de969-9625-4f7b-b558-210b04519d33/download"
+    },
+    {
+      "id": "112eec2f-f134-40a5-8018-d7b5c683bc47",
+      "kind": "png",
+      "filename": "plot.png",
+      "media_type": "image/png",
+      "sha256": "7fc27cde11ec481b6d85c43650a5a253d9915a020a52ee5603233328b2817178",
+      "size_bytes": 35140,
+      "download_url": "/api/v1/artifacts/112eec2f-f134-40a5-8018-d7b5c683bc47/download"
+    },
+    {
+      "id": "42405089-441a-4f34-8c06-045cc138cfd1",
+      "kind": "json",
+      "filename": "resolved-config.json",
+      "media_type": "application/json",
+      "sha256": "eda0602fc25bb13416adc78927cb396146a5f04e3508d525d80dc58a3dcee007",
+      "size_bytes": 708,
+      "download_url": "/api/v1/artifacts/42405089-441a-4f34-8c06-045cc138cfd1/download"
+    },
+    {
+      "id": "f1850def-cc0b-4814-bcf2-741ecc8c997c",
+      "kind": "json",
+      "filename": "result.json",
+      "media_type": "application/json",
+      "sha256": "59d37520c27ab2b55438f4536a173bcf4066807897ff59f6c1f667edf14718e4",
+      "size_bytes": 320100,
+      "download_url": "/api/v1/artifacts/f1850def-cc0b-4814-bcf2-741ecc8c997c/download"
+    },
+    {
+      "id": "cb305540-9deb-48db-87ca-5475ced7866b",
+      "kind": "csv",
+      "filename": "runs.csv",
+      "media_type": "application/vnd.ms-excel",
+      "sha256": "a2e02b60922ba0ca6f1c9a78081df71f9271e5ac22757e9b79dbbf66baddabd9",
+      "size_bytes": 43152,
+      "download_url": "/api/v1/artifacts/cb305540-9deb-48db-87ca-5475ced7866b/download"
+    },
+    {
+      "id": "43b18f54-f005-41c1-accb-3b7f9ab3a8d7",
+      "kind": "npz",
+      "filename": "split.npz",
+      "media_type": "application/octet-stream",
+      "sha256": "65f38c3b225626711c0fce51e5636261755df10160a293cd62ca0edc91eca916",
+      "size_bytes": 187113,
+      "download_url": "/api/v1/artifacts/43b18f54-f005-41c1-accb-3b7f9ab3a8d7/download"
+    },
+    {
+      "id": "b343b0a6-7217-49f7-8b1c-d4070f8cc35a",
+      "kind": "json",
+      "filename": "summary.json",
+      "media_type": "application/json",
+      "sha256": "debf297c258e507f70ae5cab7043314dd7cc517351dd4a28d08e73f9a2e21f96",
+      "size_bytes": 814015,
+      "download_url": "/api/v1/artifacts/b343b0a6-7217-49f7-8b1c-d4070f8cc35a/download"
+    },
+    {
+      "id": "1a4ed055-8113-46ea-81d5-6713cabc94b7",
+      "kind": "md",
+      "filename": "summary.md",
+      "media_type": "application/octet-stream",
+      "sha256": "650b370fcae780a68113eebf5e176109f18cf2dd17e2e429bdcb8fbc4755af10",
+      "size_bytes": 2134,
+      "download_url": "/api/v1/artifacts/1a4ed055-8113-46ea-81d5-6713cabc94b7/download"
+    },
+    {
+      "id": "5726758b-19a0-472f-a6cf-c1fb6ae86b63",
+      "kind": "xlsx",
+      "filename": "tables.xlsx",
+      "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "sha256": "ad052bbaf37350236e2d400ed253b780f9357e4998f98829432b8fc47249f2f5",
+      "size_bytes": 9269,
+      "download_url": "/api/v1/artifacts/5726758b-19a0-472f-a6cf-c1fb6ae86b63/download"
+    },
+    {
+      "id": "f21f619f-06dd-4470-8d29-239ec0e20d42",
+      "kind": "npz",
+      "filename": "trace-test-first-256.npz",
+      "media_type": "application/octet-stream",
+      "sha256": "6232be0b581bf793af7f32fed3471306993034e640d6ca79ffccb9980271c6f5",
+      "size_bytes": 41596,
+      "download_url": "/api/v1/artifacts/f21f619f-06dd-4470-8d29-239ec0e20d42/download"
+    },
+    {
+      "id": "8edbca5c-b044-42fe-871e-a3413207ab50",
+      "kind": "log",
+      "filename": "worker.log",
+      "media_type": "application/octet-stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0,
+      "download_url": "/api/v1/artifacts/8edbca5c-b044-42fe-871e-a3413207ab50/download"
+    }
+  ],
+  "checkpoint_filename": "checkpoint.pt",
+  "checkpoint_id": "e94d24a4-6d68-483c-a3c8-fc277cbb55e9",
+  "created_at": "2026-09-23T11:46:52.228745Z",
+  "design_version": "1.1.0",
+  "finished_at": "2026-09-23T11:48:22.438126Z",
+  "id": "073297ba-27bd-4bc1-9286-b89fb2d54772",
+  "ppa": {
+    "area_m2": null,
+    "blocking_reasons": [
+      "No preset supplied; PPA is off for the first release",
+      "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+    ],
+    "build": null,
+    "candidate": {
+      "candidate_id": "candidate-1",
+      "mapping": "fixed_reference",
+      "pool": "combined",
+      "profile_hash": "869c2ee5f5d187fb732c40ca59a71943b012fdcb4fccf05fdf38435ca1e9aded",
+      "profile_id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+      "profile_revision": 1
+    },
+    "conductance": {
+      "max_conductance_s": 4.12e-05,
+      "min_conductance_s": 5.529999999999999e-07,
+      "reason": null,
+      "resistance_off_ohm": 1808318.2640144667,
+      "resistance_on_ohm": 24271.844660194176
+    },
+    "coverage": null,
+    "energy_j_per_inference": null,
+    "engine": {
+      "available": false,
+      "binary": "\\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+      "binary_sha256": null,
+      "commit": null,
+      "compiler": null,
+      "reason": "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main"
+    },
+    "engine_totals": null,
+    "incomplete_reasons": [
+      "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+    ],
+    "latency_s_per_inference": null,
+    "model_mismatches": [
+      {
+        "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+        "id": "nonuniform_states"
+      },
+      {
+        "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+        "id": "cells_per_weight"
+      },
+      {
+        "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+        "id": "differential_planes"
+      },
+      {
+        "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+        "id": "read_voltage"
+      },
+      {
+        "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+        "id": "input_encoding"
+      },
+      {
+        "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+        "id": "adc_position"
+      }
+    ],
+    "normalization": [
+      {
+        "activation_divisor": 1.0078740157480315,
+        "activation_fidelity": {
+          "accuracy_path_levels": 256,
+          "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+          "effective_bits_for_this_signal": 7,
+          "encoding": "twos_complement_sign_first",
+          "engine_bits": 8,
+          "levels_available_to_this_signal": 128,
+          "max_abs_difference_from_unsigned_codes": 0.00392156862745098,
+          "relative_to_peak": 0.00392156862745098,
+          "signal_is_nonnegative": true
+        },
+        "layer": "fc1",
+        "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+        "shape": [
+          128,
+          784
+        ],
+        "weight_divisor": 0.4851019551434855
+      },
+      {
+        "activation_divisor": 3.521043672336368,
+        "activation_fidelity": {
+          "accuracy_path_levels": 256,
+          "detail": "a nonnegative activation uses only the positive half of the signed grid, so the engine sees one bit less resolution than the accuracy path drives",
+          "effective_bits_for_this_signal": 7,
+          "encoding": "twos_complement_sign_first",
+          "engine_bits": 8,
+          "levels_available_to_this_signal": 128,
+          "max_abs_difference_from_unsigned_codes": 0.019309645139344633,
+          "relative_to_peak": 0.005527250270186805,
+          "signal_is_nonnegative": true
+        },
+        "layer": "fc2",
+        "note": "engine weights are the nominal restored w_hat divided by this divisor to fit NeuroSim's [-1, 1] algorithmic range",
+        "shape": [
+          10,
+          128
+        ],
+        "weight_divisor": 0.6007635762372355
+      }
+    ],
+    "preset": {
+      "assumed_equivalent_circuit": false,
+      "missing_fields": [],
+      "model_mismatches": [
+        {
+          "detail": "CTFM adopts finite measured, non-uniformly spaced conductances; NeuroSim maps weights onto uniform levels between minConductance and maxConductance",
+          "id": "nonuniform_states"
+        },
+        {
+          "detail": "The accuracy model uses one analog cell per differential plane per weight; NeuroSim uses ceil(synapseBit/cellBit) columns per weight",
+          "id": "cells_per_weight"
+        },
+        {
+          "detail": "NeuroSim has no native two-plane differential representation; the cost of the second plane has to be modelled explicitly",
+          "id": "differential_planes"
+        },
+        {
+          "detail": "Measurements use VDS=0.1 V; NeuroSim derives readVoltage from technode (22 nm -> 0.55 V) and does not accept the measured value directly",
+          "id": "read_voltage"
+        },
+        {
+          "detail": "The accuracy model drives unsigned 8 bit activations LSB-first over a fixed 8 cycle schedule; NeuroSim's FC activation trace is a signed two's-complement encoding whose first plane carries the sign weight, so a nonnegative activation reaches only 2**(bits-1) levels -- one bit less than the accuracy path drives. Measured per layer in the result's activation_fidelity",
+          "id": "input_encoding"
+        },
+        {
+          "detail": "The accuracy model quantizes the differential partial sum after digital subtraction; NeuroSim quantizes per physical column group",
+          "id": "adc_position"
+        }
+      ],
+      "preset_hash": null,
+      "preset_id": null,
+      "problems": [
+        "No preset supplied; PPA is off for the first release"
+      ],
+      "status": "unsupported"
+    },
+    "preset_artifact": {
+      "filename": "neurosim-preset.json",
+      "sha256": "dee58359de8c8ae9a96d441a33dc321f4c79ccae813b8c2c06a8bafadf20303a"
+    },
+    "raw_output": null,
+    "reason": "No preset supplied; PPA is off for the first release | NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main | Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency",
+    "reasons": [
+      "No preset supplied; PPA is off for the first release",
+      "NeuroSim binary not built at \\opt\\ctfm-engines\\neurosim\\Inference_pytorch\\NeuroSIM\\main",
+      "Differential two-plane cost is not modelled: NeuroSim has no native G+/G- plane pair and no approved approximation exists for the second plane's area/energy/latency"
+    ],
+    "schedule_check": {
+      "assumed_read_window_s": null,
+      "detail": "preset states no read_pulse_width_s",
+      "engine_column_read_latency_s": null,
+      "status": "not_performed"
+    },
+    "status": "unsupported",
+    "time_basis": "nominal t_ref",
+    "trace_sample": "test[:256] first example per layer"
+  },
+  "request": {
+    "arrays": 1,
+    "checkpoint_id": null,
+    "effects": {
+      "adc": false,
+      "c2c": true,
+      "d2d": false,
+      "retention": false
+    },
+    "engines": {
+      "accuracy": "torch_reference",
+      "ppa": "off"
+    },
+    "hardware": {
+      "adc_bits": null,
+      "adc_order": null,
+      "preset_id": null,
+      "range_policy": null,
+      "tile_size": 64
+    },
+    "mappings": [
+      "fixed_reference"
+    ],
+    "model_id": "mnist_mlp_v1",
+    "n_reprogram": 2,
+    "pools": [
+      "combined"
+    ],
+    "profile_refs": [
+      {
+        "c2c": {
+          "cv_percent": 5,
+          "source": "manual_assumption"
+        },
+        "id": "15d6c2ee-d6a4-429e-8876-6a6bfbc7db4e",
+        "revision": 1
+      }
+    ],
+    "schema_version": "1.3.0",
+    "seed": 20260917,
+    "years": [
+      0
+    ]
+  },
+  "resolved_config_hash": "eda0602fc25bb13416adc78927cb396146a5f04e3508d525d80dc58a3dcee007",
+  "_note": "Request submitted from the browser simulator UI (C2C on, CV 5%, n_reprogram 2). Large per-state provenance trimmed for the repo."
+}

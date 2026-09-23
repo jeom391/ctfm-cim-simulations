@@ -1,3 +1,5 @@
+> **최신 인수인계 (2026-09-23, 브랜치 `claude/adc-order-comparison`):** [개발 담당 인수인계](03_developer-handoff-2026-09-23.md)를 먼저 읽으세요. 06 일괄 백엔드 검증(측정 파이프라인 A1~A5 실제 재실행, ADC 순서 비교, 전체 pytest 322 passed)을 원본 보고서·evidence·diff와 대조해 확정했습니다. NeuroSim 엔진 실행, 실측 IV/Retention 연결, 05 프론트 마무리는 여전히 남아 있으며 이번 게시로 완료된 것은 아닙니다. 팀 공유용 요약은 [백엔드 일괄 검증 결과](../docs/verification-backend-batch-2026-09-23.md)를 참고하세요.
+
 > **측정 결과 UI 후속 완료:** [표시 개선·실측 브라우저 검증](../docs/measurement-results-ui-2026-09-21.md). 계산 요약·접힐 때 미렌더링·50행 페이지 이동·후보 선택 유지를 구현했다. 서버 전송량 최적화는 별도다.
 
 > **최신 진행도·개발 인계:** [main 6c590ea 기준 확인 결과](02_measurement-fix-and-next-steps.md)를 먼저 읽으세요. CSV 수정은 이미 main에 병합됐고 팀의 HTTP/브라우저/엔진 검증이 추가됐습니다. ADC 순서 간 통제 비교·UI 개선·C2C·PPA는 남아 있습니다.

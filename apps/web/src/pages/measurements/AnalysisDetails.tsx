@@ -2,6 +2,7 @@ import {useState} from 'react';
 import type {Analysis, Row} from '../../lib/api';
 import {DataTable} from '../../shared';
 import {compactValue, pageRows, PAGE_SIZE} from './resultView';
+import {C2cSummary} from './LayoutPickers';
 
 function PagedTable({title, rows}: {title: string; rows: Row[]}) {
   const [open, setOpen] = useState(false);
@@ -30,9 +31,11 @@ export function AnalysisDetails({analysis}: {analysis: Analysis}) {
     counts.set(reason, (counts.get(reason) || 0) + 1);
   }
   return <>
+    {analysis.kind === 'c2c_detrended' ? <C2cSummary analysis={analysis}/> : <>
     <h4>계산 요약</h4>
     <DataTable rows={Object.entries(summary).filter(([key]) => key !== 'pools').map(([key, value]) => ({항목: ({candidate_count:'추출 후보 수',positive_candidate_count:'양의 전도도 후보 수'} as Record<string,string>)[key] || key, 값: compactValue(value)}))}/>
     {pools && <DataTable caption="전도도 풀 · 상태 수는 후보 개수이며 고유 전도도 수준 수와 다릅니다" rows={Object.entries(pools).map(([name, p]) => ({풀: name, 사용가능: p.available ? '가능' : '불가', 상태수: p.state_ids?.length ?? 0, 'Gmin (S)': p.g_min_s, 'Gmax (S)': p.g_max_s, 사유: p.reason}))}/>}
+    </>}
     <p className="muted">상세 표는 펼칠 때만 표시하며 50행씩 조회합니다. 긴 값과 중첩 목록은 요약합니다. 원본 전체 값은 아래 다운로드 파일에서 확인하세요.</p>
     {Object.entries(analysis.tables || {}).map(([name, rows]) => <PagedTable key={name} title={name} rows={rows}/>)}
     <h4>제외 기록 · {exclusions.length}건</h4>

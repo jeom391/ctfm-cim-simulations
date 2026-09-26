@@ -126,6 +126,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/files/{identifier}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File Layout
+         * @description Structure of the instrument layouts that /preview refuses (repeated Vg/Id/Ig blocks, independent P/E time axes).
+         *
+         *     Nothing is selected here: the caller picks the block/segment or the four columns explicitly.
+         */
+        get: operations["file_layout_api_v1_files__identifier__layout_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/files/{identifier}/preview": {
         parameters: {
             query?: never;
@@ -338,7 +360,7 @@ export interface components {
             /** Branch */
             branch?: ("program" | "erase") | null;
             /** Column Mapping */
-            column_mapping: {
+            column_mapping?: {
                 [key: string]: string;
             };
             /** Condition Id */
@@ -352,12 +374,20 @@ export interface components {
              * Format: uuid
              */
             file_id: string;
+            /** Header Read Vgs V */
+            header_read_vgs_v?: number | null;
+            /** Measurement Conditions */
+            measurement_conditions?: {
+                [key: string]: unknown;
+            } | null;
             /** Read Vgs V */
             read_vgs_v?: number | null;
             /** Row End */
             row_end?: number | null;
             /** Row Start */
             row_start?: number | null;
+            /** Selection */
+            selection?: (components["schemas"]["IvBlockSelection"] | components["schemas"]["RetentionColumnSelection"]) | null;
             /** Sheet */
             sheet?: string | null;
             /** Source Label */
@@ -365,7 +395,7 @@ export interface components {
             /** Sweep Amplitude V */
             sweep_amplitude_v?: number | null;
             /** Units */
-            units: {
+            units?: {
                 [key: string]: string;
             };
             /** Vds V */
@@ -386,7 +416,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "iv" | "d2d" | "retention" | "pulse_states";
+            kind: "iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended";
             /** Settings */
             settings?: {
                 [key: string]: unknown;
@@ -413,7 +443,7 @@ export interface components {
              */
             job_id: string;
             /** Kind */
-            kind?: ("iv" | "d2d" | "retention" | "pulse_states") | null;
+            kind?: ("iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended") | null;
             /** Settings */
             settings?: {
                 [key: string]: unknown;
@@ -623,21 +653,37 @@ export interface components {
             n_reprogram: number;
             pools: ("combined" | "ltp" | "ltd" | "common")[];
             profile_refs: {
-                /** @description Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio). */
+                /** @description Manual assumption (1.3.0/1.4.0) or measured detrended Program deviation (1.4.0 only). Never inherited between profiles. */
                 c2c?: {
                     cv_percent: number;
                     /** @constant */
                     source: "manual_assumption";
+                } | {
+                    /** Format: uuid */
+                    analysis_id: string;
+                    /**
+                     * @description The user confirmed applying the Program relative deviation to every selected LTP/LTD state and both planes.
+                     * @constant
+                     */
+                    approved_assumption: true;
+                    /** @description Must be true when the analysis condition_id differs from the profile condition_id. */
+                    cross_condition_acknowledged?: boolean;
+                    /** @description Server-written; equals provenance.program_relative_std_percent. */
+                    cv_percent?: number;
+                    /** @description Server-written pin of the analysis (id, file/result hashes, version, method, cycles, conditions, warnings). */
+                    provenance?: Record<string, never>;
+                    /** @constant */
+                    source: "measured_detrended";
                 };
                 /** Format: uuid */
                 id: string;
                 revision: number;
             }[];
             /** @enum {unknown} */
-            schema_version: "1.2.0" | "1.3.0";
+            schema_version: "1.2.0" | "1.3.0" | "1.4.0";
             seed: number;
             years: number[];
-        } & (unknown & unknown & unknown & unknown & unknown & unknown);
+        } & (unknown & unknown & unknown & unknown & unknown & unknown & unknown);
         /** ExperimentResult */
         ExperimentResult: {
             /** Artifacts */
@@ -675,7 +721,7 @@ export interface components {
             /** Runs */
             runs?: components["schemas"]["RunResult"][] | null;
             /** Schema Version */
-            schema_version?: ("1.2.0" | "1.3.0") | null;
+            schema_version?: ("1.2.0" | "1.3.0" | "1.4.0") | null;
             /**
              * Status
              * @enum {string}
@@ -819,6 +865,21 @@ export interface components {
              * @enum {string}
              */
             status: "draft" | "published";
+        };
+        /**
+         * IvBlockSelection
+         * @description Explicit Vg/Id/Ig block and monotone Vg segment of a repeated-block IV sheet.
+         */
+        IvBlockSelection: {
+            /** Block */
+            block: number;
+            /** Segment */
+            segment: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "iv_block";
         };
         /** JobList */
         JobList: {
@@ -1063,6 +1124,21 @@ export interface components {
             /** Vds V */
             vds_v: number | null;
         };
+        /**
+         * RetentionColumnSelection
+         * @description Explicit 0-based sheet columns for the independent Erase/Program time axes.
+         */
+        RetentionColumnSelection: {
+            /** Columns */
+            columns: {
+                [key: string]: number;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "retention_columns";
+        };
         /** RetentionFit */
         RetentionFit: {
             /** A */
@@ -1105,6 +1181,20 @@ export interface components {
         RunResult: {
             /** Accuracy */
             accuracy?: number | null;
+            /**
+             * Adc
+             * @description Legacy alias of adc_metrics, kept for existing clients.
+             */
+            adc?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Adc Metrics
+             * @description Official name of the per-layer ADC diagnostics; identical content to the legacy adc alias. Absent when the ADC was off or produced no diagnostics.
+             */
+            adc_metrics?: {
+                [key: string]: unknown;
+            } | null;
             /** Array Index */
             array_index?: number | null;
             /**
@@ -1116,6 +1206,24 @@ export interface components {
             loss_vs_digital_pp?: number | null;
             /** Loss Vs Mapped Pp */
             loss_vs_mapped_pp?: number | null;
+            /**
+             * Mapping Errors
+             * @description Legacy alias of mapping_metrics, kept for existing clients.
+             */
+            mapping_errors?: {
+                [key: string]: unknown;
+            }[] | {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Mapping Metrics
+             * @description Official name of the mapping-error diagnostics; identical content to the legacy mapping_errors alias. Absent when not produced.
+             */
+            mapping_metrics?: {
+                [key: string]: unknown;
+            }[] | {
+                [key: string]: unknown;
+            } | null;
             /** Reason */
             reason?: string | null;
             /** Reprogram Index */
@@ -1598,6 +1706,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FileUploadResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    file_layout_api_v1_files__identifier__layout_get: {
+        parameters: {
+            query: {
+                kind: "iv" | "retention";
+                sheet?: string | null;
+            };
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Not Found */

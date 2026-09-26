@@ -39,8 +39,8 @@ class RunResult(ScientificResult):
     array_index: int | None=Field(default=None,ge=0)
     reprogram_index: int | None=Field(default=None,ge=0)
     reason: str | None=None
-    mapping_metrics: dict | None=Field(default=None,description="Official name of the mapping-error diagnostics; identical content to the legacy mapping_errors alias. Absent when not produced.")
-    mapping_errors: dict | None=Field(default=None,description="Legacy alias of mapping_metrics, kept for existing clients.")
+    mapping_metrics: list[dict] | dict | None=Field(default=None,description="Official name of the mapping-error diagnostics; identical content to the legacy mapping_errors alias. Absent when not produced.")
+    mapping_errors: list[dict] | dict | None=Field(default=None,description="Legacy alias of mapping_metrics, kept for existing clients.")
     adc_metrics: dict | None=Field(default=None,description="Official name of the per-layer ADC diagnostics; identical content to the legacy adc alias. Absent when the ADC was off or produced no diagnostics.")
     adc: dict | None=Field(default=None,description="Legacy alias of adc_metrics, kept for existing clients.")
 

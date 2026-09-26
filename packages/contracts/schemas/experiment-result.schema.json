@@ -143,6 +143,13 @@
         "mapping_errors": {
           "anyOf": [
             {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
               "additionalProperties": true,
               "type": "object"
             },
@@ -156,6 +163,13 @@
         },
         "mapping_metrics": {
           "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
             {
               "additionalProperties": true,
               "type": "object"

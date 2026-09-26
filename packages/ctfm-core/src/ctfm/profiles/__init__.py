@@ -115,6 +115,7 @@ class Retention(StrictModel):
     program_fit: RetentionFit | None
     erase_fit: RetentionFit | None
     current_basis: Literal['raw'] | None = None
+    time_axes: Literal['per_direction'] | None = None
     reference_time_s: float | None = None
     program_reference_current_a: float | None = None
     simulation_available: bool | None = None

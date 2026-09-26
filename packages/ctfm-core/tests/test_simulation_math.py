@@ -43,6 +43,8 @@ class SimulationMathTests(unittest.TestCase):
     def test_retention_zero_valid_and_invalid_extrapolation(self):
         fit=dict(a=2.,b=-.2,time_min_s=10.,time_max_s=100.)
         self.assertEqual(retention_ratio(fit,0)['ratio'],1)
+        # the reference is not a prediction even if the first fitted sample is slightly after 10 s
+        self.assertFalse(retention_ratio(dict(fit,time_min_s=10.0004),0)['extrapolated'])
         r=retention_ratio(fit,1)
         self.assertAlmostEqual(r['ratio'],(2-.2*np.log10(10+365.25*86400))/1.8)
         self.assertTrue(r['extrapolated'])

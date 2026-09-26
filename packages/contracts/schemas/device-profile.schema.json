@@ -526,6 +526,19 @@
           "title": "Status",
           "type": "string"
         },
+        "time_axes": {
+          "anyOf": [
+            {
+              "const": "per_direction",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Axes"
+        },
         "vds_v": {
           "anyOf": [
             {

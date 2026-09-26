@@ -73,9 +73,31 @@ def test_a_damaged_block_is_reported_and_the_others_stay_usable():
 
 
 def test_unrecognised_header_layouts_are_refused_with_the_reason():
-    for header in ([' Vg', ' Id', ' Ig', ' Id', ' Ig'], ['Time', 'MeasResult1_value', 'MeasResult2_value']):
+    for header in ([' Id', ' Ig', ' Vg'], ['Time', 'MeasResult1_value', 'MeasResult2_value']):
         with pytest.raises(ValueError, match='repeated Vg/Id/Ig'):
-            read_iv_blocks(book([header, [1, 2, 3, 4, 5][:len(header)]]), 'x.xlsx')
+            read_iv_blocks(book([header, [1, 2, 3][:len(header)]]), 'x.xlsx')
+
+
+def missing_vg_book():
+    """Header Vg,Id,Ig | Id,Ig | Vg,Id,Ig: the middle block lost its Vg column (the real A5 #225 defect)."""
+    blocks = [sweep(a, lambda v: 1e-6 * (v + 6)) for a in (2, 3, 4)]
+    rows = [[' Vg', ' Id', ' Ig', ' Id', ' Ig', ' Vg', ' Id', ' Ig']]
+    for i in range(max(len(b) for b in blocks)):
+        first, middle, last = (b[i] if i < len(b) else (None, None, None) for b in blocks)
+        rows.append(list(first) + [middle[1], middle[2]] + list(last))
+    return book(rows)
+
+
+def test_a_block_missing_its_vg_column_is_unavailable_and_its_neighbours_stay_usable():
+    data = missing_vg_book()
+    layout = read_iv_blocks(data, 'iv.xlsx')
+    assert [b['status'] for b in layout['blocks']] == ['ok', 'invalid', 'ok']
+    assert layout['blocks'][1]['columns'] == [3, 4] and 'C3-C4' in layout['blocks'][1]['error']
+    assert layout['blocks'][2]['columns'] == [5, 6, 7] and layout['blocks'][2]['proposed_amplitude_v'] == 4
+    with pytest.raises(ValueError, match='not usable'):
+        iv_dataset(data, 'iv.xlsx', block=1, segment=1, branch='erase', sweep_amplitude_v=3, **meta(data))
+    ds = iv_dataset(data, 'iv.xlsx', block=2, segment=1, branch='erase', sweep_amplitude_v=4, **meta(data))
+    assert ds['block']['columns'] == [5, 6, 7] and ds['source_rows'][0] == 6
 
 
 def test_selection_guards_refuse_instead_of_correcting():
@@ -258,3 +280,23 @@ def test_real_retention_raw_sheet_is_read_with_independent_axes_and_a3_early_poi
     assert result['retention']['erase_fit']['n'] == 100 and result['retention']['erase_fit']['time_min_s'] > 10
     layout = read_retention_layout(data, '_26CMFM_A3_Retention.xlsx')
     assert any('RESET' in e['header'] for e in layout['embedded_source_headers'])
+
+
+A5_225 = ROOT / 'IV Sweep' / 'A5' / '_26CTFM_A5_vgid_sweep_225_15V.xlsx'
+
+
+@pytest.mark.skipif(not A5_225.is_file(), reason='private measurement folder 관련 자료 not present')
+def test_real_a5_225_has_twelve_usable_blocks_one_unavailable_block_and_a_usable_15v_block():
+    data = A5_225.read_bytes()
+    assert hashlib.sha256(data).hexdigest() == '9c1a85f1e16c6b0d69d919091d4c9e2f386cc5bdbaba1a46a2516eb2c3ab66a5'
+    layout = read_iv_blocks(data, A5_225.name)
+    statuses = [b['status'] for b in layout['blocks']]
+    assert layout['block_count'] == 14 and statuses.count('invalid') == 1 and statuses[12] == 'invalid'
+    assert layout['blocks'][12]['columns'] == [36, 37] and 'C36-C37' in layout['blocks'][12]['error']
+    assert [b['proposed_amplitude_v'] for b in layout['blocks'] if b['status'] == 'ok'] == [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
+    up = [s for s in layout['blocks'][13]['segments'] if s['direction'] == 'increasing'][0]
+    m = meta(data, A5_225.name)
+    m['condition_id'] = 'A5'
+    ds = iv_dataset(data, A5_225.name, block=13, segment=up['index'], branch='erase', sweep_amplitude_v=15, **m)
+    assert ds['block']['columns'] == [38, 39, 40]
+    assert analyze('iv', [ds], {})['tables']['vth'][0]['status'] in ('ok', 'no_crossing', 'ambiguous_crossing')

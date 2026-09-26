@@ -60,14 +60,31 @@ def _segments(vg, first_source_row):
 
 
 def _iv_columns(raw):
+    """Split the header into blocks: every complete ``Vg, Id, Ig`` triplet is a block; a run of cells that does not form
+    one (a header or column that is missing) becomes an unusable block with its exact columns and reason.
+
+    Nothing is re-aligned or reconstructed: an orphan block's missing column is not inferred from its neighbours."""
     header = _header_cells(raw[0])
-    if not header or len(header) % 3 or any(tuple(header[i:i + 3]) != IV_TRIPLET for i in range(0, len(header), 3)):
+    blocks, i = [], 0
+    while i < len(header):
+        if tuple(header[i:i + 3]) == IV_TRIPLET:
+            blocks.append(dict(columns=[i, i + 1, i + 2], error=None))
+            i += 3
+            continue
+        j = i
+        while j < len(header) and tuple(header[j:j + 3]) != IV_TRIPLET:
+            j += 1
+        cols = list(range(i, j))
+        blocks.append(dict(columns=cols, error='columns C%d-C%d are labelled %s, which is not a Vg/Id/Ig triplet; the block '
+                           'cannot be read without guessing which column is the gate voltage'
+                           % (cols[0], cols[-1], [header[c] for c in cols])))
+        i = j
+    if not any(b['error'] is None for b in blocks):
         raise ValueError('Not a repeated Vg/Id/Ig block layout: ' + str(header[:6]))
-    return len(header) // 3
+    return blocks
 
 
-def _block_series(raw, block):
-    columns = [3 * block, 3 * block + 1, 3 * block + 2]
+def _block_series(raw, columns, label):
     vg, idd, ig, ended = [], [], [], False
     for offset, row in enumerate(raw[1:]):
         cells = [row[c] if len(row) > c else None for c in columns]
@@ -75,25 +92,29 @@ def _block_series(raw, block):
             ended = True
             continue
         if ended:
-            raise ValueError(f'Block {block}: data resumes after a blank row at sheet row {offset + 2}')
+            raise ValueError(f'Block {label}: data resumes after a blank row at sheet row {offset + 2}')
         n = offset + 2
-        vg.append(_finite(cells[0], f'block {block} Vg row {n}'))
-        idd.append(_finite(cells[1], f'block {block} Id row {n}'))
-        ig.append(_finite(cells[2], f'block {block} Ig row {n}'))
+        vg.append(_finite(cells[0], f'block {label} Vg row {n}'))
+        idd.append(_finite(cells[1], f'block {label} Id row {n}'))
+        ig.append(_finite(cells[2], f'block {label} Ig row {n}'))
     if len(vg) < 2:
-        raise ValueError(f'Block {block} has fewer than two samples')
+        raise ValueError(f'Block {label} has fewer than two samples')
     return vg, idd, ig
 
 
 def read_iv_blocks(data: bytes, filename: str, sheet: str | None = None) -> dict:
     """Describe every Vg/Id/Ig block and its monotone Vg segments (no selection is made)."""
     raw, sheets, warnings, selected = _select_sheet(data, filename, sheet)
-    count = _iv_columns(raw)
+    split = _iv_columns(raw)
+    count = len(split)
     blocks = []
-    for block in range(count):
-        columns = [3 * block, 3 * block + 1, 3 * block + 2]
+    for block, entry in enumerate(split):
+        columns = entry['columns']
+        if entry['error']:
+            blocks.append(dict(index=block, columns=columns, status='invalid', error=entry['error']))
+            continue
         try:
-            vg, idd, _ig = _block_series(raw, block)
+            vg, idd, _ig = _block_series(raw, columns, block)
         except ValueError as exc:  # one damaged block must not hide the intact ones
             blocks.append(dict(index=block, columns=columns, status='invalid', error=str(exc)))
             continue
@@ -126,7 +147,7 @@ def iv_dataset(data: bytes, filename: str, *, block: int, segment: int, branch: 
     if not math.isclose(float(sweep_amplitude_v), info['proposed_amplitude_v'], abs_tol=1e-9):
         raise ValueError(f'sweep_amplitude_v {sweep_amplitude_v} does not match block {block} (max |Vg| = {info["proposed_amplitude_v"]})')
     raw = _select_sheet(data, filename, sheet)[0]
-    vg, idd, _ig = _block_series(raw, block)
+    vg, idd, _ig = _block_series(raw, info['columns'], block)
     lo, hi = seg['start_offset'], seg['end_offset']
     labels = dict(vgs_v=f'Vg[block {block}]', id_a=f'Id[block {block}]')
     rows = [{labels['vgs_v']: vg[i], labels['id_a']: idd[i]} for i in range(lo, hi + 1)]

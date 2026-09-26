@@ -1,3 +1,5 @@
+> **통합 마무리 (2026-09-26):** [실측 C2C·IV/Retention 연결과 통합 마무리](../docs/integration-finish-2026-09-26.md)를 먼저 읽으세요. 실측 C2C(A3)를 업로드→분석→서버 고정 provenance→시뮬레이터(Program 편차만, 승인 필요)까지 연결했고, 반복 블록 IV·독립 시간축 Retention 실측 파일 55개 중 54개를 읽습니다. 웹은 실제 브라우저로 확인했습니다. **NeuroSim PPA 실행은 이 머신에 엔진이 없어 여전히 blocked**(문서 4절).
+
 > **C2C 웹 입력·측정 화면 (2026-09-23 후속):** [구현과 검증 기록](../docs/c2c-web-input-2026-09-23.md). 시뮬레이터에 C2C 토글·프로파일별 상대 CV(%)·재기록 횟수를 연결했고(1.3.0), 측정 화면은 파일 이름/열 이름에서 조건 ID·방향·열·단위를 미리 채우며 LTP/LTD 쌍 집계와 실행 차단 사유를 표시한다. 실제 브라우저로 A1 업로드 → 분석 1020 states → 프로필 발행 → C2C on 실행까지 확인했다. 같은 날 확인한 **NeuroSim 정정: 엔진은 `/opt/ctfm-engines/neurosim`에 있고 실행된다 — 남은 차단 요인은 preset 값**이다. 실측 IV/Retention 파서는 원본 파일 부재로 여전히 미착수.
 
 > **최신 인수인계 (2026-09-23, 브랜치 `claude/adc-order-comparison`):** [개발 담당 인수인계](03_developer-handoff-2026-09-23.md)를 먼저 읽으세요. 06 일괄 백엔드 검증(측정 파이프라인 A1~A5 실제 재실행, ADC 순서 비교, 전체 pytest 322 passed)을 원본 보고서·evidence·diff와 대조해 확정했습니다. NeuroSim 엔진 실행, 실측 IV/Retention 연결, 05 프론트 마무리는 여전히 남아 있으며 이번 게시로 완료된 것은 아닙니다. 팀 공유용 요약은 [백엔드 일괄 검증 결과](../docs/verification-backend-batch-2026-09-23.md)를 참고하세요.

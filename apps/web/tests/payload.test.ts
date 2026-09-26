@@ -26,3 +26,14 @@ test('row bounds preserve original source rows and reject reversed range',()=>{c
 test('retention requires explicit source and read biases',()=>{const retention={...dataset,column_mapping:{time_s:'t',program_id_a:'p',erase_id_a:'e'},units:{time_s:'s',program_id_a:'A',erase_id_a:'A'},source_label:'Raw Data',read_vgs_v:0,vds_v:0.1};const r=buildAnalysis({kind:'retention',datasets:[retention],settings:{}});assert.equal(r.inputs[0].read_vgs_v,0);assert.equal(r.inputs[0].vds_v,0.1);assert.throws(()=>buildAnalysis({kind:'retention',datasets:[{...retention,read_vgs_v:''}],settings:{}}));});
 test('pulse requires direction and three distinct columns',()=>{const pulse={...dataset,column_mapping:{time_s:'t',id_a:'id',vgs_v:'vg'},units:{time_s:'ms',id_a:'uA',vgs_v:'V'},direction:'ltp'};const r=buildAnalysis({kind:'pulse_states',datasets:[pulse],settings:{}});assert.equal(r.inputs[0].direction,'ltp');assert.throws(()=>buildAnalysis({kind:'pulse_states',datasets:[{...pulse,column_mapping:{...pulse.column_mapping,time_s:'id'}}],settings:{}}));});
 test('fixed pulse and IV read biases are explicit in request metadata',()=>{const iv=buildAnalysis({kind:'iv',datasets:[dataset],settings:{}});assert.equal(iv.inputs[0].vds_v,0.1);assert.equal(iv.inputs[0].read_vgs_v,0);const pulse=buildAnalysis({kind:'pulse_states',datasets:[{...dataset,direction:'ltp',column_mapping:{time_s:'t',id_a:'id',vgs_v:'v'},units:{time_s:'s',id_a:'A',vgs_v:'V'}}],settings:{}});assert.equal(pulse.inputs[0].vds_v,0.1);assert.equal(pulse.inputs[0].read_vgs_v,0);});
+test('assumed_proxy PPA needs schema 1.4.0, the ADC, a built engine and a tile size the engine reports as supported; nothing is substituted',()=>{
+ const ppaCaps={...caps,engines:{...caps.engines,neurosim:{available:true}},hardware:{...caps.hardware,ppa_tile_sizes:[128],ppa_unsupported:{'64':'hierarchy refused','256':'hierarchy refused'},validated_combinations:[{tile_size:128,adc_bits:6,adc_order:'subtract_then_adc'},{tile_size:64,adc_bits:6,adc_order:'subtract_then_adc'}]}};
+ const on={...base,adc:true,tileSize:128,ppa:true};
+ const r=buildExperiment(on,[profile],ppaCaps);assert.equal(r.engines.ppa,'assumed_proxy');assert.equal(r.schema_version,'1.4.0');assert.equal(r.hardware.tile_size,128);assert.equal(r.hardware.preset_id,null);
+ assert.throws(()=>buildExperiment({...on,adc:false},[profile],ppaCaps),/ADC/);
+ assert.throws(()=>buildExperiment({...on,tileSize:64},[profile],ppaCaps),/hierarchy refused/);
+ assert.throws(()=>buildExperiment({...on},[profile],{...ppaCaps,hardware:{...ppaCaps.hardware,ppa_tile_sizes:[]}}),/지원/);
+ assert.throws(()=>buildExperiment(on,[profile],caps),/NeuroSim/);
+ assert.throws(()=>buildExperiment(on,[profile],{...ppaCaps,engines:{...ppaCaps.engines,neurosim:{available:false,reason:'not built'}}}),/not built/);
+ assert.equal(buildExperiment({...on,ppa:false},[profile],ppaCaps).engines.ppa,'off');
+});

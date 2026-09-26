@@ -30,7 +30,9 @@ import time
 import uuid
 from pathlib import Path
 
-CACHE_ROOT = Path(os.environ.get("CTFM_NEUROSIM_CACHE", "/opt/ctfm-engines/cache"))
+# Follows CTFM_ENGINE_ROOT when the engine lives outside /opt (e.g. a user-level install).
+CACHE_ROOT = Path(os.environ.get("CTFM_NEUROSIM_CACHE")
+                  or Path(os.environ.get("CTFM_ENGINE_ROOT", "/opt/ctfm-engines")) / "cache")
 PARAM_RELPATH = Path("Inference_pytorch/NeuroSIM/Param.cpp")
 BINARY_RELPATH = Path("Inference_pytorch/NeuroSIM/main")
 BUILD_COMMAND = ("make", "-C", "Inference_pytorch/NeuroSIM", "-j4")

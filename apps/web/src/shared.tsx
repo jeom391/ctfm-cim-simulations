@@ -16,7 +16,8 @@ export function PpaPanel({ppa}:{ppa?:PpaSummary|null}){
  const numeric:[string,number|null|undefined][]=[['면적 m²',ppa.area_m2],['에너지 J/추론',ppa.energy_j_per_inference],['지연 s/추론',ppa.latency_s_per_inference]];
  const coverage=ppa.coverage;const inventory=coverage?.inventory;
  return <div className="ppa-panel"><div className="result-title"><h4>PPA (면적·에너지·지연)</h4><Status value={ppa.status}/></div>
-  <p className="muted">측정 전도도를 적용한 선형 등가 회로의 조건부 비용 추정입니다. 실제 제작 CTFM 가속기의 성능이 아닙니다.</p>
+  <p className="muted">{ppa.label||'측정 전도도를 적용한 선형 등가 회로의 조건부 비용 추정입니다. 실제 제작 CTFM 가속기의 성능이 아닙니다.'}</p>
+  {ppa.model_status?<p className="muted">모델 상태 <code>{ppa.model_status}</code> · validated_for_ctfm {String(ppa.preset?.validated_for_ctfm??false)}{ppa.preset?.sub_array?` · 배열 ${ppa.preset.sub_array}`:''}</p>:null}
   <DataTable caption="미실행 값은 0이 아니라 —입니다" rows={[Object.fromEntries(numeric.map(([k,v])=>[k,v==null?null:v]))]}/>
   <Notices items={ppa.blocking_reasons?.length?ppa.blocking_reasons:undefined} title="PPA를 실행하지 못한 이유"/>
   <Notices items={ppa.incomplete_reasons?.length?ppa.incomplete_reasons:(ppa.blocking_reasons?undefined:ppa.reasons)} title="총계를 제공하지 않는 이유 · 실행 여부와 별개"/>

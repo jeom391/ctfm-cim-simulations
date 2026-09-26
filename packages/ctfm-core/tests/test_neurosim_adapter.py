@@ -201,6 +201,30 @@ class TopologyAndResultTests(unittest.TestCase):
             self.assertIn("segfault", reason)
         self.assertEqual(neurosim.topology_support(mnist, 256), (True, None))
 
+    def test_spec_08_one_column_per_weight_cannot_fit_the_engine_hierarchy(self):
+        """Chip.cpp needs 4 x subArray <= the widest layer in physical columns. With no bit slicing (spec 08 section 5)
+        mnist_mlp_v1 is 128 columns wide, so 64/128/256 are refused with the engine's own rule -- measured to SIGSEGV on
+        this build (evidence/10/neurosim-proxy-tile-probe.json) -- and 32 would satisfy the rule."""
+        mnist = [(784, 128), (128, 10)]
+        for size in (64, 128, 256):
+            supported, reason = neurosim.topology_support(mnist, size, 1)
+            self.assertFalse(supported, size)
+            self.assertIn("chip hierarchy", reason)
+            self.assertIn("one column per weight", reason)
+        self.assertIsNone(neurosim.hierarchy_problem(mnist, 32, 1))
+        # The stock bit-sliced circuit has 8 columns per weight, which is a different circuit and does fit.
+        self.assertIsNone(neurosim.hierarchy_problem(mnist, 128, 8))
+        self.assertEqual(neurosim.topology_support(mnist, 256, 8), (True, None))
+
+    def test_ppa_result_refuses_before_running_when_the_hierarchy_cannot_fit(self):
+        from ctfm.adapters.proxy_preset import proxy_preset
+        result = neurosim.ppa_result([(784, 128), (128, 10)], preset=proxy_preset(256),
+                                     hardware=dict(tile_size=256, adc_bits=6, adc_order="subtract_then_adc"))
+        self.assertEqual(result["status"], "unsupported")
+        self.assertTrue(any("chip hierarchy" in r for r in result["blocking_reasons"]))
+        self.assertIsNone(result["area_m2"])
+        self.assertEqual(result["preset"]["model_status"], "assumed_proxy")
+
     def test_single_wide_layer_is_allowed(self):
         self.assertEqual(neurosim.topology_support([(784, 128)], 64), (True, None))
 

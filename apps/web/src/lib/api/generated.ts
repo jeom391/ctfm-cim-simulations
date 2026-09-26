@@ -633,8 +633,11 @@ export interface components {
             engines: {
                 /** @enum {unknown} */
                 accuracy: "torch_reference" | "aihwkit_ideal";
-                /** @constant */
-                ppa: "off";
+                /**
+                 * @description off (default) or assumed_proxy: NeuroSim conditional cost of a virtual analog circuit that uses the measured conductances (docs/spec/08). Schema 1.4.0 only, ADC on. Not a CTFM chip result; validated_for_ctfm stays false.
+                 * @enum {unknown}
+                 */
+                ppa: "off" | "assumed_proxy";
             };
             hardware: {
                 /** @enum {unknown} */
@@ -683,7 +686,7 @@ export interface components {
             schema_version: "1.2.0" | "1.3.0" | "1.4.0";
             seed: number;
             years: number[];
-        } & (unknown & unknown & unknown & unknown & unknown & unknown & unknown);
+        } & (unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown);
         /** ExperimentResult */
         ExperimentResult: {
             /** Artifacts */
@@ -840,6 +843,18 @@ export interface components {
             adc_bits: number[];
             /** Adc Orders */
             adc_orders: string[];
+            /**
+             * Ppa Tile Sizes
+             * @default []
+             */
+            ppa_tile_sizes: number[];
+            /**
+             * Ppa Unsupported
+             * @default {}
+             */
+            ppa_unsupported: {
+                [key: string]: string;
+            };
             /** Range Policies */
             range_policies: string[];
             /** Tile Sizes */
@@ -1121,6 +1136,8 @@ export interface components {
              * @enum {string}
              */
             status: "available" | "unavailable";
+            /** Time Axes */
+            time_axes?: "per_direction" | null;
             /** Vds V */
             vds_v: number | null;
         };

@@ -4,7 +4,7 @@ export type Profile = components['schemas']['ProfileManifest'];
 export type Row = Record<string, unknown>;
 export type Kind = 'iv'|'d2d'|'retention'|'pulse_states'|'c2c_detrended';
 export interface Availability { available:boolean; version?:string|null; reason?:string|null }
-export interface Capabilities { engines:Record<string,Availability>; effects?:Record<string,Availability|boolean>; hardware?:{tile_sizes?:number[];adc_bits?:number[];adc_orders?:string[];validated_combinations?:{tile_size:number;adc_bits:number;adc_order?:string;engine?:string;range_policy?:string}[]}; models?:unknown; [key:string]:unknown }
+export interface Capabilities { engines:Record<string,Availability>; effects?:Record<string,Availability|boolean>; hardware?:{ppa_tile_sizes?:number[];ppa_unsupported?:Record<string,string>;tile_sizes?:number[];adc_bits?:number[];adc_orders?:string[];validated_combinations?:{tile_size:number;adc_bits:number;adc_order?:string;engine?:string;range_policy?:string}[]}; models?:unknown; [key:string]:unknown }
 export interface Artifact {id:string;filename:string;kind:string;media_type?:string;download_url?:string;sha256?:string;size_bytes?:number}
 export interface C2cBranch {status:string;blocked_reason?:string|null;primary:{relative_residual_std_percent:number|null;residual_lag1_correlation:number|null};degree4_vs_degree3_change_percent:number|null;raw_statistics:{relative_std_percent:number|null}}
 export interface Analysis {program?:C2cBranch;erase?:C2cBranch;analysis_result_sha256?:string;id?:string;analysis_id?:string;job_id?:string;request?:{kind?:Kind;inputs?:{condition_id?:string}[]};kind:Kind;status:string;condition_id?:string;states?:Row[];summaries?:Row;tables?:Record<string,Row[]>;exclusions?:unknown[];warnings?:unknown[];artifacts?:Artifact[];settings?:Row;[key:string]:unknown}
@@ -15,7 +15,8 @@ export interface PpaSummary {status:string;reasons?:string[];reason?:string|null
  schedule_check?:{status?:string;detail?:string|null;assumed_read_window_s?:number|null}|null;
  area_m2?:number|null;energy_j_per_inference?:number|null;latency_s_per_inference?:number|null;
  model_mismatches?:{id:string;detail:string}[];
- preset?:{preset_id?:string|null;status?:string;problems?:string[]}|null;
+ requested?:string|null;model_status?:string|null;label?:string|null;
+ preset?:{preset_id?:string|null;status?:string;problems?:string[];model_status?:string|null;validated_for_ctfm?:boolean;sub_array?:number;basis?:Record<string,string>}|null;
  preset_artifact?:{filename?:string;sha256?:string}|null;
  engine?:{available?:boolean;commit?:string|null;reason?:string|null}|null}
 export interface Job {id?:string;job_id?:string;state:string;stage?:string;progress?:number|null;completed?:number;total?:number;cancel_requested?:boolean;error?:unknown}
@@ -28,7 +29,7 @@ export interface UploadedFile {file_id:string;name:string;sha256:string;size_byt
 export interface Preview {file_id:string;sheets:string[];sheet:string|null;columns:string[];rows:Row[];source_rows:number[];warnings:unknown[]}
 export interface Dataset {key?:string;file_id:string;filename?:string;sheet:string|null;column_mapping:Record<string,string>;units:Record<string,string>;device_id:string;condition_id:string;branch?:string;sweep_amplitude_v?:number|string;direction?:string;source_label?:string;read_vgs_v?:number|string;vds_v?:number|string;row_start?:number|string;row_end?:number|string;confirmed:boolean;preview?:Preview;conditions?:Record<string,string>;layoutKind?:'iv_block'|'retention_columns';ivLayout?:IvLayout;retentionLayout?:RetentionLayout;block?:string;segment?:string;retentionColumns?:Record<string,string>}
 export type AdcOrder = 'subtract_then_adc'|'adc_then_subtract';
-export interface SimulationForm {profileKeys:string[];pools:string[];mappings:string[];d2d:boolean;retention:boolean;adc:boolean;c2c:boolean;nReprogram:number;c2cCv:Record<string,string>;c2cSource?:Record<string,'manual'|'measured'>;c2cAnalysis?:Record<string,string>;c2cApproved?:Record<string,boolean>;c2cCross?:Record<string,boolean>;arrays:number;years:string;seed:number;tileSize:number;adcBits:number;adcOrder:AdcOrder;engine:string;checkpoint:string}
+export interface SimulationForm {profileKeys:string[];pools:string[];mappings:string[];d2d:boolean;retention:boolean;adc:boolean;c2c:boolean;nReprogram:number;c2cCv:Record<string,string>;c2cSource?:Record<string,'manual'|'measured'>;c2cAnalysis?:Record<string,string>;c2cApproved?:Record<string,boolean>;c2cCross?:Record<string,boolean>;arrays:number;years:string;seed:number;tileSize:number;adcBits:number;adcOrder:AdcOrder;engine:string;checkpoint:string;ppa?:boolean}
 export class ApiError extends Error { code?:string;field?:string;requestId?:string; constructor(message:string,code?:string,field?:string,requestId?:string){super(message);this.code=code;this.field=field;this.requestId=requestId;} }
 export async function request<T>(path:string,options:RequestInit={}):Promise<T>{
  let response:Response;

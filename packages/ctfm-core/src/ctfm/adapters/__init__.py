@@ -4,20 +4,19 @@ from importlib.metadata import version, PackageNotFoundError
 
 
 def _neurosim_capability():
-    """Report the engine build separately from the CTFM preset decision.
+    """The engine build state, reported separately from what the run may claim.
 
-    ``available`` stays False while no validated CTFM equivalent-circuit preset
-    exists, but a built binary is still reported, so "the engine is missing" and
-    "the preset is missing" are never confused for one another.
+    ``available`` means the pinned engine is built in this process's environment, so an ``assumed_proxy`` request can
+    execute. It never means the result is validated for CTFM: every result carries model_status=assumed_proxy.
     """
     from ctfm.adapters.neurosim import engine_status
     status = engine_status()
-    reason = 'No validated CTFM equivalent-circuit preset; first-release PPA is off'
-    # Carried in reason rather than a new field, so the published Capability
-    # contract is unchanged while the two causes stay distinguishable.
-    reason += ('. Engine binary built at commit ' + str(status['commit'])
-               if status['available'] else '. Engine not built: ' + str(status['reason']))
-    return {'available': False, 'version': None, 'reason': reason}
+    if not status['available']:
+        return {'available': False, 'version': None,
+                'reason': 'NeuroSim engine not usable in this environment: ' + str(status['reason'])}
+    return {'available': True, 'version': status['commit'], 'reason': None,
+            'config': ('assumed_proxy per docs/spec/08: conditional cost of a virtual analog circuit using measured '
+                       'conductances; validated_for_ctfm=false; partial results (missing components listed, totals null)')}
 
 
 @lru_cache(maxsize=1)

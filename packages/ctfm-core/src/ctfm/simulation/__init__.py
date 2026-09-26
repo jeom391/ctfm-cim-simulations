@@ -78,7 +78,12 @@ def _validate(config,profiles):
     if effects.get('c2c'):
         if schema_version not in ('1.3.0','1.4.0'):raise ValueError('C2C requires schema_version 1.3.0 or 1.4.0')
     elif n_reprogram!=1:raise ValueError('C2C off requires n_reprogram=1 (a single write)')
-    if config['engines'].get('ppa')!='off' or hardware.get('preset_id') is not None:raise ValueError('PPA is unsupported without a validated CTFM preset')
+    ppa_mode=config['engines'].get('ppa')
+    if ppa_mode not in ('off','assumed_proxy'):raise ValueError('engines.ppa must be off or assumed_proxy')
+    if hardware.get('preset_id') is not None:raise ValueError('The assumed_proxy preset is fixed by spec 08; preset_id is not a request input')
+    if ppa_mode=='assumed_proxy':
+        if schema_version!='1.4.0':raise ValueError('assumed_proxy PPA requires schema_version 1.4.0')
+        if not effects.get('adc'):raise ValueError('PPA needs the ADC on: an ADC-off cost is not a removed-converter cost (spec 08 section 6)')
     engine=config['engines']['accuracy'];caps=engine_capabilities()
     if engine not in ('torch_reference','aihwkit_ideal') or not caps[engine]['available']:raise ValueError('Requested accuracy engine is unavailable: '+str(caps.get(engine)))
     if not config['pools'] or len(set(config['pools']))!=len(config['pools']) or any(p not in POOL_ORDER for p in config['pools']):raise ValueError('Invalid pools')
@@ -390,7 +395,9 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                                            input_bits=8,synapse_bit=8,profile_states=ppa_source['states'])
         except ValueError as exc:
             warnings.append('NeuroSim engine inputs could not be assembled ('+type(exc).__name__+')')
-    _decision=_ppa_result(MNIST_MLP_V1_LAYERS,inputs=ppa_inputs,out_dir=output_dir,
+    from ctfm.adapters.proxy_preset import proxy_preset
+    ppa_preset=proxy_preset(hardware['tile_size']) if config['engines'].get('ppa')=='assumed_proxy' else None
+    _decision=_ppa_result(MNIST_MLP_V1_LAYERS,preset=ppa_preset,inputs=ppa_inputs,out_dir=output_dir,
                           hardware={**hardware,'input_bits':INPUT_BITS} if effects['adc'] else None)
     if ppa_source is not None:_decision['candidate']=ppa_source['identity']
     # Keep the list as well as the joined text: individual reasons contain their
@@ -400,7 +407,8 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
              area_m2=_decision['area_m2'],energy_j_per_inference=_decision['energy_j_per_inference'],
              latency_s_per_inference=_decision['latency_s_per_inference'],
              model_mismatches=_decision['model_mismatches'],raw_output=_decision['raw_output'],
-             engine=_decision['engine'],preset=_decision['preset'],
+             engine=_decision['engine'],preset=_decision['preset'],requested=config['engines'].get('ppa'),
+             model_status=(_decision['preset'] or {}).get('model_status'),label=(_decision['preset'] or {}).get('label'),
              preset_artifact=_decision.get('preset_artifact'),candidate=_decision.get('candidate'),
              coverage=_decision.get('coverage'),schedule_check=_decision.get('schedule_check'),
              engine_totals=_decision.get('engine_totals'),build=_decision.get('build'),

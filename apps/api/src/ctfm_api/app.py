@@ -45,6 +45,15 @@ def capabilities():
     torch_available = engines["torch_reference"]["available"]
     properties = SCHEMA["properties"]
     controls = SCHEMA["allOf"][2]["then"]["properties"]["hardware"]["properties"]
+    ppa_tiles, ppa_unsupported = [], {}
+    if engines["neurosim"]["available"]:
+        from ctfm.adapters.neurosim import topology_support
+        from ctfm.adapters.proxy_preset import proxy_preset
+        from ctfm.simulation import MNIST_MLP_V1_LAYERS
+        for tile in controls["tile_size"]["enum"]:
+            preset = proxy_preset(tile)
+            ok, why = topology_support(MNIST_MLP_V1_LAYERS, tile, -(-preset["synapse_bit"] // preset["cell_bit"]))
+            (ppa_tiles.append(tile) if ok else ppa_unsupported.__setitem__(str(tile), why))
     effect = lambda available, reason: Capability(available=available, version=None, reason=None if available else reason)
     return Capabilities(
         schema_version=SCHEMA_VERSION, profile_schema_version="1.0.0",
@@ -65,6 +74,7 @@ def capabilities():
             # Both ADC orders are compared against the independent NumPy model in
             # the same sweep, so the order is part of what is advertised: a caller
             # must not assume a verified bit/tile pair is verified in both orders.
+            ppa_tile_sizes=ppa_tiles, ppa_unsupported=ppa_unsupported,
             validated_combinations=[{"tile_size": t, "adc_bits": b, "adc_order": o, "engine": name}
                                     for name in ("torch_reference", "aihwkit_ideal") if engines[name]["available"]
                                     for t in (64,128,256) for b in range(3,9)
@@ -73,7 +83,7 @@ def capabilities():
                 "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"],
                 "max_n_reprogram": properties["n_reprogram"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
         supported_file_formats=["csv","xlsx"],
-        warnings=["PPA: no validated CTFM equivalent circuit preset."])
+        warnings=["PPA is an assumed_proxy conditional estimate, never a validated CTFM chip result."])
 
 def create_app(storage_root=None):
     app = FastAPI(title="CTFM measurement and CIM API", version="1.2.0",
@@ -333,6 +343,18 @@ def create_app(storage_root=None):
                 fit = record["manifest"]["retention"]["program_fit"]
                 if fit["a"] + fit["b"] <= 0:
                     raise APIError(422,"unavailable_measurement","Retention reference current must be positive.","effects.retention")
+        if config["engines"]["ppa"] == "assumed_proxy":
+            from ctfm.adapters.neurosim import topology_support
+            from ctfm.simulation import MNIST_MLP_V1_LAYERS
+            neurosim = capabilities().engines["neurosim"]
+            if not neurosim.available:
+                raise APIError(422,"unavailable_engine","The NeuroSim engine is not usable in this environment.","engines.ppa",{"reason":neurosim.reason})
+            from ctfm.adapters.proxy_preset import proxy_preset
+            preset = proxy_preset(config["hardware"]["tile_size"])
+            supported, reason = topology_support(MNIST_MLP_V1_LAYERS, config["hardware"]["tile_size"],
+                                                 -(-preset["synapse_bit"] // preset["cell_bit"]))
+            if not supported:
+                raise APIError(422,"unsupported_ppa_configuration",reason,"hardware.tile_size",{"tile_size":config["hardware"]["tile_size"]})
         engine = config["engines"]["accuracy"]
         capability = capabilities().engines[engine]
         if not capability.available:

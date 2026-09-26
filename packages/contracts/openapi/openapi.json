@@ -1071,6 +1071,61 @@
                 }
               }
             }
+          },
+          {
+            "description": "PPA exists only in 1.4.0 and only with the ADC on; 1.2.0 and 1.3.0 keep engines.ppa=off.",
+            "if": {
+              "properties": {
+                "schema_version": {
+                  "enum": [
+                    "1.2.0",
+                    "1.3.0"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "engines": {
+                  "properties": {
+                    "ppa": {
+                      "const": "off"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "description": "assumed_proxy PPA prices a converter, so the ADC must be on.",
+            "if": {
+              "properties": {
+                "engines": {
+                  "properties": {
+                    "ppa": {
+                      "const": "assumed_proxy"
+                    }
+                  },
+                  "required": [
+                    "ppa"
+                  ]
+                }
+              },
+              "required": [
+                "engines"
+              ]
+            },
+            "then": {
+              "properties": {
+                "effects": {
+                  "properties": {
+                    "adc": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error. v1.2.0 requests keep their original meaning (C2C unavailable, single write). v1.3.0 adds an optional manual-assumption C2C model per docs/completion-plan-2026-09-21.md P2: relative CV in percent per referenced profile revision, plus 1-100 reprogram iterations; off (the default reading of a 1.2.0 request) is unchanged.",
@@ -1121,7 +1176,11 @@
                 ]
               },
               "ppa": {
-                "const": "off"
+                "description": "off (default) or assumed_proxy: NeuroSim conditional cost of a virtual analog circuit that uses the measured conductances (docs/spec/08). Schema 1.4.0 only, ADC on. Not a CTFM chip result; validated_for_ctfm stays false.",
+                "enum": [
+                  "off",
+                  "assumed_proxy"
+                ]
               }
             },
             "required": [
@@ -1750,6 +1809,22 @@
             },
             "title": "Adc Orders",
             "type": "array"
+          },
+          "ppa_tile_sizes": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Ppa Tile Sizes",
+            "type": "array"
+          },
+          "ppa_unsupported": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Ppa Unsupported",
+            "type": "object"
           },
           "range_policies": {
             "items": {
@@ -2522,6 +2597,18 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "time_axes": {
+            "anyOf": [
+              {
+                "const": "per_direction",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Axes"
           },
           "vds_v": {
             "anyOf": [

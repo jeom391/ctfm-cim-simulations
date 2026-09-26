@@ -54,6 +54,8 @@ export function buildExperiment(f:SimulationForm,profiles:Profile[],caps:Capabil
  check(!f.retention||parts.every(Boolean),'연수 목록에 빈 항목을 넣을 수 없습니다.');
  check(years.length<=10&&years.includes(0)&&new Set(years).size===years.length&&years.every(n=>Number.isFinite(n)&&n>=0&&n<=100),'연수는 0을 포함하고 중복 없는 0~100 값이어야 하며 최대 10개입니다.');
  check(!f.adc||available(caps.effects?.adc),'현재 엔진 환경에서 ADC를 지원하지 않습니다.');
+ // assumed_proxy prices the virtual analog circuit, so it needs the ADC, the engine build and a tile size the engine has completed.
+ if(f.ppa){check(f.adc,'PPA 비용 추정은 ADC를 켠 요청에서만 실행됩니다. ADC off의 비용은 ADC를 제거한 회로 비용이 아닙니다.');const ne=caps.engines?.neurosim;check(ne?.available,'NeuroSim 엔진을 이 실행 환경에서 사용할 수 없습니다'+(ne?.reason?`: ${ne.reason}`:'.'));check(caps.hardware?.ppa_tile_sizes?.includes(f.tileSize),`PPA 비용 추정은 배열 크기 ${f.tileSize}에서 지원되지 않습니다: ${caps.hardware?.ppa_unsupported?.[String(f.tileSize)]??'엔진이 이 크기를 지원한다고 보고하지 않았습니다.'}`);}
  // The array is physical, so its size is part of every request, ADC or not.
  check([64,128,256].includes(f.tileSize),'배열 크기는 64/128/256이어야 합니다.');
  if(f.adc){check(integer(f.adcBits,3,8),'ADC는 3~8 bit여야 합니다.');check(['subtract_then_adc','adc_then_subtract'].includes(f.adcOrder),'두 ADC 순서 중 하나를 선택하세요.');const pairs=caps.hardware?.validated_combinations;if(pairs)check(pairs.some(p=>p.tile_size===f.tileSize&&p.adc_bits===f.adcBits&&(!p.engine||p.engine===f.engine)&&(!p.adc_order||p.adc_order===f.adcOrder)),'검증되지 않은 ADC·타일·순서·엔진 조합입니다.');}
@@ -76,7 +78,7 @@ export function buildExperiment(f:SimulationForm,profiles:Profile[],caps:Capabil
  const refs=chosen.map(refFor);const anyMeasured=chosen.some(measuredOf);
  check(chosen.length*f.pools.length*f.mappings.length*arrays*nReprogram*years.length<=2000,'한 요청의 최대 실행 수는 2,000입니다.');
  const checkpoint=f.checkpoint.trim();check(!checkpoint||/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(checkpoint),'checkpoint ID는 UUID여야 합니다.');
- return {schema_version:f.c2c?(anyMeasured?'1.4.0':'1.3.0'):'1.2.0',profile_refs:refs as ExperimentRequest['profile_refs'],model_id:'mnist_mlp_v1',checkpoint_id:checkpoint||null,pools:f.pools as ExperimentRequest['pools'],mappings:f.mappings as ExperimentRequest['mappings'],effects:{d2d:f.d2d,retention:f.retention,adc:f.adc,c2c:f.c2c},arrays,n_reprogram:nReprogram,years,seed:f.seed,hardware:{tile_size:f.tileSize as 64|128|256,adc_bits:f.adc?f.adcBits as 3|4|5|6|7|8:null,adc_order:f.adc?f.adcOrder:null,range_policy:f.adc?'validation_max_abs':null,preset_id:null},engines:{accuracy:f.engine as 'torch_reference'|'aihwkit_ideal',ppa:'off'}};
+ return {schema_version:f.ppa||(f.c2c&&anyMeasured)?'1.4.0':f.c2c?'1.3.0':'1.2.0',profile_refs:refs as ExperimentRequest['profile_refs'],model_id:'mnist_mlp_v1',checkpoint_id:checkpoint||null,pools:f.pools as ExperimentRequest['pools'],mappings:f.mappings as ExperimentRequest['mappings'],effects:{d2d:f.d2d,retention:f.retention,adc:f.adc,c2c:f.c2c},arrays,n_reprogram:nReprogram,years,seed:f.seed,hardware:{tile_size:f.tileSize as 64|128|256,adc_bits:f.adc?f.adcBits as 3|4|5|6|7|8:null,adc_order:f.adc?f.adcOrder:null,range_policy:f.adc?'validation_max_abs':null,preset_id:null},engines:{accuracy:f.engine as 'torch_reference'|'aihwkit_ideal',ppa:f.ppa?'assumed_proxy':'off'}};
 }
 function ivBlockInput(d:Dataset,prefix:string){
  const layout=d.ivLayout;check(layout&&d.sheet,prefix+'시트와 블록 구조가 필요합니다.');

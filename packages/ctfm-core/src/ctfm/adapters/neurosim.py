@@ -430,9 +430,21 @@ def preset_decision(preset=None, preset_path=None):
                 or not math.isfinite(value) or value <= 0:
             decision["problems"].append(field + " must be a positive finite SI value")
     decision["problems"].extend(read_window_problems(preset))
-    if not preset.get("validated_for_ctfm"):
+    status = preset.get("model_status")
+    if status == "assumed_proxy":
+        # docs/spec/08 section 3: the admitted model is a conditional estimate, labelled as such.
+        # validated_for_ctfm is never used as an approval flag and may not be claimed here.
+        if preset.get("validated_for_ctfm"):
+            decision["problems"].append("An assumed_proxy preset must not claim validated_for_ctfm")
+        if not preset.get("assumed_equivalent_circuit"):
+            decision["problems"].append("An assumed_proxy preset must declare assumed_equivalent_circuit")
+        decision["model_status"] = "assumed_proxy"
+        decision["label"] = preset.get("label")
+    elif not preset.get("validated_for_ctfm"):
         decision["problems"].append("Preset is not marked validated_for_ctfm; an unvalidated "
                                     "preset may not produce CTFM PPA numbers")
+    else:
+        decision["model_status"] = "validated_for_ctfm"
     if not decision["problems"]:
         decision["status"] = "supported"
     return decision
@@ -663,7 +675,29 @@ def write_network_csv(layer_dims, path):
     return rows
 
 
-def topology_support(layer_dims, sub_array=None):
+def hierarchy_problem(layer_dims, sub_array, columns_per_synapse):
+    """The engine's own chip-hierarchy rule (Chip.cpp ChipFloorPlan, conventional mapping), or None.
+
+    NeuroSim sizes its tile from the widest layer -- output features x physical columns per weight, rounded up to a
+    power of two -- and requires that to be at least 4 x subArray. Otherwise it prints "SubArray Size is too large"
+    and then dereferences an empty floorplan (SIGSEGV). docs/spec/08 section 5 fixes one physical column per weight
+    and plane (no bit slicing), so the widest layer of mnist_mlp_v1 is 128 columns and the largest admissible
+    subArray is 32; the stock 8-column bit-sliced configuration (1024 columns) is a different circuit.
+    """
+    if not layer_dims or not columns_per_synapse:
+        return None
+    widest = max(1 << max(0, (int(out)*int(columns_per_synapse) - 1).bit_length()) for _, out in layer_dims)
+    if widest >= 4*int(sub_array):
+        return None
+    return ("NeuroSim V1.4 refuses this chip hierarchy: its tile is sized from the widest layer (%d physical columns "
+            "at %d column(s) per weight) and must be at least 4 x subArray (%d for subArray %d). The spec 08 preset "
+            "keeps one column per weight and plane, so the engine cannot cost this model at this array size; the engine "
+            "exits with SIGSEGV. Measured on this build for subArray 64, 128 and 256 (evidence/10/neurosim-proxy-tile-probe.json); "
+            "no other array size or bit-sliced substitute is used instead."
+            % (widest, int(columns_per_synapse), 4*int(sub_array), int(sub_array)))
+
+
+def topology_support(layer_dims, sub_array=None, columns_per_synapse=None):
     """Refuse (shape, subArray) pairs measured to crash; let anything else try.
 
     An unmeasured pair still runs: run_engine() spawns the binary in its own
@@ -677,6 +711,10 @@ def topology_support(layer_dims, sub_array=None):
     it crashed.
     """
     shape = tuple((int(a), int(b)) for a, b in layer_dims)
+    if sub_array is not None and columns_per_synapse:
+        problem = hierarchy_problem(shape, sub_array, columns_per_synapse)
+        if problem:
+            return False, problem
     if sub_array is not None:
         known = MEASURED_TOPOLOGIES.get((shape, int(sub_array)))
         if known is False:
@@ -909,7 +947,10 @@ def ppa_result(layer_dims, *, preset=None, preset_path=None, root=None, inputs=N
     engine = engine_status(root)
     decision = preset_decision(preset, preset_path)
     sub_array = (hardware or {}).get("tile_size")
-    supported, reason = topology_support(layer_dims, sub_array)
+    per_weight = None
+    if preset and preset.get("synapse_bit") and preset.get("cell_bit"):
+        per_weight = -(-int(preset["synapse_bit"]) // int(preset["cell_bit"]))
+    supported, reason = topology_support(layer_dims, sub_array, per_weight)
     # Two different kinds of "no": a blocking reason means the engine must not be
     # run at all, while an incomplete reason means the run is legitimate but its
     # numbers do not add up to a chip total. Collapsing them would either publish

@@ -1,3 +1,5 @@
+> **후속(작업 10):** A5 #225는 해당 블록만 사용 불가로 표시하고 나머지를 읽도록 해결됐고(IV 50/50 읽힘), NeuroSim 4절의 blocked 사유는 “엔진 미확보”에서 “엔진이 spec 08 조건에서 이 모델을 실행하지 못함(측정)”으로 바뀌었습니다. [남은 실측 연결과 NeuroSim 조건부 PPA](remaining-integration-and-ppa-2026-09-26.md) 참조.
+
 # 실측 C2C·IV/Retention 연결과 통합 마무리 (2026-09-26)
 
 기준: `claude/adc-order-comparison`, 이 작업의 시작 HEAD `453619d`. 결정 근거는 [C2C 추세 보정 결정](c2c-detrending-decision-2026-09-26.md), 분석 코어는 [c2c-measurement-analysis-2026-09-26.md](c2c-measurement-analysis-2026-09-26.md). 상태 표기: **implemented** 코드 존재 · **tested-synthetic** 합성 입력 자동 테스트 · **tested-measured** 실제 측정 파일 실행 · **tested-browser** 실제 브라우저 조작 · **partial** · **blocked**.

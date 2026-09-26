@@ -34,6 +34,9 @@ def main():
     parser.add_argument('--condition', default='A3')
     parser.add_argument('--d2d-files', default='227,228', help='development-verification IV file numbers (not a research selection)')
     parser.add_argument('--timeout', type=int, default=3600)
+    parser.add_argument('--ppa', action='store_true', help='also run the two ADC orders with engines.ppa=assumed_proxy on the same checkpoint (tile 64)')
+    parser.add_argument('--only-ppa', action='store_true', help='skip the accuracy-only experiments (needs --ppa)')
+    parser.add_argument('--adc-bits', type=int, default=5)
     args = parser.parse_args()
     root, cond = Path(args.root), args.condition
     manifest = json.loads((mw.DATA / 'manifest.json').read_text(encoding='utf-8'))['files']
@@ -174,12 +177,32 @@ def main():
                 c2c=result['effective_config']['candidates'][0].get('c2c'), downloads=downloads)
             return result
 
-        run('baseline_effects_off', request())
-        run('retention_years_0_1_10', request(retention=True, years=(0, 1, 10)))
-        run('d2d_3_arrays', request(d2d=True, arrays=3))
-        if c2c_analysis:
-            run('retention_d2d_measured_c2c_same_condition', request(retention=True, years=(0, 1), d2d=True, arrays=2, n_reprogram=2, c2c=dict(
-                source='measured_detrended', analysis_id=c2c_analysis['analysis_id'], approved_assumption=True)))
+        if not args.only_ppa:
+            run('baseline_effects_off', request())
+            run('retention_years_0_1_10', request(retention=True, years=(0, 1, 10)))
+            run('d2d_3_arrays', request(d2d=True, arrays=3))
+            if c2c_analysis:
+                run('retention_d2d_measured_c2c_same_condition', request(retention=True, years=(0, 1), d2d=True, arrays=2, n_reprogram=2, c2c=dict(
+                    source='measured_detrended', analysis_id=c2c_analysis['analysis_id'], approved_assumption=True)))
+        if args.ppa:
+            # Same profile, same checkpoint, same request except the ADC order: accuracy and cost each report what they ran with.
+            for order in ('adc_then_subtract', 'subtract_then_adc'):
+                body = request()
+                body['schema_version'] = '1.4.0'
+                body['effects']['adc'] = True
+                body['hardware'] = dict(tile_size=64, adc_bits=args.adc_bits, adc_order=order, range_policy='validation_max_abs', preset_id=None)
+                body['engines'] = dict(accuracy='torch_reference', ppa='assumed_proxy')
+                result = run('ppa_' + order, body)
+                entry = report['experiments']['ppa_' + order]
+                entry['requested_hardware'] = result['requested_config']['hardware']
+                entry['requested_engines'] = result['requested_config']['engines']
+                entry['resolved_hardware'] = (result.get('resolved_config') or {}).get('hardware')
+                entry['effective_hardware'] = [c.get('hardware') for c in result['effective_config']['candidates']]
+                entry['effective_ppa'] = result['effective_config'].get('ppa')
+                entry['ppa'] = {k: v for k, v in result['ppa'].items() if k not in ('raw_output',)}
+                entry['ppa_artifacts'] = [a['filename'] for a in result['artifacts'] if a['filename'].startswith('ppa-') or 'neurosim' in a['filename']]
+                entry['accuracy_all'] = [x['accuracy'] for x in result['runs'] if x['kind'] == 'ALL']
+                entry['adc_bounds'] = [c.get('hardware', {}).get('bounds') for c in result['effective_config']['candidates']]
     Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False, default=str), encoding='utf-8')
     for name, e in report['experiments'].items():
         print(name, e['status'], e['summary'], [(x['years'], x['array'], x['reprogram'], x['accuracy']) for x in e['runs']])

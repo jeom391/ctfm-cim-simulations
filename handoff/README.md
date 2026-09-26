@@ -1,3 +1,5 @@
+> **PPA 모델 정합 (2026-09-26, 작업 12):** [문서](../docs/ppa-model-alignment-2026-09-26.md)를 먼저 읽으세요. mnist_mlp_v1 tile 64에서 실제 G+/G− 전달·unsigned 8 bit 입력·두 plane·명세 타일링 배치를 엔진 패치 0002로 연결했습니다. 결과는 **가정한 회로의 부분 비용 평가**이며 총계는 null(완전한 PPA 아님)입니다. A3 풀은 가상 셀 footprint 규칙으로 비용 평가가 실패하며(정확도는 정상) 이는 CTFM 소자 판정이 아닙니다. 128/256 PPA, 미산정 블록(ADC 범위 스케일링, bias, 아날로그 차감, 부호 감지)과 연구용 D2D 소자 쌍은 남은 결정입니다.
+
 > **NeuroSIM 실패 원인·엔진 수정 (2026-09-26, 작업 11):** [문서](../docs/neurosim-engine-fix-2026-09-26.md)를 먼저 읽으세요. 작업 10의 “4×subArray 규칙” 설명은 정정됐고, 타일 분할 결함을 격리 엔진 패치(`engine-patches/neurosim/`)로 고쳐 mnist_mlp_v1이 tile 64에서 실행됩니다(`assumed_proxy`, partial, 총계 null). tile 128/256은 엔진의 PE 최소 크기 제약으로 계속 거부됩니다.
 
 > **남은 실측 연결·NeuroSim 조건부 PPA (2026-09-26, 작업 10):** [문서](../docs/remaining-integration-and-ppa-2026-09-26.md)를 먼저 읽으세요. A3 Retention·D2D 두 소자·같은 조건 A3 실측 C2C 흐름, IV A5 #225(50/50 읽힘), `assumed_proxy` 게이트(schema 1.4.0)가 들어갔고, **spec 08 조건(가중치당 column 1개)에서 NeuroSim이 mnist_mlp_v1을 64/128/256 모두 실행하지 못함**이 측정으로 확인됐습니다(실제 PPA 수치 없음). 이 폴더의 이전 “엔진 부재/256에서 실행됨” 서술은 이 문서가 우선합니다. D2D 연구용 소자 쌍은 아직 정해지지 않았습니다.

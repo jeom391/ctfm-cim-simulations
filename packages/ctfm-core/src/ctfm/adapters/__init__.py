@@ -14,6 +14,11 @@ def _neurosim_capability():
     if not status['available']:
         return {'available': False, 'version': None,
                 'reason': 'NeuroSim engine not usable in this environment: ' + str(status['reason'])}
+    from ctfm.adapters.neurosim import engine_fixes
+    fixes = engine_fixes()
+    if not fixes['two_plane_cost_model']:
+        return {'available': False, 'version': status['commit'],
+                'reason': 'NeuroSim checkout lacks patch 0002 (two-plane conductance cost model); assumed_proxy needs it'}
     return {'available': True, 'version': status['commit'], 'reason': None,
             'config': ('assumed_proxy per docs/spec/08: conditional cost of a virtual analog circuit using measured '
                        'conductances; validated_for_ctfm=false; partial results (missing components listed, totals null)')}

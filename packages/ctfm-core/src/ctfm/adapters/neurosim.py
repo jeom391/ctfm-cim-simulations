@@ -706,11 +706,21 @@ def hierarchy_problem(layer_dims, sub_array, columns_per_synapse):
 def engine_fixes(root=None):
     """Which CTFM engine fixes the checkout at ``root`` contains, read from its source (not from a claim)."""
     text = ""
+    base = Path(root or ENGINE_ROOT) / "Inference_pytorch/NeuroSIM"
     try:
-        text = (Path(root or ENGINE_ROOT) / "Inference_pytorch/NeuroSIM/Chip.cpp").read_text(encoding="utf-8", errors="replace")
+        text = (base / "Chip.cpp").read_text(encoding="utf-8", errors="replace")
     except OSError:
         pass
-    return {"novel_mapping_tile_partition": "CTFM fix: TileCalculatePerformance below" in text}
+    return {"novel_mapping_tile_partition": "CTFM fix: TileCalculatePerformance below" in text,
+            # patch 0002: real-conductance two-plane cost model with a block ledger
+            "two_plane_cost_model": (base / "Ctfm.cpp").is_file() and "CtfmDifferentialStep" in _read(base / "ProcessingUnit.cpp")}
+
+
+def _read(path):
+    try:
+        return Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
 
 
 def engine_topology_support(layer_dims, sub_array, columns_per_synapse, root=None):

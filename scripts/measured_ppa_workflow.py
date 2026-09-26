@@ -103,17 +103,16 @@ def main():
                 experiment_id=exp['experiment_id'], status=result['status'], checkpoint_id=result['checkpoint_id'],
                 accuracy=[r['accuracy'] for r in result['runs'] if r['kind'] == 'ALL'],
                 requested_config_ppa=result['requested_config']['engines']['ppa'], schema_version=result['schema_version'],
-                ppa={k: ppa.get(k) for k in ('status', 'model_status', 'label', 'requested', 'area_m2', 'energy_j_per_inference', 'latency_s_per_inference',
-                                             'engine_totals', 'blocking_reasons', 'incomplete_reasons', 'schedule_check', 'build', 'trace_sample',
-                                             'time_basis', 'candidate', 'conductance', 'engine_cross_check', 'model_mismatches')},
+                ppa={k: v for k, v in ppa.items() if k not in ('raw_output', 'engine', 'preset', 'model_mismatches')},
+                model_mismatches=[m['id'] for m in (ppa.get('model_mismatches') or [])],
                 coverage=ppa.get('coverage'), preset=ppa.get('preset'), preset_artifact=ppa.get('preset_artifact'),
                 engine=ppa.get('engine'), normalization=ppa.get('normalization'),
-                raw_output_tail=((ppa.get('raw_output') or {}).get('stdout') or '')[-1500:],
+                raw_output_tail=((ppa.get('raw_output') or {}).get('stdout_first_image_tail') or (ppa.get('raw_output') or {}).get('stdout') or '')[-1500:],
                 artifacts=[a['filename'] for a in result['artifacts'] if 'neurosim' in a['filename'].lower() or a['filename'].startswith(('weight_', 'input_', 'NetWork'))])
     Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
     print(json.dumps({k: v for k, v in report.items() if k != 'experiments'}, ensure_ascii=False, indent=2))
     for order, e in report['experiments'].items():
-        print(order, e['status'], e['accuracy'], e['ppa']['status'], e['ppa']['model_status'], e['ppa']['engine_totals'])
+        print(order, e['status'], e['accuracy'], e['ppa']['status'], e['ppa']['model_status'], e['ppa'].get('known_total'))
 
 
 if __name__ == '__main__':

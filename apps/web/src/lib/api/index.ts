@@ -12,13 +12,22 @@ export interface CostCoverage {status:string;counted_components?:string[];missin
 export interface PpaSummary {status:string;reasons?:string[];reason?:string|null;
  coverage?:CostCoverage|null;engine_totals?:Record<string,number|null>|null;
  blocking_reasons?:string[];incomplete_reasons?:string[];build?:Record<string,unknown>|null;
- schedule_check?:{status?:string;detail?:string|null;assumed_read_window_s?:number|null}|null;
+ schedule_check?:{status?:string|null;detail?:string|null;assumed_read_window_s?:number|null;read_window_s?:number;engine_clock_period_s?:number|null;bitline_settling_s?:number|null;sensing_latency_s?:number|null;needed_cycle_s?:number|null;effective_cycle_s?:number|null;cycles_per_inference?:number|null}|null;
  area_m2?:number|null;energy_j_per_inference?:number|null;latency_s_per_inference?:number|null;
  model_mismatches?:{id:string;detail:string}[];
  requested?:string|null;model_status?:string|null;label?:string|null;
  preset?:{preset_id?:string|null;status?:string;problems?:string[];model_status?:string|null;validated_for_ctfm?:boolean;sub_array?:number;basis?:Record<string,string>}|null;
  preset_artifact?:{filename?:string;sha256?:string}|null;
  engine?:{available?:boolean;commit?:string|null;reason?:string|null;fixes?:Record<string,boolean>}|null;
+ conductance?:Record<string,unknown>|null;trace_sample?:string|null;time_basis?:string|null;
+ order?:string|null;input_encoding?:{input:string;schedule:string;engine_trace:string}|null;
+ known_total?:{complete:boolean;area_m2?:number|null;energy_j_per_inference?:number|null;latency_s_per_inference?:number|null;note:string}|null;
+ known_components?:{id:string;owner:string;area_m2?:number|null;energy_j_per_inference?:number|null;note?:string}[];
+ unknown_components?:{id:string;detail:string}[];
+ placement?:{spec_slots_per_plane:number;used_slots_per_plane:number;instantiated_slots_per_plane:number;removed_unused_slots?:number|null;planes:number;tile_size:number;weight_cells_per_plane:number;physical_cells:number;padding_cells:number;matches_spec_tiling:boolean}|null;
+ fidelity?:{status:string;meaning:string;layers:{layer:string;column_conductance_rel_error:{plus:number;minus:number};rows_read:number;rows_read_expected:number;weight_cells:number;weight_cells_expected:number;used_slots:number;used_slots_expected:number}[]}|null;
+ consistency?:Record<string,boolean|null>|null;adc_range_note?:Record<string,{accuracy_range_s?:number|null;engine_full_scale_s:number;fraction?:number|null}>|null;
+ diagnostics?:{latency?:{engine_clock_s?:number|null;window_adjusted_s?:number|null}}|null;
  engine_cross_check?:{status:string;reason?:string;engine_array_cells_per_plane?:number;weights_per_plane?:number;spec_tiled_cells_per_plane?:number;engine_padding_cells?:number;engine_weight_utilization?:number|null;matches_spec_tiling?:boolean;planes?:string}|null}
 export interface Job {id?:string;job_id?:string;state:string;stage?:string;progress?:number|null;completed?:number;total?:number;cancel_requested?:boolean;error?:unknown}
 export interface Experiment {id?:string;experiment_id?:string;job_id?:string;status:string;runs?:Row[];summary?:Row;warnings?:unknown[];assumptions?:unknown[];artifacts?:Artifact[];ppa?:PpaSummary|null;[key:string]:unknown}

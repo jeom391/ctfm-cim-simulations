@@ -11,17 +11,25 @@ import json
 import sys
 from pathlib import Path
 
-from ctfm.measurement.c2c import CONDITION_FIELDS, C2CAnalysisError, analyze_c2c_file
+from ctfm.measurement.c2c import (CONDITION_FIELDS, TEXT_FIELDS, VOLTAGE_FIELDS, C2CAnalysisError,
+                                  analyze_c2c_file)
 
 
 def parse_condition(text):
+    """KEY=VALUE -> typed value; the core applies the same validation (finite/positive/non-empty) to it."""
     key, _, raw = text.partition('=')
-    if key not in CONDITION_FIELDS or not raw:
-        raise SystemExit(f'--condition must be KEY=VALUE with KEY in {CONDITION_FIELDS}')
+    if key not in CONDITION_FIELDS:
+        raise SystemExit(f'--condition KEY must be one of {CONDITION_FIELDS}, got {key!r}')
+    if key in TEXT_FIELDS:
+        return key, raw
     try:
         return key, float(raw)
     except ValueError:
-        return key, raw
+        raise SystemExit(f'--condition {key} needs a number ({"voltage" if key in VOLTAGE_FIELDS else "positive"}), got {raw!r}')
+
+
+def fmt(value, spec):
+    return 'undefined' if value is None else format(value, spec)
 
 
 def plot(result, path):
@@ -39,7 +47,7 @@ def plot(result, path):
         if rel is not None:
             axes[0][1].plot(s['cycle'], [100 * v for v in rel], '-', lw=.6, color=color, label=name)
         deg = result[name]['sensitivity']
-        axes[1][0].plot([1, 2, 3, 4], [deg[str(d)]['relative_residual_std_percent'] or float('nan') for d in (1, 2, 3, 4)],
+        axes[1][0].plot([1, 2, 3, 4], [float('nan') if deg[str(d)]['relative_residual_std_percent'] is None else deg[str(d)]['relative_residual_std_percent'] for d in (1, 2, 3, 4)],
                         'o-', color=color, label=name)
     axes[0][0].set(title=f'Read current ({unit}) and cubic trend', xlabel='cycle'); axes[0][0].legend()
     axes[0][1].set(title='Relative residual vs cycle (%)', xlabel='cycle'); axes[0][1].legend()
@@ -49,9 +57,10 @@ def plot(result, path):
     for name in ('program', 'erase'):
         b = result[name]
         p = b['primary']
-        lines.append(f"{name}: cubic rel. std = {p['relative_residual_std_percent']:.6f} %  "
-                     f"lag-1 = {p['residual_lag1_correlation']:.3f}  deg4 vs deg3 = {b['degree4_vs_degree3_change_percent']:+.1f} %"
-                     if p['relative_residual_std_percent'] is not None else f'{name}: blocked ({b["blocked_reason"]})')
+        lines.append(f"{name}: cubic rel. std = {fmt(p['relative_residual_std_percent'], '.6f')} %  "
+                     f"lag-1 = {fmt(p['residual_lag1_correlation'], '.3f')}  "
+                     f"deg4 vs deg3 = {fmt(b['degree4_vs_degree3_change_percent'], '+.1f')} %"
+                     + (f"  [{b['status']}: {b['blocked_reason']}]" if b['status'] != 'ok' else ''))
     lines += ['', 'Only Program is a simulator candidate (unapproved); Erase is analysis-only.',
               f"file sha256: {result['provenance']['sha256'][:16]}...  cycles {result['provenance']['cycle_min']}-{result['provenance']['cycle_max']}"]
     axes[1][1].text(0, 1, '\n'.join(lines), va='top', fontsize=9, family='monospace', wrap=True)
@@ -71,24 +80,28 @@ def main():
     parser.add_argument('--no-series', action='store_true', help='omit per-cycle raw/trend arrays from the JSON')
     args = parser.parse_args()
     path = Path(args.file)
+    conditions = dict(parse_condition(c) for c in args.condition)
     try:
         result = analyze_c2c_file(path.read_bytes(), path.name, sheet=args.sheet, device_id=args.device_id,
-                                  condition_id=args.condition_id,
-                                  measurement_conditions=dict(parse_condition(c) for c in args.condition))
+                                  condition_id=args.condition_id, measurement_conditions=conditions)
     except C2CAnalysisError as exc:
         print(json.dumps(dict(error='invalid_c2c_input', issues=exc.issues), ensure_ascii=False, indent=2), file=sys.stderr)
+        return 2
+    except (OSError, ValueError) as exc:  # unreadable file, invalid workbook/CSV, parser limits
+        print(json.dumps(dict(error='unreadable_input', detail=str(exc)), ensure_ascii=False), file=sys.stderr)
         return 2
     if args.plot:
         plot(result, args.plot)
     if args.no_series:
         result = {k: v for k, v in result.items() if k != 'series'}
-    text = json.dumps(result, ensure_ascii=False, indent=2)
+    text = json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False)  # strict JSON; never NaN/Infinity
     if args.out:
         Path(args.out).write_text(text, encoding='utf-8')
     for branch in ('program', 'erase'):
         b = result[branch]
         print(branch, b['status'], 'cubic relative std %:', b['primary']['relative_residual_std_percent'],
               'lag1:', b['primary']['residual_lag1_correlation'])
+    print('sheet:', result['provenance']['sheet'], f"({result['provenance']['sheet_selection']})")
     for warning in result['warnings']:
         print('WARNING:', warning)
     return 0

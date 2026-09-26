@@ -29,6 +29,9 @@ HEADER_PATTERNS = {
     'erase': re.compile(rf'^Erase_Id_({_UNITS})$'),
     'difference': re.compile(rf'^Erase_minus_Program_({_UNITS})$'),
 }
+VOLTAGE_FIELDS = ('program_voltage_v', 'erase_voltage_v', 'read_voltage_v', 'vds_v')  # finite, any sign (VDS=0 allowed, see warning)
+POSITIVE_FIELDS = ('program_pulse_width_s', 'erase_pulse_width_s', 'read_time_s')  # finite and > 0
+TEXT_FIELDS = ('read_terminal_meaning', 'read_extraction_point')  # non-empty text
 CONDITION_FIELDS = ('program_voltage_v', 'program_pulse_width_s', 'erase_voltage_v', 'erase_pulse_width_s',
                     'read_voltage_v', 'read_terminal_meaning', 'vds_v', 'read_time_s', 'read_extraction_point')
 
@@ -37,6 +40,53 @@ class C2CAnalysisError(ValueError):
     def __init__(self, issues):
         self.issues = issues
         super().__init__('; '.join(f"{i['code']}: {i['detail']}" for i in issues))
+
+
+def _is_real(value):
+    return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, (bool, np.bool_))
+
+
+def _validate_conditions(supplied):
+    """Supplied values are user-confirmed facts, so unusable values are rejected, never stored as confirmed."""
+    if supplied is None:
+        return {}
+    if not isinstance(supplied, dict):
+        raise C2CAnalysisError([dict(code='invalid_condition_type', detail='measurement_conditions must be an object')])
+    issues, clean = [], {}
+    for field, value in supplied.items():
+        if field not in CONDITION_FIELDS:
+            issues.append(dict(code='unknown_condition_field', detail=field))
+        elif field in TEXT_FIELDS:
+            if not isinstance(value, str):
+                issues.append(dict(code='invalid_condition_type', detail=f'{field}: expected text, got {type(value).__name__}'))
+            elif not value.strip():
+                issues.append(dict(code='empty_condition_value', detail=f'{field}: empty text is unconfirmed, omit it instead'))
+            else:
+                clean[field] = value.strip()
+        elif value is None:
+            issues.append(dict(code='empty_condition_value', detail=f'{field}: null is unconfirmed, omit it instead'))
+        elif not _is_real(value):
+            issues.append(dict(code='invalid_condition_type', detail=f'{field}: expected a number, got {type(value).__name__}'))
+        elif not math.isfinite(float(value)):
+            issues.append(dict(code='non_finite_condition', detail=f'{field}: {value!r}'))
+        elif field in POSITIVE_FIELDS and float(value) <= 0:
+            issues.append(dict(code='non_positive_condition', detail=f'{field}: {value!r} must be > 0'))
+        else:
+            clean[field] = float(value)
+    if issues:
+        raise C2CAnalysisError(issues)
+    return clean
+
+
+def _assert_finite(node, path='result'):
+    if isinstance(node, float) and not math.isfinite(node):
+        raise C2CAnalysisError([dict(code='non_finite_result', detail=f'{path} is {node}; input magnitudes overflow the statistics')])
+    if isinstance(node, dict):
+        for key, value in node.items():
+            _assert_finite(value, f'{path}.{key}')
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            _assert_finite(value, f'{path}[{index}]')
 
 
 def _recognize_columns(columns):
@@ -189,7 +239,7 @@ def _branch(name, cycles, current, unit):
     return result, series
 
 
-def analyze_c2c(table, *, filename, sha256=None, sheet=None, device_id=None, condition_id=None,
+def analyze_c2c(table, *, filename, sha256=None, sheet=None, sheet_selection=None, device_id=None, condition_id=None,
                 measurement_conditions=None):
     """Analyse a parsed table (``ctfm.measurement.parse_table`` output). The input is never modified."""
     table = deepcopy(table)
@@ -197,12 +247,13 @@ def analyze_c2c(table, *, filename, sha256=None, sheet=None, device_id=None, con
     series, read_notes = _read_series(table, found)
     cycles = series['cycle']
     unit = found['program']['unit']
+    supplied = _validate_conditions(measurement_conditions)
     conditions = {field: dict(value=None, confirmed=False) for field in CONDITION_FIELDS}
-    unknown = set(measurement_conditions or {}) - set(CONDITION_FIELDS)
-    if unknown:
-        raise C2CAnalysisError([dict(code='unknown_condition_field', detail=str(sorted(unknown)))])
-    for field, value in (measurement_conditions or {}).items():
+    for field, value in supplied.items():
         conditions[field] = dict(value=value, confirmed=True)
+    vds = supplied.get('vds_v')
+    conductance = (dict(available=True, reason=None) if vds not in (None, 0.0) else
+                   dict(available=False, reason='vds_v is not confirmed' if vds is None else 'vds_v is 0: G=I/VDS is undefined'))
     program, program_series = _branch('program', cycles, series['program'], unit)
     erase, erase_series = _branch('erase', cycles, series['erase'], unit)
     check = dict(status='not_provided', max_abs_difference=None)
@@ -228,10 +279,12 @@ def analyze_c2c(table, *, filename, sha256=None, sheet=None, device_id=None, con
         warnings.append('Erase_minus_Program column disagrees with Erase-Program beyond floating-point tolerance.')
     if not read_notes['sorted_input']:
         warnings.append('Input rows were not in ascending cycle order; sorted by cycle for analysis (source rows preserved).')
+    if vds == 0.0:
+        warnings.append('vds_v = 0: conductance cannot be derived from these currents; the relative deviation is unaffected.')
     missing = [f for f, c in conditions.items() if not c['confirmed']]
     if missing:
         warnings.append(f'Measurement conditions not confirmed: {missing}. They are not copied from LTP/LTD.')
-    return dict(
+    result = dict(
         kind='c2c_detrended', analysis_version=C2C_ANALYSIS_VERSION,
         method=dict(name='cubic_ols_detrended_relative_deviation', primary_degree=PRIMARY_DEGREE,
                     sensitivity_degrees=list(SENSITIVITY_DEGREES), ddof=1, segment_size_cycles=SEGMENT_SIZE,
@@ -239,12 +292,12 @@ def analyze_c2c(table, *, filename, sha256=None, sheet=None, device_id=None, con
                     residual='r=I-T', relative_residual='z=r/T',
                     statistic='relative_residual_std_percent = 100*std(z, ddof=1)',
                     solver='numpy.linalg.lstsq (SVD)', extrapolation=False),
-        provenance=dict(filename=filename, sha256=sha256, sheet=sheet, device_id=device_id, condition_id=condition_id,
+        provenance=dict(filename=filename, sha256=sha256, sheet=sheet, sheet_selection=sheet_selection, device_id=device_id, condition_id=condition_id,
                         columns={k: v['header'] for k, v in found.items()}, unit=unit,
                         unit_scale_to_ampere=UNIT_TO_AMPERE[unit],
                         cycle_min=int(cycles[0]), cycle_max=int(cycles[-1]), cycle_count=int(len(cycles)),
                         source_row_first=series['source_rows'][0], source_row_last=series['source_rows'][-1], **read_notes),
-        measurement_conditions=conditions,
+        measurement_conditions=conditions, conductance_conversion=conductance,
         is_pure_c2c_iid_estimate=False,
         program=program, erase=erase, difference_check=check,
         simulator_use=dict(
@@ -255,10 +308,19 @@ def analyze_c2c(table, *, filename, sha256=None, sheet=None, device_id=None, con
         series=dict(cycle=cycles.tolist(), program_current=series['program'].tolist(), erase_current=series['erase'].tolist(),
                     program=program_series, erase=erase_series),
         warnings=warnings)
+    _assert_finite(result)
+    return result
 
 
 def analyze_c2c_file(data: bytes, filename: str, *, sheet=None, **kwargs):
     table = parse_table(data, filename, sheet=sheet)
     if not table['columns']:
         raise C2CAnalysisError([dict(code='sheet_not_selected', detail=str(table.get('warnings')))])
-    return analyze_c2c(table, filename=filename, sha256=hashlib.sha256(data).hexdigest(), sheet=sheet, **kwargs)
+    if table['sheets']:  # XLSX: record the worksheet actually analysed, not merely the one requested
+        chosen, selection = (sheet, 'explicit') if sheet is not None else (table['sheets'][0], 'auto_single_sheet')
+    elif sheet is not None:
+        raise C2CAnalysisError([dict(code='sheet_not_applicable', detail=f'{filename} has no worksheets; do not pass a sheet')])
+    else:
+        chosen, selection = None, 'not_applicable_csv'
+    return analyze_c2c(table, filename=filename, sha256=hashlib.sha256(data).hexdigest(), sheet=chosen,
+                       sheet_selection=selection, **kwargs)

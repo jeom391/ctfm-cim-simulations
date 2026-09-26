@@ -28,6 +28,13 @@ Program/Erase 각각: `x=2(n−n_min)/(n_max−n_min)−1`, `numpy.linalg.lstsq`
 
 결과에는 메서드, 계수와 기저, 원본 SHA256, 시트·헤더, 단위와 A 환산 계수, 회차 범위·개수·원본 행 범위, 측정 조건 9개 필드(사용자가 `measurement_conditions`로 준 값만 `confirmed:true`, 나머지는 `null/false`, LTP/LTD에서 복사하지 않음), 경고를 기록한다. `is_pure_c2c_iid_estimate`는 항상 `false`. `simulator_use`: 후보는 Program뿐(`approved_for_simulator:false`), Erase는 `analysis_only`이며 평균·G+/G− 대응·소자 간 복제 필드는 없다.
 
+## 입력·출처 보완 (08A)
+
+- **측정 조건 검증**(코어, CLI도 동일): 값을 준 필드는 "확인됨"이므로 `null`/빈 문자열/공백은 `empty_condition_value`로 거부한다(미확인은 필드를 생략). 숫자 필드는 bool·문자열·NaN·Inf 거부. `program_pulse_width_s`·`erase_pulse_width_s`·`read_time_s`는 유한 양수. 전압(`program/erase/read_voltage_v`, `vds_v`)은 유한 숫자이며 부호와 0을 허용한다. `read_terminal_meaning`·`read_extraction_point`는 비어 있지 않은 문자열(앞뒤 공백 제거). 여러 문제는 한 번에 보고한다.
+- **VDS = 0 정책**: 확정 값으로 기록하되 `conductance_conversion.available=false`(이유 명시)와 경고를 남긴다. 상대 편차 자체는 영향받지 않는다. VDS 미확인도 `available=false`.
+- **시트 출처**: `provenance.sheet`는 실제 분석한 시트, `sheet_selection`은 `explicit` / `auto_single_sheet` / `not_applicable_csv`. 다중 시트 미선택은 `sheet_not_selected`, CSV에 시트 지정은 `sheet_not_applicable`로 거부.
+- **표준 JSON**: 결과에 NaN/Inf가 생기면(입력 크기 과대 등) `non_finite_result`로 거부한다. CLI는 `allow_nan=False`로만 저장하고, 잘못된 조건/입력/파일은 종료 코드 2와 오류 JSON(stderr)을 낸다. 그래프는 null 진단(정의 불가 lag-1 등)을 `undefined`로 표기한다.
+
 ## 다음 연결에 필요한 계약 변경 (이번에 하지 않음)
 
 분석 결과를 참조하는 profile/실험 요청 필드(`source:"measured_detrended"` 등)와 schema 버전, 사용자 승인 상태 저장, 기존 `manual_assumption`과의 구분, 결과 provenance 노출, 웹 업로드·그래프 화면.

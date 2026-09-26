@@ -18,7 +18,8 @@ export interface PpaSummary {status:string;reasons?:string[];reason?:string|null
  requested?:string|null;model_status?:string|null;label?:string|null;
  preset?:{preset_id?:string|null;status?:string;problems?:string[];model_status?:string|null;validated_for_ctfm?:boolean;sub_array?:number;basis?:Record<string,string>}|null;
  preset_artifact?:{filename?:string;sha256?:string}|null;
- engine?:{available?:boolean;commit?:string|null;reason?:string|null}|null}
+ engine?:{available?:boolean;commit?:string|null;reason?:string|null;fixes?:Record<string,boolean>}|null;
+ engine_cross_check?:{status:string;reason?:string;engine_array_cells_per_plane?:number;weights_per_plane?:number;spec_tiled_cells_per_plane?:number;engine_padding_cells?:number;engine_weight_utilization?:number|null;matches_spec_tiling?:boolean;planes?:string}|null}
 export interface Job {id?:string;job_id?:string;state:string;stage?:string;progress?:number|null;completed?:number;total?:number;cancel_requested?:boolean;error?:unknown}
 export interface Experiment {id?:string;experiment_id?:string;job_id?:string;status:string;runs?:Row[];summary?:Row;warnings?:unknown[];assumptions?:unknown[];artifacts?:Artifact[];ppa?:PpaSummary|null;[key:string]:unknown}
 export interface IvSegment {index:number;direction:'increasing'|'decreasing';points:number;source_row_start:number;source_row_end:number;vg_start:number;vg_end:number}

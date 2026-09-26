@@ -47,12 +47,12 @@ def capabilities():
     controls = SCHEMA["allOf"][2]["then"]["properties"]["hardware"]["properties"]
     ppa_tiles, ppa_unsupported = [], {}
     if engines["neurosim"]["available"]:
-        from ctfm.adapters.neurosim import topology_support
+        from ctfm.adapters.neurosim import engine_topology_support
         from ctfm.adapters.proxy_preset import proxy_preset
         from ctfm.simulation import MNIST_MLP_V1_LAYERS
         for tile in controls["tile_size"]["enum"]:
             preset = proxy_preset(tile)
-            ok, why = topology_support(MNIST_MLP_V1_LAYERS, tile, -(-preset["synapse_bit"] // preset["cell_bit"]))
+            ok, why = engine_topology_support(MNIST_MLP_V1_LAYERS, tile, -(-preset["synapse_bit"] // preset["cell_bit"]))
             (ppa_tiles.append(tile) if ok else ppa_unsupported.__setitem__(str(tile), why))
     effect = lambda available, reason: Capability(available=available, version=None, reason=None if available else reason)
     return Capabilities(
@@ -344,14 +344,14 @@ def create_app(storage_root=None):
                 if fit["a"] + fit["b"] <= 0:
                     raise APIError(422,"unavailable_measurement","Retention reference current must be positive.","effects.retention")
         if config["engines"]["ppa"] == "assumed_proxy":
-            from ctfm.adapters.neurosim import topology_support
+            from ctfm.adapters.neurosim import engine_topology_support
             from ctfm.simulation import MNIST_MLP_V1_LAYERS
             neurosim = capabilities().engines["neurosim"]
             if not neurosim.available:
                 raise APIError(422,"unavailable_engine","The NeuroSim engine is not usable in this environment.","engines.ppa",{"reason":neurosim.reason})
             from ctfm.adapters.proxy_preset import proxy_preset
             preset = proxy_preset(config["hardware"]["tile_size"])
-            supported, reason = topology_support(MNIST_MLP_V1_LAYERS, config["hardware"]["tile_size"],
+            supported, reason = engine_topology_support(MNIST_MLP_V1_LAYERS, config["hardware"]["tile_size"],
                                                  -(-preset["synapse_bit"] // preset["cell_bit"]))
             if not supported:
                 raise APIError(422,"unsupported_ppa_configuration",reason,"hardware.tile_size",{"tile_size":config["hardware"]["tile_size"]})

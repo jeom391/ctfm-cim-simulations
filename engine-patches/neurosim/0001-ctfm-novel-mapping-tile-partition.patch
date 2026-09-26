@@ -1,0 +1,55 @@
+From b3831728d73a67b4883af9ddb49189bf8b878216 Mon Sep 17 00:00:00 2001
+From: ctfm-fix <ctfm-fix@localhost>
+Date: Sat, 26 Sep 2026 20:53:46 +0900
+Subject: [PATCH] ctfm: fix novel-mapping tile partition (CopyPEArray out of
+ bounds) and exit on hierarchy error
+
+---
+ Inference_pytorch/NeuroSIM/Chip.cpp | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/Inference_pytorch/NeuroSIM/Chip.cpp b/Inference_pytorch/NeuroSIM/Chip.cpp
+index e446146..dd9f7f6 100644
+--- a/Inference_pytorch/NeuroSIM/Chip.cpp
++++ b/Inference_pytorch/NeuroSIM/Chip.cpp
+@@ -214,6 +214,7 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
+ 	if (param->novelMapping) {		// Novel Mapping
+ 		if (maxPESizeNM < 2*param->numRowSubArray) {
+ 			cout << "ERROR: SubArray Size is too large, which break the chip hierarchey, please decrease the SubArray size! " << endl;
++			exit(-1);  // CTFM fix: stop here; the floorplan vectors are empty, so continuing dereferences null (SIGSEGV)
+ 		}else{
+ 		
+ 			/*** Tile Design ***/
+@@ -274,6 +275,7 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
+ 	} else {   // all Conventional Mapping
+ 		if (maxTileSizeCM < 4*param->numRowSubArray) {
+ 			cout << "ERROR: SubArray Size is too large, which break the chip hierarchey, please decrease the SubArray size! " << endl;
++			exit(-1);  // CTFM fix: stop here; the floorplan vectors are empty, so continuing dereferences null (SIGSEGV)
+ 		} else {
+ 			/*** Tile Design ***/
+ 			*desiredTileSizeCM = MAX(maxTileSizeCM, 4*param->numRowSubArray);
+@@ -956,12 +958,18 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
+ 				
+ 				// assign weight and input to specific tile
+ 				vector<vector<double> > tileMemory;
+-				tileMemory = ReshapeArray(newMemory, i*desiredPESizeNM, j*desiredPESizeNM, (int) netStructure[l][2]*numRowPerSynapse/numtileEachLayerRow, 
+-									(int) netStructure[l][5]*numColPerSynapse/numtileEachLayerCol, numPENM, (int) netStructure[l][2]*numRowPerSynapse);
++				// CTFM fix: TileCalculatePerformance below is told this tile holds numRowMatrix x numColMatrix (PE-size chunks, the
++				// last one partial), and the tile starts at i*PE / j*PE. The array handed over must have exactly those dimensions.
++				// The original per-tile row/column counts (dimension / number of tiles, integer division) only agree with the chunk
++				// size when the dimension is a multiple of the PE size; otherwise CopyPEArray reads past the end of tileMemory
++				// (SIGSEGV). For numPENM == 1 the chunk dimensions are the ones used to place the tile, so use them.
++				int tileRows = (numPENM == 1) ? numRowMatrix : (int) netStructure[l][2]*numRowPerSynapse/numtileEachLayerRow;
++				int tileCols = (numPENM == 1) ? numColMatrix : (int) netStructure[l][5]*numColPerSynapse/numtileEachLayerCol;
++				tileMemory = ReshapeArray(newMemory, i*desiredPESizeNM, j*desiredPESizeNM, tileRows, tileCols, numPENM, (int) netStructure[l][2]*numRowPerSynapse);
+ 
+ 				vector<vector<double> > tileInput;
+ 				tileInput = ReshapeInput(inputVector, i*desiredPESizeNM, numInVector*param->numBitInput, 
+-									(int) netStructure[l][2]*numRowPerSynapse/numtileEachLayerRow, numPENM, (int) netStructure[l][2]*numRowPerSynapse);
++									tileRows, numPENM, (int) netStructure[l][2]*numRowPerSynapse);
+ 
+ 				// Anni update: add &tileLeakageSRAMInUse
+ 				TileCalculatePerformance(tileMemory, tileMemory, tileInput, markNM[l], numPENM, desiredPESizeNM, speedUpEachLayer[0][l], speedUpEachLayer[1][l],
+-- 
+2.43.0
+

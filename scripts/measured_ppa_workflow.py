@@ -27,7 +27,7 @@ def main():
     parser.add_argument('--base-url', required=True)
     parser.add_argument('--out', required=True)
     parser.add_argument('--condition', default='A1')
-    parser.add_argument('--tile', type=int, default=256)
+    parser.add_argument('--tile', type=int, default=64)
     parser.add_argument('--adc-bits', type=int, default=6)
     parser.add_argument('--timeout', type=int, default=3600)
     args = parser.parse_args()
@@ -73,19 +73,21 @@ def main():
             return body
 
         refusals = {}
-        for name, body in (('tile_64', request('subtract_then_adc', 64)), ('tile_128', request('subtract_then_adc', 128)),
-                           ('tile_256', request('subtract_then_adc', 256)), ('adc_off', request(None, args.tile, adc=False))):
+        supported = caps['hardware'].get('ppa_tile_sizes') or []
+        probes = [('tile_%d' % s, request('subtract_then_adc', s)) for s in (64, 128, 256) if s not in supported]
+        probes.append(('adc_off', request(None, args.tile, adc=False)))
+        for name, body in probes:
             r = client.post('/experiments', json=body)
             error = r.json().get('error', {}) if r.status_code >= 400 else {}
             refusals[name] = dict(status=r.status_code, code=error.get('code'), message=error.get('message'),
                                   experiment_id=None if r.status_code >= 400 else r.json().get('experiment_id'))
         report['refused_configurations'] = refusals
-        report['ppa_tile_sizes'] = caps['hardware'].get('ppa_tile_sizes')
+        report['ppa_tile_sizes'] = supported
         report['ppa_unsupported'] = caps['hardware'].get('ppa_unsupported')
-        if refusals.get('tile_%d' % args.tile, {}).get('status', 0) >= 400:
+        if args.tile not in supported:
             report['experiments'] = {}
             report['note'] = ('the engine cannot cost the spec-08 preset at the requested array size; no PPA experiment was '
-                              'run and nothing was substituted (see refused_configurations)')
+                              'run and nothing was substituted (see ppa_unsupported)')
             Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return
@@ -103,7 +105,7 @@ def main():
                 requested_config_ppa=result['requested_config']['engines']['ppa'], schema_version=result['schema_version'],
                 ppa={k: ppa.get(k) for k in ('status', 'model_status', 'label', 'requested', 'area_m2', 'energy_j_per_inference', 'latency_s_per_inference',
                                              'engine_totals', 'blocking_reasons', 'incomplete_reasons', 'schedule_check', 'build', 'trace_sample',
-                                             'time_basis', 'candidate', 'conductance')},
+                                             'time_basis', 'candidate', 'conductance', 'engine_cross_check', 'model_mismatches')},
                 coverage=ppa.get('coverage'), preset=ppa.get('preset'), preset_artifact=ppa.get('preset_artifact'),
                 engine=ppa.get('engine'), normalization=ppa.get('normalization'),
                 raw_output_tail=((ppa.get('raw_output') or {}).get('stdout') or '')[-1500:],

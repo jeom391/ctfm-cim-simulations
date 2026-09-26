@@ -27,6 +27,7 @@ export function PpaPanel({ppa}:{ppa?:PpaSummary|null}){
    '입력 정밀도':String(inventory.input_bits??'—')+' bit'}]}/>:null}
   {coverage?.missing_components?.length?<DataTable caption="비용 모델이 없는 블록 · 이 블록들이 연결되기 전까지 총계는 null입니다" rows={coverage.missing_components.map(m=>({블록:m.id,내용:m.detail}))}/>:null}
   {coverage?.excluded_by_scope?.length?<DataTable caption="범위에서 제외한 항목" rows={coverage.excluded_by_scope.map(m=>({항목:m.id,내용:m.detail}))}/>:null}
+  {ppa.engine_cross_check?.status==='compared'?<DataTable caption="엔진이 실제로 배치한 셀 수와 명세 목록의 비교 · 엔진은 PE 크기 단위로 패딩하며 한쪽 plane만 셉니다" rows={[{'엔진 셀 수/plane':ppa.engine_cross_check.engine_array_cells_per_plane??null,'가중치 수/plane':ppa.engine_cross_check.weights_per_plane??null,'명세 타일링 셀 수/plane':ppa.engine_cross_check.spec_tiled_cells_per_plane??null,'엔진 패딩 셀':ppa.engine_cross_check.engine_padding_cells??null,'명세와 일치':String(ppa.engine_cross_check.matches_spec_tiling)}]}/>:null}
   {ppa.engine_totals?<DataTable caption="엔진이 보고한 칩 총계 · 위 누락 블록을 포함하지 않으므로 전체 PPA가 아닙니다" rows={[ppa.engine_totals as Row]}/>:null}
   {ppa.schedule_check&&ppa.schedule_check.status!=='feasible'?<p className="muted">읽기 구간 검사: {ppa.schedule_check.status} · {ppa.schedule_check.detail||'—'}</p>:null}
   {ppa.preset?.preset_id?<p className="muted">preset <code>{ppa.preset.preset_id}</code>{ppa.preset_artifact?.sha256?` · ${ppa.preset_artifact.sha256.slice(0,12)}`:''}</p>

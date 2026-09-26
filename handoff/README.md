@@ -1,3 +1,5 @@
+> **NeuroSIM 실패 원인·엔진 수정 (2026-09-26, 작업 11):** [문서](../docs/neurosim-engine-fix-2026-09-26.md)를 먼저 읽으세요. 작업 10의 “4×subArray 규칙” 설명은 정정됐고, 타일 분할 결함을 격리 엔진 패치(`engine-patches/neurosim/`)로 고쳐 mnist_mlp_v1이 tile 64에서 실행됩니다(`assumed_proxy`, partial, 총계 null). tile 128/256은 엔진의 PE 최소 크기 제약으로 계속 거부됩니다.
+
 > **남은 실측 연결·NeuroSim 조건부 PPA (2026-09-26, 작업 10):** [문서](../docs/remaining-integration-and-ppa-2026-09-26.md)를 먼저 읽으세요. A3 Retention·D2D 두 소자·같은 조건 A3 실측 C2C 흐름, IV A5 #225(50/50 읽힘), `assumed_proxy` 게이트(schema 1.4.0)가 들어갔고, **spec 08 조건(가중치당 column 1개)에서 NeuroSim이 mnist_mlp_v1을 64/128/256 모두 실행하지 못함**이 측정으로 확인됐습니다(실제 PPA 수치 없음). 이 폴더의 이전 “엔진 부재/256에서 실행됨” 서술은 이 문서가 우선합니다. D2D 연구용 소자 쌍은 아직 정해지지 않았습니다.
 
 > **통합 마무리 (2026-09-26):** [실측 C2C·IV/Retention 연결과 통합 마무리](../docs/integration-finish-2026-09-26.md)를 먼저 읽으세요. 실측 C2C(A3)를 업로드→분석→서버 고정 provenance→시뮬레이터(Program 편차만, 승인 필요)까지 연결했고, 반복 블록 IV·독립 시간축 Retention 실측 파일 55개 중 54개를 읽습니다. 웹은 실제 브라우저로 확인했습니다. **NeuroSim PPA 실행은 이 머신에 엔진이 없어 여전히 blocked**(문서 4절).

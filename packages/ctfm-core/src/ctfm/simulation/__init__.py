@@ -411,7 +411,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
              model_status=(_decision['preset'] or {}).get('model_status'),label=(_decision['preset'] or {}).get('label'),
              preset_artifact=_decision.get('preset_artifact'),candidate=_decision.get('candidate'),
              coverage=_decision.get('coverage'),schedule_check=_decision.get('schedule_check'),
-             engine_totals=_decision.get('engine_totals'),build=_decision.get('build'),
+             engine_totals=_decision.get('engine_totals'),engine_cross_check=_decision.get('engine_cross_check'),build=_decision.get('build'),
              blocking_reasons=list(_decision.get('blocking_reasons') or []),
              incomplete_reasons=list(_decision.get('incomplete_reasons') or []),
              normalization=_decision.get('normalization'),conductance=_decision.get('conductance'),

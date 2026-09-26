@@ -12,7 +12,7 @@
 | D2D 두 소자 선택 → 분석 → 프로파일 연결 | tested-measured(API) + tested-browser(분석까지) | 아래 3절 |
 | IV A5 #225 비정형 블록 | tested-measured | 4절 |
 | `engines.ppa=assumed_proxy` 요청·API·worker·UI 게이트 | implemented + tested-synthetic + tested-browser | 5절 |
-| mnist_mlp_v1의 NeuroSim 실제 비용 실행 | **blocked (엔진 결함, 측정됨)** | 5절 — 임의 대체 없음 |
+| mnist_mlp_v1의 NeuroSim 실제 비용 실행 | tile 64 partial (작업 11에서 엔진 결함 수정), 128/256은 엔진 제약으로 거부 | [엔진 수정 문서](neurosim-engine-fix-2026-09-26.md) — 임의 대체 없음 |
 | 엔진 배선 확인(합성 768→512→64, tile 64) | tested-measured (합성) | `neurosim-wiring-check-synthetic-*.json` — CTFM·MNIST 수치 아님 |
 
 ## 2. Retention·프로파일·추론 (A3)
@@ -35,6 +35,8 @@
 - `scripts/verify_measured_layouts.py`: IV 50개 전부 읽힘(이전 49), Retention 5개 전부 읽힘. 결과 `measured-layouts-inventory.json`.
 
 ## 5. NeuroSim `assumed_proxy`
+
+> **작업 11 정정:** 아래 “측정된 한계”의 4×subArray 규칙 설명은 틀렸다. 실제로는 서로 다른 두 원인(타일 분할 결함 + novel-mapping 계층 제약)이며 결함은 격리 엔진에서 고쳤다. mnist_mlp_v1은 이제 tile 64에서 실행된다. [NeuroSim 엔진 수정](neurosim-engine-fix-2026-09-26.md)을 보라.
 
 - 엔진: 공식 저장소(`neurosim/DNN_NeuroSim_V1.4`) commit `ac828e6723bf077c9b1423c5c72ff6e4981e90f4`(CC BY-NC 4.0)를 `~/ctfm-engines/neurosim`(HOME 하위 신규 격리 경로, 기존 설치 없음)에 받아 빌드했다.
 - 요청: `schema_version=1.4.0`, `engines.ppa: off|assumed_proxy`(1.2.0/1.3.0은 off 고정), ADC on 필수, `preset_id`는 요청 입력이 아님. 서버는 spec 08 값으로 고정된 preset(`adapters/proxy_preset.py`, 필드별 근거 `basis`)을 쓴다. 결과는 `model_status=assumed_proxy`, `validated_for_ctfm=false`, 한국어 라벨을 항상 싣고 stock SRAM 수치를 CTFM 수치로 표시하지 않는다.

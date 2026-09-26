@@ -103,7 +103,8 @@
             "iv",
             "d2d",
             "retention",
-            "pulse_states"
+            "pulse_states",
+            "c2c_detrended"
           ],
           "type": "string"
         },

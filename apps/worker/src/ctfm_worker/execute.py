@@ -21,14 +21,33 @@ def execute(job_id):
             record=store.get_entity("file",meta["file_id"])
             data=store.managed_path(record["relative_path"]).read_bytes()
             if sha256(data)!=record["sha256"]:raise ValueError("Source hash mismatch")
+            if request["kind"]=="c2c_detrended":
+                from ctfm.measurement.c2c import analyze_c2c_file, to_analysis_record
+                raw=analyze_c2c_file(data,record["name"],sheet=meta.get("sheet"),device_id=meta["device_id"],condition_id=meta["condition_id"],
+                                     measurement_conditions=meta.get("measurement_conditions"))
+                result=to_analysis_record(raw);result["analysis_id"]=item["id"]
+                progress("parsing",1,1)
+                break
+            selection=meta.get("selection")
+            if selection:
+                from ctfm.measurement.layouts import iv_dataset, retention_dataset
+                common=dict(device_id=meta["device_id"],condition_id=meta["condition_id"],file_id=meta["file_id"],sha256=record["sha256"],sheet=meta.get("sheet"),units=meta["units"])
+                if selection["type"]=="iv_block":
+                    dataset=iv_dataset(data,record["name"],block=selection["block"],segment=selection["segment"],branch=meta["branch"],
+                                       sweep_amplitude_v=meta["sweep_amplitude_v"],vds_v=meta["vds_v"],read_vgs_v=meta.get("read_vgs_v",0.0),**common)
+                else:
+                    dataset=retention_dataset(data,record["name"],columns=selection["columns"],source_label=meta["source_label"],
+                                              read_vgs_v=meta["read_vgs_v"],header_read_vgs_v=meta.get("header_read_vgs_v"),vds_v=meta["vds_v"],**common)
+                datasets.append(dataset);progress("parsing",index+1,len(request["inputs"]));continue
             parsed=parse_table(data,record["name"],meta.get("sheet"))
             pairs=[(r,n) for r,n in zip(parsed["rows"],parsed["source_rows"]) if (meta.get("row_start") is None or n>=meta["row_start"]) and (meta.get("row_end") is None or n<=meta["row_end"])]
             if not pairs:raise ValueError("Selected row range is empty")
             rows,source_rows=zip(*pairs)
             datasets.append(dict(meta,rows=list(rows),source_rows=list(source_rows),filename=record["name"],sha256=record["sha256"]))
             progress("parsing",index+1,len(request["inputs"]))
-        result=analyze(request["kind"],datasets,request["settings"])
-        result["analysis_id"]=item["id"]
+        if request["kind"]!="c2c_detrended":
+            result=analyze(request["kind"],datasets,request["settings"])
+            result["analysis_id"]=item["id"]
     else:
         from ctfm.simulation import run_experiment
         profiles=[store.get_profile(r["id"],r["revision"]) for r in request["profile_refs"]]

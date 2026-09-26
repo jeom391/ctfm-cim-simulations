@@ -324,3 +324,50 @@ def analyze_c2c_file(data: bytes, filename: str, *, sheet=None, **kwargs):
         chosen, selection = None, 'not_applicable_csv'
     return analyze_c2c(table, filename=filename, sha256=hashlib.sha256(data).hexdigest(), sheet=chosen,
                        sheet_selection=selection, **kwargs)
+
+
+validate_measurement_conditions = _validate_conditions
+
+
+def _canonical_sha256(value):
+    import json
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode('utf-8')).hexdigest()
+
+
+PIN_KEYS = ('kind', 'analysis_version', 'method', 'provenance', 'measurement_conditions', 'conductance_conversion',
+            'program', 'erase', 'difference_check')
+
+
+def result_pin(record):
+    """Hash of the numbers and provenance a simulation may rely on (not the per-cycle series or free-text warnings)."""
+    return _canonical_sha256({k: record[k] for k in PIN_KEYS})
+
+
+def to_analysis_record(result):
+    """Storage/API form: per-cycle arrays move into tables.cycles, summaries stay small, and the result is hash-pinned."""
+    series = result['series']
+    rows = []
+    for i, cycle in enumerate(series['cycle']):
+        row = dict(cycle=int(cycle))
+        for branch in ('program', 'erase'):
+            rel = series[branch]['relative_residual']
+            row.update({f'{branch}_current': series[f'{branch}_current'][i], f'{branch}_trend': series[branch]['trend'][i],
+                        f'{branch}_residual': series[branch]['residual'][i],
+                        f'{branch}_relative_residual': None if rel is None else rel[i]})
+        rows.append(row)
+    record = {k: v for k, v in result.items() if k != 'series'}
+    record['tables'] = {'cycles': rows}
+    record['condition_id'] = result['provenance']['condition_id']
+
+    def brief(branch):
+        b = result[branch]
+        return dict(status=b['status'], relative_residual_std_percent=b['primary']['relative_residual_std_percent'],
+                    residual_lag1_correlation=b['primary']['residual_lag1_correlation'],
+                    degree4_vs_degree3_change_percent=b['degree4_vs_degree3_change_percent'],
+                    raw_relative_std_percent=b['raw_statistics']['relative_std_percent'], unit=b['unit'])
+    record['summaries'] = dict(program=brief('program'), erase=brief('erase'), cycles=result['provenance']['cycle_count'],
+                               is_pure_c2c_iid_estimate=False, simulator_candidate='program',
+                               conductance_conversion=result['conductance_conversion'])
+    record['exclusions'] = []
+    record['analysis_result_sha256'] = result_pin(record)
+    return record

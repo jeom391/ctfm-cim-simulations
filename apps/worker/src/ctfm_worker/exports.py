@@ -64,6 +64,12 @@ def plot_result(result, output_dir):
             series=[r for r in rows if r["file_id"]==file_id]
             ax.plot([r["vgs_v"] for r in series],[r["id_a"] for r in series],label=file_id[:8])
         ax.set(xlabel="VGS (V)",ylabel="ID (A)",title="Measured IV curves")
+    elif kind=="c2c_detrended":
+        cycles=result["tables"]["cycles"]
+        for branch,color in (("program","tab:blue"),("erase","tab:red")):
+            ax.plot([c["cycle"] for c in cycles],[c[branch+"_current"] for c in cycles],".",ms=2,color=color,alpha=.5,label=branch+" raw")
+            ax.plot([c["cycle"] for c in cycles],[c[branch+"_trend"] for c in cycles],"-",color=color,label=branch+" cubic trend")
+        ax.set(xlabel="Cycle",ylabel="Read current ("+result["provenance"]["unit"]+")",title="Repeated P/E read current and cubic trend (not iid C2C)")
     elif kind=="retention":
         for direction in ("program","erase"):
             series=[r for r in result["tables"].get("retention_fit",[]) if r["direction"]==direction]

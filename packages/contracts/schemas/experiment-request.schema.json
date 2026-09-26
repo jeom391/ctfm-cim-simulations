@@ -219,6 +219,36 @@
           }
         }
       }
+    },
+    {
+      "description": "Measured C2C exists only in 1.4.0; 1.2.0 and 1.3.0 keep their exact meaning (manual assumption only).",
+      "if": {
+        "properties": {
+          "schema_version": {
+            "enum": [
+              "1.2.0",
+              "1.3.0"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "profile_refs": {
+            "items": {
+              "properties": {
+                "c2c": {
+                  "properties": {
+                    "source": {
+                      "const": "manual_assumption"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error. v1.2.0 requests keep their original meaning (C2C unavailable, single write). v1.3.0 adds an optional manual-assumption C2C model per docs/completion-plan-2026-09-21.md P2: relative CV in percent per referenced profile revision, plus 1-100 reprogram iterations; off (the default reading of a 1.2.0 request) is unchanged.",
@@ -364,22 +394,63 @@
         "additionalProperties": false,
         "properties": {
           "c2c": {
-            "additionalProperties": false,
-            "description": "Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio).",
-            "properties": {
-              "cv_percent": {
-                "minimum": 0,
-                "type": "number"
+            "description": "Manual assumption (1.3.0/1.4.0) or measured detrended Program deviation (1.4.0 only). Never inherited between profiles.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio).",
+                "properties": {
+                  "cv_percent": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "source": {
+                    "const": "manual_assumption"
+                  }
+                },
+                "required": [
+                  "cv_percent",
+                  "source"
+                ],
+                "type": "object"
               },
-              "source": {
-                "const": "manual_assumption"
+              {
+                "additionalProperties": false,
+                "description": "Measured C2C (schema 1.4.0 only): the server resolves analysis_id (a succeeded c2c_detrended analysis) and fills cv_percent and provenance from the stored Program result. A client may only name the analysis and state the two acknowledgements; it cannot supply the number. cv_percent/provenance are server-written fields.",
+                "properties": {
+                  "analysis_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "approved_assumption": {
+                    "const": true,
+                    "description": "The user confirmed applying the Program relative deviation to every selected LTP/LTD state and both planes."
+                  },
+                  "cross_condition_acknowledged": {
+                    "description": "Must be true when the analysis condition_id differs from the profile condition_id.",
+                    "type": "boolean"
+                  },
+                  "cv_percent": {
+                    "description": "Server-written; equals provenance.program_relative_std_percent.",
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "provenance": {
+                    "description": "Server-written pin of the analysis (id, file/result hashes, version, method, cycles, conditions, warnings).",
+                    "type": "object"
+                  },
+                  "source": {
+                    "const": "measured_detrended"
+                  }
+                },
+                "required": [
+                  "source",
+                  "analysis_id",
+                  "approved_assumption"
+                ],
+                "type": "object"
               }
-            },
-            "required": [
-              "cv_percent",
-              "source"
-            ],
-            "type": "object"
+            ]
           },
           "id": {
             "format": "uuid",
@@ -404,7 +475,8 @@
     "schema_version": {
       "enum": [
         "1.2.0",
-        "1.3.0"
+        "1.3.0",
+        "1.4.0"
       ]
     },
     "seed": {

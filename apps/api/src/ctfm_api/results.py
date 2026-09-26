@@ -19,7 +19,7 @@ class AnalysisResult(ScientificResult):
     analysis_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","failed","cancelled"]
-    kind: Literal["iv","d2d","retention","pulse_states"] | None=None
+    kind: Literal["iv","d2d","retention","pulse_states","c2c_detrended"] | None=None
     condition_id: str | None=None
     settings: dict | None=None
     summaries: dict | None=None
@@ -39,12 +39,16 @@ class RunResult(ScientificResult):
     array_index: int | None=Field(default=None,ge=0)
     reprogram_index: int | None=Field(default=None,ge=0)
     reason: str | None=None
+    mapping_metrics: dict | None=Field(default=None,description="Official name of the mapping-error diagnostics; identical content to the legacy mapping_errors alias. Absent when not produced.")
+    mapping_errors: dict | None=Field(default=None,description="Legacy alias of mapping_metrics, kept for existing clients.")
+    adc_metrics: dict | None=Field(default=None,description="Official name of the per-layer ADC diagnostics; identical content to the legacy adc alias. Absent when the ADC was off or produced no diagnostics.")
+    adc: dict | None=Field(default=None,description="Legacy alias of adc_metrics, kept for existing clients.")
 
 class ExperimentResult(ScientificResult):
     experiment_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","partial","failed","cancelled"]
-    schema_version: Literal["1.2.0","1.3.0"] | None=None
+    schema_version: Literal["1.2.0","1.3.0","1.4.0"] | None=None
     requested_config: dict | None=None
     resolved_config: dict | None=None
     effective_config: dict | None=None

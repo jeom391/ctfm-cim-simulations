@@ -100,6 +100,29 @@
             "title": "File Id",
             "type": "string"
           },
+          "header_read_vgs_v": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Header Read Vgs V"
+          },
+          "measurement_conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Conditions"
+          },
           "read_vgs_v": {
             "anyOf": [
               {
@@ -134,6 +157,31 @@
               }
             ],
             "title": "Row Start"
+          },
+          "selection": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "iv_block": "#/components/schemas/IvBlockSelection",
+                    "retention_columns": "#/components/schemas/RetentionColumnSelection"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/IvBlockSelection"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RetentionColumnSelection"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection"
           },
           "sheet": {
             "anyOf": [
@@ -191,8 +239,6 @@
         },
         "required": [
           "file_id",
-          "column_mapping",
-          "units",
           "device_id",
           "condition_id"
         ],
@@ -233,7 +279,8 @@
               "iv",
               "d2d",
               "retention",
-              "pulse_states"
+              "pulse_states",
+              "c2c_detrended"
             ],
             "title": "Kind",
             "type": "string"
@@ -304,7 +351,8 @@
                   "iv",
                   "d2d",
                   "retention",
-                  "pulse_states"
+                  "pulse_states",
+                  "c2c_detrended"
                 ],
                 "type": "string"
               },
@@ -993,6 +1041,36 @@
                 }
               }
             }
+          },
+          {
+            "description": "Measured C2C exists only in 1.4.0; 1.2.0 and 1.3.0 keep their exact meaning (manual assumption only).",
+            "if": {
+              "properties": {
+                "schema_version": {
+                  "enum": [
+                    "1.2.0",
+                    "1.3.0"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "profile_refs": {
+                  "items": {
+                    "properties": {
+                      "c2c": {
+                        "properties": {
+                          "source": {
+                            "const": "manual_assumption"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "description": "Validated request shape; server must also enforce published profile/data/engine capabilities and run budget. No measured device fields may be overridden. v1.1.0 requests are not reinterpreted: tile_size is now explicit with the ADC off and adc_order is required, so a 1.1.0 request is rejected with an explicit migration error. v1.2.0 requests keep their original meaning (C2C unavailable, single write). v1.3.0 adds an optional manual-assumption C2C model per docs/completion-plan-2026-09-21.md P2: relative CV in percent per referenced profile revision, plus 1-100 reprogram iterations; off (the default reading of a 1.2.0 request) is unchanged.",
@@ -1136,22 +1214,63 @@
               "additionalProperties": false,
               "properties": {
                 "c2c": {
-                  "additionalProperties": false,
-                  "description": "Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio).",
-                  "properties": {
-                    "cv_percent": {
-                      "minimum": 0.0,
-                      "type": "number"
+                  "description": "Manual assumption (1.3.0/1.4.0) or measured detrended Program deviation (1.4.0 only). Never inherited between profiles.",
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "description": "Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio).",
+                      "properties": {
+                        "cv_percent": {
+                          "minimum": 0.0,
+                          "type": "number"
+                        },
+                        "source": {
+                          "const": "manual_assumption"
+                        }
+                      },
+                      "required": [
+                        "cv_percent",
+                        "source"
+                      ],
+                      "type": "object"
                     },
-                    "source": {
-                      "const": "manual_assumption"
+                    {
+                      "additionalProperties": false,
+                      "description": "Measured C2C (schema 1.4.0 only): the server resolves analysis_id (a succeeded c2c_detrended analysis) and fills cv_percent and provenance from the stored Program result. A client may only name the analysis and state the two acknowledgements; it cannot supply the number. cv_percent/provenance are server-written fields.",
+                      "properties": {
+                        "analysis_id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "approved_assumption": {
+                          "const": true,
+                          "description": "The user confirmed applying the Program relative deviation to every selected LTP/LTD state and both planes."
+                        },
+                        "cross_condition_acknowledged": {
+                          "description": "Must be true when the analysis condition_id differs from the profile condition_id.",
+                          "type": "boolean"
+                        },
+                        "cv_percent": {
+                          "description": "Server-written; equals provenance.program_relative_std_percent.",
+                          "minimum": 0.0,
+                          "type": "number"
+                        },
+                        "provenance": {
+                          "description": "Server-written pin of the analysis (id, file/result hashes, version, method, cycles, conditions, warnings).",
+                          "type": "object"
+                        },
+                        "source": {
+                          "const": "measured_detrended"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "analysis_id",
+                        "approved_assumption"
+                      ],
+                      "type": "object"
                     }
-                  },
-                  "required": [
-                    "cv_percent",
-                    "source"
-                  ],
-                  "type": "object"
+                  ]
                 },
                 "id": {
                   "format": "uuid",
@@ -1176,7 +1295,8 @@
           "schema_version": {
             "enum": [
               "1.2.0",
-              "1.3.0"
+              "1.3.0",
+              "1.4.0"
             ]
           },
           "seed": {
@@ -1319,7 +1439,8 @@
               {
                 "enum": [
                   "1.2.0",
-                  "1.3.0"
+                  "1.3.0",
+                  "1.4.0"
                 ],
                 "type": "string"
               },
@@ -1697,6 +1818,34 @@
           "status"
         ],
         "title": "ImportOrigin",
+        "type": "object"
+      },
+      "IvBlockSelection": {
+        "additionalProperties": false,
+        "description": "Explicit Vg/Id/Ig block and monotone Vg segment of a repeated-block IV sheet.",
+        "properties": {
+          "block": {
+            "minimum": 0.0,
+            "title": "Block",
+            "type": "integer"
+          },
+          "segment": {
+            "minimum": 0.0,
+            "title": "Segment",
+            "type": "integer"
+          },
+          "type": {
+            "const": "iv_block",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "block",
+          "segment"
+        ],
+        "title": "IvBlockSelection",
         "type": "object"
       },
       "JobList": {
@@ -2398,6 +2547,30 @@
         "title": "Retention",
         "type": "object"
       },
+      "RetentionColumnSelection": {
+        "additionalProperties": false,
+        "description": "Explicit 0-based sheet columns for the independent Erase/Program time axes.",
+        "properties": {
+          "columns": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Columns",
+            "type": "object"
+          },
+          "type": {
+            "const": "retention_columns",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "columns"
+        ],
+        "title": "RetentionColumnSelection",
+        "type": "object"
+      },
       "RetentionFit": {
         "additionalProperties": false,
         "properties": {
@@ -2521,6 +2694,32 @@
             ],
             "title": "Accuracy"
           },
+          "adc": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Legacy alias of adc_metrics, kept for existing clients.",
+            "title": "Adc"
+          },
+          "adc_metrics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Official name of the per-layer ADC diagnostics; identical content to the legacy adc alias. Absent when the ADC was off or produced no diagnostics.",
+            "title": "Adc Metrics"
+          },
           "array_index": {
             "anyOf": [
               {
@@ -2565,6 +2764,32 @@
               }
             ],
             "title": "Loss Vs Mapped Pp"
+          },
+          "mapping_errors": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Legacy alias of mapping_metrics, kept for existing clients.",
+            "title": "Mapping Errors"
+          },
+          "mapping_metrics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Official name of the mapping-error diagnostics; identical content to the legacy mapping_errors alias. Absent when not produced.",
+            "title": "Mapping Metrics"
           },
           "reason": {
             "anyOf": [
@@ -3175,6 +3400,94 @@
           }
         },
         "summary": "Upload"
+      }
+    },
+    "/api/v1/files/{identifier}/layout": {
+      "get": {
+        "description": "Structure of the instrument layouts that /preview refuses (repeated Vg/Id/Ig blocks, independent P/E time axes).\n\nNothing is selected here: the caller picks the block/segment or the four columns explicitly.",
+        "operationId": "file_layout_api_v1_files__identifier__layout_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Identifier",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "iv",
+                "retention"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sheet",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sheet"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "File Layout"
       }
     },
     "/api/v1/files/{identifier}/preview": {

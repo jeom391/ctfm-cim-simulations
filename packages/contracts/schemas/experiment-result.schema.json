@@ -64,6 +64,34 @@
           "default": null,
           "title": "Accuracy"
         },
+        "adc": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Legacy alias of adc_metrics, kept for existing clients.",
+          "title": "Adc"
+        },
+        "adc_metrics": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Official name of the per-layer ADC diagnostics; identical content to the legacy adc alias. Absent when the ADC was off or produced no diagnostics.",
+          "title": "Adc Metrics"
+        },
         "array_index": {
           "anyOf": [
             {
@@ -111,6 +139,34 @@
           ],
           "default": null,
           "title": "Loss Vs Mapped Pp"
+        },
+        "mapping_errors": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Legacy alias of mapping_metrics, kept for existing clients.",
+          "title": "Mapping Errors"
+        },
+        "mapping_metrics": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Official name of the mapping-error diagnostics; identical content to the legacy mapping_errors alias. Absent when not produced.",
+          "title": "Mapping Metrics"
         },
         "reason": {
           "anyOf": [
@@ -289,7 +345,8 @@
         {
           "enum": [
             "1.2.0",
-            "1.3.0"
+            "1.3.0",
+            "1.4.0"
           ],
           "type": "string"
         },

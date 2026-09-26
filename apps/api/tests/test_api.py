@@ -43,7 +43,7 @@ async def test_capabilities_never_advertise_unimplemented_execution(client):
     response = await client.get("/api/v1/capabilities")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["schema_version"] == "1.3.0"
+    assert payload["schema_version"] == "1.4.0"
     for name in ("aihwkit_ideal", "neurosim"):
         if not payload["engines"][name]["available"]:
             assert payload["engines"][name]["reason"]
@@ -102,7 +102,7 @@ async def test_openapi_exposes_the_real_request_and_error_contracts(client):
     schema = operation["requestBody"]["content"]["application/json"]["schema"]
     request_name = schema["$ref"].split("/")[-1]
     request_schema = document["components"]["schemas"][request_name]
-    assert request_schema["properties"]["schema_version"]["enum"] == ["1.2.0", "1.3.0"]
+    assert request_schema["properties"]["schema_version"]["enum"] == ["1.2.0", "1.3.0", "1.4.0"]
     assert request_schema["allOf"]
     assert "202" in operation["responses"]
     response_ref = operation["responses"]["422"]["content"]["application/json"]["schema"]["$ref"]

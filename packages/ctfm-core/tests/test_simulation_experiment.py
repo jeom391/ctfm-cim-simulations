@@ -74,10 +74,12 @@ class ExperimentIntegrationTests(unittest.TestCase):
             self.assertEqual(r['runs'][1]['engine'],'torch_reference')
             self.assertIsNotNone(r['runs'][1]['accuracy'])
             self.assertEqual(r['runs'][2]['profile_ref'],config['profile_refs'][0])
-            self.assertEqual(r['runs'][2]['ppa']['status'],'unsupported')
+            self.assertIsNone(r['runs'][2]['ppa'])
+            self.assertIsNone(r['runs'][0]['ppa'])
+            self.assertEqual(r['runs'][3]['ppa']['status'],'unsupported')
             # The refusal must come from the adapter, carrying why it refused and
             # how the two models differ, with no number standing in for absence.
-            ppa=r['runs'][2]['ppa']
+            ppa=r['runs'][3]['ppa']
             self.assertTrue(ppa['reason'])
             self.assertTrue(ppa['reasons'] if 'reasons' in ppa else ppa['model_mismatches'])
             self.assertIn('nonuniform_states',{m['id'] for m in ppa['model_mismatches']})

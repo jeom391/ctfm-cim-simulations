@@ -75,8 +75,11 @@ def _instrument_block(raw, warnings):
     return start, end
 
 
-def parse_table(data: bytes, filename: str, sheet: str | None = None) -> dict:
-    """Read raw cells; identify a header only, never infer a calculation mapping."""
+def _load_raw(data: bytes, filename: str, sheet: str | None = None):
+    """Guarded raw-cell read shared by parse_table and the repeated-block readers.
+
+    Returns (raw_rows, sheets, warnings, selected_sheet); selected_sheet is None for CSV or when a workbook
+    still needs an explicit sheet (raw_rows is then empty)."""
     if Path(filename).name.startswith('~$'):
         raise ValueError('Temporary spreadsheet files are excluded')
     extension = Path(filename).suffix.lower()
@@ -109,7 +112,7 @@ def parse_table(data: bytes, filename: str, sheet: str | None = None) -> dict:
             sheets = formulas.sheetnames
             if sheet is None:
                 if len(sheets) != 1:
-                    return dict(sheets=sheets, columns=[], rows=[], source_rows=[], warnings=['Select a worksheet explicitly'])
+                    return [], sheets, ['Select a worksheet explicitly'], None
                 sheet = sheets[0]
             if sheet not in sheets:
                 raise ValueError('Selected worksheet does not exist')
@@ -136,6 +139,16 @@ def parse_table(data: bytes, filename: str, sheet: str | None = None) -> dict:
         raise ValueError('Only CSV and XLSX files are supported')
     while raw and all(v is None or v == '' for v in raw[-1]):
         raw.pop()
+    if not raw:
+        raise ValueError('The table is empty')
+    return raw, sheets, warnings, (sheet if extension == '.xlsx' else None)
+
+
+def parse_table(data: bytes, filename: str, sheet: str | None = None) -> dict:
+    """Read raw cells; identify a header only, never infer a calculation mapping."""
+    raw, sheets, warnings, selected = _load_raw(data, filename, sheet)
+    if not raw and selected is None and sheets:
+        return dict(sheets=sheets, columns=[], rows=[], source_rows=[], warnings=warnings)
     if not raw:
         raise ValueError('The table is empty')
     header_index, data_end = _instrument_block(raw, warnings)
@@ -201,17 +214,18 @@ def _prepare(dataset, keys):
         raise ValueError('Mapped columns must be distinct')
     factors = {}
     for key in keys:
-        family = 'id_a' if key.endswith('id_a') else key
+        family = 'id_a' if key.endswith('id_a') else 'time_s' if key.endswith('time_s') else key
         if units[key] not in UNIT_FACTORS[family]:
             raise ValueError(f'Unsupported unit for {key}: {units[key]}')
         factors[key] = UNIT_FACTORS[family][units[key]]
     converted = []
     for row, source_row in zip(rows, indices):
         converted.append(dict(source_row=source_row, **{k:_finite(row.get(mapping[k]),f'{dataset["file_id"]} row {source_row} {k}')*factors[k] for k in keys}))
-    if 'time_s' in keys and any(b['time_s'] < a['time_s'] for a,b in zip(converted,converted[1:])):
-        raise ValueError('Time reversal is not allowed; preserve acquisition order')
-    if 'time_s' in keys and any(r['time_s'] < 0 for r in converted):
-        raise ValueError('Negative measurement time is invalid')
+    for time_key in (k for k in keys if k.endswith('time_s')):
+        if any(b[time_key] < a[time_key] for a,b in zip(converted,converted[1:])):
+            raise ValueError('Time reversal is not allowed; preserve acquisition order')
+        if any(r[time_key] < 0 for r in converted):
+            raise ValueError('Negative measurement time is invalid')
     return converted
 
 
@@ -245,7 +259,7 @@ def _crossing_selection(d,result):
 
 
 def _source(d):
-    fields = ('file_id','sha256','filename','sheet','device_id','condition_id','branch','sweep_amplitude_v','direction','source_label','read_vgs_v','vds_v','header_read_vgs_v','current_basis')
+    fields = ('file_id','sha256','filename','sheet','device_id','condition_id','branch','sweep_amplitude_v','direction','source_label','read_vgs_v','vds_v','header_read_vgs_v','current_basis','time_axes','block','selected_columns','skipped_blank_rows')
     return {**{k:deepcopy(d.get(k)) for k in fields}, 'columns':deepcopy(d['column_mapping']), 'units':deepcopy(d['units']), 'source_rows':deepcopy(d['source_rows']), 'selection_key':crossing_selection_key(d)}
 
 
@@ -273,7 +287,11 @@ def analyze(kind: str, datasets: list[dict], settings: dict) -> dict:
         raise ValueError('v1 requires VDS=0.1 V, read VGS=0 V, positive Iref, retention start >=10 s')
     if len({d.get('condition_id') for d in datasets}) != 1:
         raise ValueError('Do not mix A conditions in one analysis')
-    prepared = [(d,_prepare(d,keys[kind])) for d in datasets]
+    def input_keys(d):
+        if kind == 'retention' and d.get('time_axes') == 'per_direction':
+            return ['erase_time_s','erase_id_a','program_time_s','program_id_a']
+        return keys[kind]
+    prepared = [(d,_prepare(d,input_keys(d))) for d in datasets]
     if kind in ('iv','d2d'): _validate_crossing_keys(datasets,config['crossing_segments'])
     result = dict(kind=kind, settings=config, condition_id=datasets[0]['condition_id'], summaries={}, tables={'raw':[]}, exclusions=[], warnings=[], provenance=[_source(d) for d in datasets])
     seen = set()
@@ -478,6 +496,16 @@ def _d2d(prepared,result):
     result['warnings'].append('D2D lognormal distribution and state-common application are assumptions, not identified by two-device IV data')
 
 
+def _log_fit(times,currents):
+    x=[math.log10(t) for t in times]; xm=mean(x); xx=sum((v-xm)**2 for v in x)
+    y=list(currents); ym=mean(y)
+    b=sum((xi-xm)*(yi-ym) for xi,yi in zip(x,y))/xx; a=ym-b*xm
+    predicted=[a+b*v for v in x]; residual=[yi-pi for yi,pi in zip(y,predicted)]
+    sse=sum(v*v for v in residual); sst=sum((yi-ym)**2 for yi in y)
+    fit=dict(a=a,b=b,rmse=math.sqrt(sse/len(y)),r_squared=1-sse/sst if sst>0 else None,n=len(y),time_min_s=min(times),time_max_s=max(times),a_unit='A',b_unit='A/decade')
+    return fit,predicted,residual
+
+
 def _retention(prepared,result):
     if len(prepared)!=1: raise ValueError('Select one explicit raw retention dataset per analysis')
     d,rows=prepared[0]
@@ -489,25 +517,34 @@ def _retention(prepared,result):
     if d.get('source_label')=='R3(2)': raise ValueError('R3(2) is explicitly excluded by the device team')
     expected_read=expected[1] if expected else _finite(d.get('read_vgs_v'),'read_vgs_v')
     if not _bias(d,expected_read): raise ValueError('Retention measurement bias does not match the approved source')
-    kept=[]
-    for r in rows:
-        if r['time_s'] < result['settings']['retention_start_time_s']:
-            _excluded(result,d,'before_fit_start',source_row=r['source_row'])
-        else: kept.append(r)
-    if len({r['time_s'] for r in kept})<3:
-        raise ValueError('Retention OLS requires at least three distinct valid times >=10 s')
-    x=[math.log10(r['time_s']) for r in kept]; xm=mean(x); xx=sum((v-xm)**2 for v in x)
+    per=d.get('time_axes')=='per_direction'
+    cutoff=result['settings']['retention_start_time_s']
+    kept={}
+    if per:
+        for direction in ('program','erase'):
+            kept[direction]=[]
+            for r in rows:
+                if r[direction+'_time_s'] < cutoff: _excluded(result,d,'before_fit_start',source_row=r['source_row'],direction=direction)
+                else: kept[direction].append(r)
+            if len({r[direction+'_time_s'] for r in kept[direction]})<3:
+                raise ValueError(f'Retention OLS requires at least three distinct valid {direction} times >=10 s')
+    else:
+        shared=[]
+        for r in rows:
+            if r['time_s'] < cutoff: _excluded(result,d,'before_fit_start',source_row=r['source_row'])
+            else: shared.append(r)
+        if len({r['time_s'] for r in shared})<3:
+            raise ValueError('Retention OLS requires at least three distinct valid times >=10 s')
+        kept={'program':shared,'erase':shared}
     output=dict(status='available',analysis_id=None,source_label=d.get('source_label'),vds_v=.1,read_vgs_v=expected_read,current_basis='raw',reference_time_s=10.)
+    if per: output['time_axes']='per_direction'
     fits=[]
     for direction in ('program','erase'):
-        y=[r[direction+'_id_a'] for r in kept]; ym=mean(y)
-        b=sum((xi-xm)*(yi-ym) for xi,yi in zip(x,y))/xx; a=ym-b*xm
-        predicted=[a+b*v for v in x]; residual=[yi-pi for yi,pi in zip(y,predicted)]
-        sse=sum(v*v for v in residual); sst=sum((yi-ym)**2 for yi in y)
-        fit=dict(a=a,b=b,rmse=math.sqrt(sse/len(y)),r_squared=1-sse/sst if sst>0 else None,n=len(y),time_min_s=min(r['time_s'] for r in kept),time_max_s=max(r['time_s'] for r in kept),a_unit='A',b_unit='A/decade')
+        rows_d=kept[direction]; tkey=direction+'_time_s' if per else 'time_s'
+        fit,predicted,residual=_log_fit([r[tkey] for r in rows_d],[r[direction+'_id_a'] for r in rows_d])
         output[direction+'_fit']=fit
-        for r,pred,res in zip(kept,predicted,residual):
-            fits.append(dict(file_id=d['file_id'],source_row=r['source_row'],direction=direction,time_s=r['time_s'],id_a=r[direction+'_id_a'],fit_id_a=pred,residual_a=res,instantaneous_slope_a_per_s=b/(r['time_s']*math.log(10))))
+        for r,pred,res in zip(rows_d,predicted,residual):
+            fits.append(dict(file_id=d['file_id'],source_row=r['source_row'],direction=direction,time_s=r[tkey],id_a=r[direction+'_id_a'],fit_id_a=pred,residual_a=res,instantaneous_slope_a_per_s=fit['b']/(r[tkey]*math.log(10))))
     output['program_reference_current_a']=output['program_fit']['a']+output['program_fit']['b']
     output['simulation_available']=output['program_reference_current_a']>0
     if not output['simulation_available']: result['warnings'].append('Program I_fit(10 s) is nonpositive; retention simulation is unavailable')
@@ -515,4 +552,3 @@ def _retention(prepared,result):
     if d.get('header_read_vgs_v') is not None and d['header_read_vgs_v'] != expected_read:
         result['warnings'].append('Original header bias differs; the device-team Retention PPT bias takes precedence')
     result['retention']=output; result['tables']['retention_fit']=fits; result['summaries']=deepcopy(output)
-

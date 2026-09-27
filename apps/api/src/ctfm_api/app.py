@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from ctfm_contracts.check_experiment_contract import MAX_REQUESTED_RUNS, SCHEMA, SCHEMA_VERSION
+from ctfm_contracts.check_experiment_contract import MAX_REQUESTED_RUNS, SCHEMA, SCHEMA_VERSION, validate_request
 from ctfm_contracts.models import ExperimentRequest
 from ctfm.profiles import ProfileManifest
 from .contracts import AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
@@ -45,6 +45,15 @@ def capabilities():
     torch_available = engines["torch_reference"]["available"]
     properties = SCHEMA["properties"]
     controls = SCHEMA["allOf"][2]["then"]["properties"]["hardware"]["properties"]
+    ppa_tiles, ppa_unsupported = [], {}
+    if engines["neurosim"]["available"]:
+        from ctfm.adapters.neurosim import engine_topology_support
+        from ctfm.adapters.proxy_preset import proxy_preset
+        from ctfm.simulation import MNIST_MLP_V1_LAYERS
+        for tile in controls["tile_size"]["enum"]:
+            preset = proxy_preset(tile)
+            ok, why = engine_topology_support(MNIST_MLP_V1_LAYERS, tile, -(-preset["synapse_bit"] // preset["cell_bit"]))
+            (ppa_tiles.append(tile) if ok else ppa_unsupported.__setitem__(str(tile), why))
     effect = lambda available, reason: Capability(available=available, version=None, reason=None if available else reason)
     return Capabilities(
         schema_version=SCHEMA_VERSION, profile_schema_version="1.0.0",
@@ -65,6 +74,7 @@ def capabilities():
             # Both ADC orders are compared against the independent NumPy model in
             # the same sweep, so the order is part of what is advertised: a caller
             # must not assume a verified bit/tile pair is verified in both orders.
+            ppa_tile_sizes=ppa_tiles, ppa_unsupported=ppa_unsupported,
             validated_combinations=[{"tile_size": t, "adc_bits": b, "adc_order": o, "engine": name}
                                     for name in ("torch_reference", "aihwkit_ideal") if engines[name]["available"]
                                     for t in (64,128,256) for b in range(3,9)
@@ -73,7 +83,7 @@ def capabilities():
                 "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"],
                 "max_n_reprogram": properties["n_reprogram"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
         supported_file_formats=["csv","xlsx"],
-        warnings=["PPA: no validated CTFM equivalent circuit preset."])
+        warnings=["PPA is an assumed_proxy conditional estimate, never a validated CTFM chip result."])
 
 def create_app(storage_root=None):
     app = FastAPI(title="CTFM measurement and CIM API", version="1.2.0",
@@ -162,6 +172,20 @@ def create_app(storage_root=None):
         result["rows"] = result["rows"][:50]
         result["source_rows"] = result["source_rows"][:50]
         return dict(result, file_id=str(identifier), sheet=sheet or (result["sheets"][0] if result["sheets"] else None))
+
+    @app.get("/api/v1/files/{identifier}/layout")
+    def file_layout(identifier: UUID, kind: Literal["iv","retention"], sheet: str | None = None, store: Store = Depends(storage)):
+        """Structure of the instrument layouts that /preview refuses (repeated Vg/Id/Ig blocks, independent P/E time axes).
+
+        Nothing is selected here: the caller picks the block/segment or the four columns explicitly."""
+        from ctfm.measurement.layouts import read_iv_blocks, read_retention_layout
+        record = store.get_entity("file", str(identifier))
+        data = store.managed_path(record["relative_path"]).read_bytes()
+        if sha256(data) != record["sha256"]:
+            raise ValueError("Source file hash mismatch")
+        if kind == "iv":
+            return dict(read_iv_blocks(data, record["name"], sheet), file_id=str(identifier))
+        return dict(read_retention_layout(data, record["name"], sheet or "Raw Data"), file_id=str(identifier))
 
     @app.post("/api/v1/analyses", status_code=202, response_model=QueuedAnalysis)
     def analyze_request(request: AnalysisRequest, store: Store = Depends(storage)):
@@ -263,6 +287,48 @@ def create_app(storage_root=None):
         return Response(buffer.getvalue(), media_type="application/zip",
                         headers={"Content-Disposition":f'attachment; filename="profile-{identifier}-r{revision}.zip"'})
 
+    def resolve_measured_c2c(store, config):
+        """The browser names a stored analysis; the server, not the request, supplies the number and its provenance."""
+        from copy import deepcopy
+        from ctfm.measurement.c2c import result_pin
+        config = deepcopy(config)
+        for ref in config["profile_refs"]:
+            c2c = ref.get("c2c")
+            if not c2c or c2c.get("source") != "measured_detrended":
+                continue
+            field = "profile_refs.c2c"
+            if "cv_percent" in c2c or "provenance" in c2c:
+                raise APIError(422,"c2c_server_fields","Measured C2C takes its value from the stored analysis; do not send cv_percent or provenance.",field)
+            analysis = store.get_entity("analysis", c2c["analysis_id"])
+            if analysis.get("kind") != "c2c_detrended" or analysis.get("status") != "succeeded":
+                raise APIError(422,"c2c_analysis_invalid","analysis_id must name a succeeded measured C2C analysis.",field,{"analysis_id":c2c["analysis_id"]})
+            if analysis.get("analysis_result_sha256") != result_pin(analysis):
+                raise APIError(422,"c2c_analysis_tampered","The stored C2C analysis does not match its result hash.",field,{"analysis_id":c2c["analysis_id"]})
+            program = analysis["program"]
+            percent = program["primary"]["relative_residual_std_percent"]
+            if program["status"] != "ok" or percent is None:
+                raise APIError(422,"c2c_analysis_blocked","The Program deviation of this analysis is unavailable.",field,{"reason":program.get("blocked_reason")})
+            profile_condition = store.get_profile(ref["id"], ref["revision"])["manifest"]["condition_id"]
+            crossing = profile_condition != analysis["condition_id"]
+            if crossing and not c2c.get("cross_condition_acknowledged"):
+                raise APIError(422,"c2c_condition_mismatch","The analysis condition differs from the profile condition; acknowledge the cross-condition application explicitly.",field,
+                               {"analysis_condition_id":analysis["condition_id"],"profile_condition_id":profile_condition})
+            source = analysis["provenance"]
+            c2c["cv_percent"] = percent
+            c2c["provenance"] = dict(
+                analysis_id=analysis["analysis_id"], analysis_result_sha256=analysis["analysis_result_sha256"], source_file_sha256=source["sha256"],
+                source_filename=source["filename"], sheet=source["sheet"], device_id=source["device_id"], condition_id=analysis["condition_id"],
+                analysis_version=analysis["analysis_version"], method=analysis["method"]["name"], primary_degree=analysis["method"]["primary_degree"],
+                ddof=analysis["method"]["ddof"], cycle_min=source["cycle_min"], cycle_max=source["cycle_max"], cycle_count=source["cycle_count"],
+                unit=source["unit"], program_relative_std_percent=percent, residual_lag1_correlation=program["primary"]["residual_lag1_correlation"],
+                degree4_vs_degree3_change_percent=program["degree4_vs_degree3_change_percent"],
+                measurement_conditions=analysis["measurement_conditions"], warnings=analysis["warnings"],
+                is_pure_c2c_iid_estimate=False, erase_role="analysis_only",
+                applied_to="every selected LTP/LTD state of the profile, both planes, independently drawn per reprogram/layer/plane",
+                approved_assumption=True, cross_condition_acknowledged=bool(crossing), profile_condition_id=profile_condition)
+        validate_request(config)
+        return config
+
     @app.post("/api/v1/experiments", status_code=202, response_model=QueuedExperiment)
     def experiment_create(request: ExperimentRequest, store: Store = Depends(storage)):
         from ctfm.profiles import validate_profile
@@ -277,6 +343,18 @@ def create_app(storage_root=None):
                 fit = record["manifest"]["retention"]["program_fit"]
                 if fit["a"] + fit["b"] <= 0:
                     raise APIError(422,"unavailable_measurement","Retention reference current must be positive.","effects.retention")
+        if config["engines"]["ppa"] == "assumed_proxy":
+            from ctfm.adapters.neurosim import engine_topology_support
+            from ctfm.simulation import MNIST_MLP_V1_LAYERS
+            neurosim = capabilities().engines["neurosim"]
+            if not neurosim.available:
+                raise APIError(422,"unavailable_engine","The NeuroSim engine is not usable in this environment.","engines.ppa",{"reason":neurosim.reason})
+            from ctfm.adapters.proxy_preset import proxy_preset
+            preset = proxy_preset(config["hardware"]["tile_size"])
+            supported, reason = engine_topology_support(MNIST_MLP_V1_LAYERS, config["hardware"]["tile_size"],
+                                                 -(-preset["synapse_bit"] // preset["cell_bit"]))
+            if not supported:
+                raise APIError(422,"unsupported_ppa_configuration",reason,"hardware.tile_size",{"tile_size":config["hardware"]["tile_size"]})
         engine = config["engines"]["accuracy"]
         capability = capabilities().engines[engine]
         if not capability.available:
@@ -286,6 +364,7 @@ def create_app(storage_root=None):
             path = store.managed_path(checkpoint["relative_path"])
             if not path.is_file() or sha256(path.read_bytes()) != checkpoint["sha256"]:
                 raise ValueError("Checkpoint hash mismatch")
+        config = resolve_measured_c2c(store, config)
         item, job = store.enqueue("experiment", config)
         return {"experiment_id":item["id"],"job_id":job["id"]}
 

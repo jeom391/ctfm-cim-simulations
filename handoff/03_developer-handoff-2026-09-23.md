@@ -1,3 +1,7 @@
+> **2026-09-26 갱신:** 아래 본문의 "실측 IV/Retention 연결 blocked", "웹 C2C 미연결", "필드명 미통일"은 [통합 마무리 문서](../docs/integration-finish-2026-09-26.md)에서 해소/갱신됐습니다(IV 49/50·Retention 5/5 읽기, 웹 C2C 연결, `mapping_metrics`/`adc_metrics` 공식 이름). 엔진 부재 판정은 환경별로 다릅니다: 이번 머신에는 엔진이 없고, 다른 환경의 실행 기록은 그 환경의 사실입니다.
+
+---
+
 > **2026-09-23 게시 시 추가 확인 (Claude, `local_report/07_TASK_publish-handoff.md` 수행 중 작성):** 아래 본문은 Codex가 01~05 검토와 06 재확인 "화면"만 근거로 작성한 초안이며, 초안 자체가 "06 원본 보고서와 diff를 읽지 못했다"고 명시하고 있었다. 이 절은 그 갭을 `local_report/06_REPORT_backend-batch.md` 원본, `local_report/evidence/06/`의 실제 로그, `git diff 96fb9bc..2b0a830`을 직접 대조해 메운 것이다. 아래 "5. 작업 06" 절의 "미확인" 항목에 구체적인 답을 채워 넣었고, 이 문서를 포함한 커밋은 `claude/adc-order-comparison` 브랜치로 `origin`에 push된다(강제 push/main 자동 merge 아님) — 즉 "코드가 GitHub에서 확인되지 않는다"는 아래 3번째 줄의 상태는 이 게시로 해소된다. **다만 이것은 "모든 기능이 완료됐다"는 뜻이 아니다** — 06 작업은 대부분 검증(fix 아님)이었고, NeuroSim 엔진 실행·실측 IV/Retention 연결·05 프론트는 여전히 blocked/보류 상태 그대로다.
 
 ---

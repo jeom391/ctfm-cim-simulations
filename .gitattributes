@@ -19,3 +19,4 @@
 # CRLF and every --check falsely reports drift even when nothing changed.
 /packages/contracts/schemas/*.json text eol=lf
 /packages/contracts/openapi/*.json text eol=lf
+*.patch -text

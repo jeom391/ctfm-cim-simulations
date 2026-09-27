@@ -1,14 +1,12 @@
-> **2026-09-21 마무리:** [작업 순서와 완료 기준](docs/completion-plan-2026-09-21.md), [최신 공유 LTP/LTD](data/reference/ltp-ltd-2026-09-21/README.md). 기존 원본 Git 제외 원칙의 예외는 이번 사용자 승인 데이터셋에 한정합니다.
-
-> **2026-09-20 개발 재개:** 구현 전에 [PDF 답변 및 작업 순서](docs/implementation-decisions-2026-09-20.md)와 [설계 v1.2 기준](docs/spec/08-hardware-baseline.md)을 먼저 읽으세요. 문서 결정과 구현 완료는 구분합니다.
-
 # CTFM-CIM Simulations
 
 CTFM 소자의 측정 데이터 분석과 실측 전도도 상태 기반 CIM 추론 평가를 위한 연구용 프로젝트입니다.
 
+> **최신 구현 상태 (2026-09-27):** [최종 점검·사용 범위](docs/release-readiness-2026-09-27.md), [인수인계](handoff/README.md). 측정·정확도 흐름은 구현됐으며 NeuroSim은 제한적인 부분 비용 평가입니다.
+
 ## 개발 시작
 
-**최신 확정 설계: [docs/spec/README.md](docs/spec/README.md), 문서·실험 요청 v1.1.0 / Device Profile v1.0.0 (2026-09-18).**
+**설계 목차: [docs/spec/README.md](docs/spec/README.md). 요청 계약은 1.2.0 / 1.3.0 / 1.4.0을 기능별로 지원합니다.**
 
 - [측정 분석 계산 규칙](docs/spec/01-measurement-analysis.md)
 - [Device Profile 계약](docs/spec/02-device-profile.md)
@@ -58,7 +56,7 @@ uv run --locked python packages/contracts/export_schemas.py --check
 uv run --locked python scripts/smoke_workflow.py
 ```
 
-AIHWKit은 설치와 실제 parity probe를 통과할 때만 노출합니다. C2C/PPA는 최신1차 명세대로 비활성입니다. 원본 A1 데이터 회귀와 검증된 CTFM PPA preset은 아직 확보되지 않았습니다.
+AIHWKit은 설치와 실제 parity probe를 통과할 때만 노출합니다. 수동/실측 Program C2C를 지원합니다. NeuroSim assumed_proxy는 패치 엔진·64 배열에서 부분 비용만 평가하며 검증된 실제 CTFM 가속기 PPA가 아닙니다.
 
 ### 가속기 엔진 (Linux 전용)
 

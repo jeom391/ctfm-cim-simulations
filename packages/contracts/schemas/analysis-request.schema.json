@@ -59,6 +59,31 @@
           "title": "File Id",
           "type": "string"
         },
+        "header_read_vgs_v": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Header Read Vgs V"
+        },
+        "measurement_conditions": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Measurement Conditions"
+        },
         "read_vgs_v": {
           "anyOf": [
             {
@@ -96,6 +121,32 @@
           ],
           "default": null,
           "title": "Row Start"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "iv_block": "#/$defs/IvBlockSelection",
+                  "retention_columns": "#/$defs/RetentionColumnSelection"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/IvBlockSelection"
+                },
+                {
+                  "$ref": "#/$defs/RetentionColumnSelection"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selection"
         },
         "sheet": {
           "anyOf": [
@@ -157,12 +208,62 @@
       },
       "required": [
         "file_id",
-        "column_mapping",
-        "units",
         "device_id",
         "condition_id"
       ],
       "title": "AnalysisInput",
+      "type": "object"
+    },
+    "IvBlockSelection": {
+      "additionalProperties": false,
+      "description": "Explicit Vg/Id/Ig block and monotone Vg segment of a repeated-block IV sheet.",
+      "properties": {
+        "block": {
+          "minimum": 0,
+          "title": "Block",
+          "type": "integer"
+        },
+        "segment": {
+          "minimum": 0,
+          "title": "Segment",
+          "type": "integer"
+        },
+        "type": {
+          "const": "iv_block",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "block",
+        "segment"
+      ],
+      "title": "IvBlockSelection",
+      "type": "object"
+    },
+    "RetentionColumnSelection": {
+      "additionalProperties": false,
+      "description": "Explicit 0-based sheet columns for the independent Erase/Program time axes.",
+      "properties": {
+        "columns": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Columns",
+          "type": "object"
+        },
+        "type": {
+          "const": "retention_columns",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "columns"
+      ],
+      "title": "RetentionColumnSelection",
       "type": "object"
     }
   },
@@ -183,7 +284,8 @@
         "iv",
         "d2d",
         "retention",
-        "pulse_states"
+        "pulse_states",
+        "c2c_detrended"
       ],
       "title": "Kind",
       "type": "string"

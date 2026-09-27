@@ -1,3 +1,5 @@
+> **2026-09-26 갱신:** 아래 표의 "실측 IV/Retention 연결 blocked"는 [통합 마무리](integration-finish-2026-09-26.md)에서 해소됐습니다(원본 파일은 이 문서 작성 시점에도 있었고, 형식을 읽는 명시 선택 리더가 없었던 것). NeuroSim 항목은 환경 의존이며 같은 문서 4절이 최신입니다.
+
 # 백엔드 일괄 검증 결과 (2026-09-23)
 
 기준: `claude/adc-order-comparison` 브랜치, 시작 HEAD `96fb9bc`(위 handoff 3절 표의 05 항목), 종료 HEAD `2b0a830`. 소스 코드 변경은 **없음** — `handoff/02_measurement-fix-and-next-steps.md` 문서 9줄 추가뿐. 이 문서는 팀 공유용 요약이며, 로컬 절대 경로·개인 PC 관련 정보는 제거했다. 원본 보고서(`local_report/06_REPORT_backend-batch.md`)와 검증 로그(`local_report/evidence/06/`)는 이 저장소 밖(작성자 로컬 소통 폴더)에 있으므로 필요하면 별도로 전달받아야 한다.

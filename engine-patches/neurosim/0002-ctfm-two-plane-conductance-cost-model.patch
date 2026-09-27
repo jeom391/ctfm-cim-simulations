@@ -1,0 +1,625 @@
+diff --git a/Inference_pytorch/NeuroSIM/Chip.cpp b/Inference_pytorch/NeuroSIM/Chip.cpp
+index dd9f7f6..abb6110 100644
+--- a/Inference_pytorch/NeuroSIM/Chip.cpp
++++ b/Inference_pytorch/NeuroSIM/Chip.cpp
+@@ -47,6 +47,7 @@
+ #include "Sigmoid.h"
+ #include "BitShifter.h"
+ #include "AdderTree.h"
++#include "Ctfm.h"
+ #include "Buffer.h"
+ #include "HTree.h"
+ #include "ProcessingUnit.h"
+@@ -709,6 +710,10 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
+ 	inputVector = LoadInInputData(inputfile); 
+ 	vector<vector<double> > newMemory;
+ 	newMemory = LoadInWeightData(newweightfile, numRowPerSynapse, numColPerSynapse, param->maxConductance, param->minConductance);
++	vector<vector<double> > newMemoryNeg;
++	if (param->ctfmDifferential) newMemoryNeg = LoadInWeightData(oldweightfile, numRowPerSynapse, numColPerSynapse, param->maxConductance, param->minConductance);
++	else newMemoryNeg = newMemory;
++	gCtfmLayer = layerNumber;
+ 	
+ 	*readLatency = 0;
+ 	*readDynamicEnergy = 0;
+@@ -786,12 +791,14 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
+ 				// assign weight and input to specific tile
+ 				vector<vector<double> > tileMemory;
+ 				tileMemory = CopyArray(newMemory, i*desiredTileSizeCM, j*desiredTileSizeCM, numRowMatrix, numColMatrix);
++				vector<vector<double> > tileMemoryNeg;
++				tileMemoryNeg = CopyArray(newMemoryNeg, i*desiredTileSizeCM, j*desiredTileSizeCM, numRowMatrix, numColMatrix);
+ 				
+ 				vector<vector<double> > tileInput;
+ 				tileInput = CopyInput(inputVector, i*desiredTileSizeCM, numInVector*param->numBitInput, numRowMatrix);
+ 
+ 				// Anni update: add &tileLeakageSRAMInUse
+-				TileCalculatePerformance(tileMemory, tileMemory, tileInput, markNM[l], ceil((double)desiredTileSizeCM/(double)desiredPESizeCM), desiredPESizeCM, speedUpEachLayer[0][l], speedUpEachLayer[1][l],
++				TileCalculatePerformance(tileMemory, tileMemoryNeg, tileInput, markNM[l], ceil((double)desiredTileSizeCM/(double)desiredPESizeCM), desiredPESizeCM, speedUpEachLayer[0][l], speedUpEachLayer[1][l],
+ 									numRowMatrix, numColMatrix, numInVector*param->numBitInput, cell, &tileReadLatency, &tileReadDynamicEnergy, &tileLeakage, &tileLeakageSRAMInUse,
+ 									&tilebufferLatency, &tilebufferDynamicEnergy, &tileicLatency, &tileicDynamicEnergy, 
+ 									&tileLatencyADC, &tileLatencyAccum, &tileLatencyOther, &tileEnergyADC, &tileEnergyAccum, &tileEnergyOther, CalculateclkFreq, clkPeriod);
+@@ -966,13 +973,15 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
+ 				int tileRows = (numPENM == 1) ? numRowMatrix : (int) netStructure[l][2]*numRowPerSynapse/numtileEachLayerRow;
+ 				int tileCols = (numPENM == 1) ? numColMatrix : (int) netStructure[l][5]*numColPerSynapse/numtileEachLayerCol;
+ 				tileMemory = ReshapeArray(newMemory, i*desiredPESizeNM, j*desiredPESizeNM, tileRows, tileCols, numPENM, (int) netStructure[l][2]*numRowPerSynapse);
++				vector<vector<double> > tileMemoryNeg;
++				tileMemoryNeg = ReshapeArray(newMemoryNeg, i*desiredPESizeNM, j*desiredPESizeNM, tileRows, tileCols, numPENM, (int) netStructure[l][2]*numRowPerSynapse);
+ 
+ 				vector<vector<double> > tileInput;
+ 				tileInput = ReshapeInput(inputVector, i*desiredPESizeNM, numInVector*param->numBitInput, 
+ 									tileRows, numPENM, (int) netStructure[l][2]*numRowPerSynapse);
+ 
+ 				// Anni update: add &tileLeakageSRAMInUse
+-				TileCalculatePerformance(tileMemory, tileMemory, tileInput, markNM[l], numPENM, desiredPESizeNM, speedUpEachLayer[0][l], speedUpEachLayer[1][l],
++				TileCalculatePerformance(tileMemory, tileMemoryNeg, tileInput, markNM[l], numPENM, desiredPESizeNM, speedUpEachLayer[0][l], speedUpEachLayer[1][l],
+ 									numRowMatrix, numColMatrix, numInVector*param->numBitInput, cell, 
+ 									&tileReadLatency, &tileReadDynamicEnergy, &tileLeakage, &tileLeakageSRAMInUse, &tilebufferLatency, &tilebufferDynamicEnergy, &tileicLatency, &tileicDynamicEnergy,
+ 									&tileLatencyADC, &tileLatencyAccum, &tileLatencyOther, &tileEnergyADC, &tileEnergyAccum, &tileEnergyOther, CalculateclkFreq, clkPeriod);
+@@ -1210,6 +1219,7 @@ vector<vector<double> > PEDesign(bool Design, double peSize, double desiredTileS
+ 			actualDupRow = 1;
+ 			actualDupCol = 1;
+ 		}
++		if (param->ctfmNoDuplication) { actualDupRow = 1; actualDupCol = 1; }   // CTFM: spec 08, no throughput-oriented duplication
+ 		peDupRow.push_back(actualDupRow);
+ 		peDupCol.push_back(actualDupCol);
+ 	}
+@@ -1271,6 +1281,7 @@ vector<vector<double> > SubArrayDup(double desiredPESizeCM, double desiredPESize
+ 				actualDupCol = 1;
+ 			}
+ 		}
++		if (param->ctfmNoDuplication) { actualDupRow = 1; actualDupCol = 1; }   // CTFM: spec 08, no throughput-oriented duplication
+ 		subArrayDupRow.push_back(actualDupRow);
+ 		subArrayDupCol.push_back(actualDupCol);
+ 	}
+@@ -1424,6 +1435,16 @@ vector<vector<double> > LoadInWeightData(const string &weightfile, int numRowPer
+ 				fs.str(valone);
+ 				double f=0;
+ 				fs >> f;	
++				if (param->ctfmConductanceInput) {
++					// CTFM: the file already holds the cell conductance in siemens; keep it exactly (no level re-quantisation)
++					if (numRowPerSynapse != 1 || numColPerSynapse != 1 || param->XNORparallelMode || param->XNORsequentialMode || param->BNNparallelMode) {
++						cout << "ERROR: ctfmConductanceInput needs one cell per weight (no bit slicing, no XNOR/BNN)" << endl;
++						exit(-1);
++					}
++					if (!(f > 0)) { cout << "ERROR: conductance must be positive" << endl; exit(-1); }
++					weightrow.push_back(f);
++					continue;
++				}
+ 				//normalize weight to integer
+ 				double newdata = ((NormalizedMax-NormalizedMin)/(RealMax-RealMin)*(f-RealMax)+NormalizedMax);
+ 				if (newdata >= 0) {
+diff --git a/Inference_pytorch/NeuroSIM/Ctfm.cpp b/Inference_pytorch/NeuroSIM/Ctfm.cpp
+new file mode 100644
+index 0000000..26d56e5
+--- /dev/null
++++ b/Inference_pytorch/NeuroSIM/Ctfm.cpp
+@@ -0,0 +1,49 @@
++#include <cstdio>
++#include <iostream>
++#include "Ctfm.h"
++#include "Param.h"
++#include "SubArray.h"
++
++extern SubArray *subArrayInPE;
++
++extern Param *param;
++
++std::vector<CtfmLayer> gCtfmLedger;
++int gCtfmLayer = 0;
++double gCtfmClkPeriod = 0;
++
++CtfmLayer& CtfmLedgerAt(int layer) {
++	if (layer < 0) layer = 0;
++	while ((int) gCtfmLedger.size() <= layer) gCtfmLedger.push_back(CtfmLayer());
++	return gCtfmLedger[layer];
++}
++
++void CtfmLedgerPrint() {
++	if (!(param->ctfmConductanceInput || param->ctfmDifferential || param->ctfmNoDuplication || param->ctfmReadOnly || param->ctfmUsedOnly)) return;   // reference builds print exactly what they printed before
++	printf("CTFM_LEDGER_BEGIN\n");
++	printf("CTFM_FLAGS conductance_input=%d differential=%d adc_order=%d no_duplication=%d read_only=%d used_only=%d\n",
++		param->ctfmConductanceInput, param->ctfmDifferential, param->ctfmAdcOrder, param->ctfmNoDuplication, param->ctfmReadOnly, param->ctfmUsedOnly);
++	printf("CTFM_CLK period_s=%.9e\n", gCtfmClkPeriod);
++	printf("CTFM_PARAMS read_voltage_v=%.9e resistance_on_ohm=%.9e resistance_off_ohm=%.9e resistance_access_ohm=%.9e "
++		"wire_res_row_ohm=%.9e wire_res_col_ohm=%.9e sub_rows=%d sub_cols=%d cols_muxed=%d level_output=%d technode_nm=%d "
++		"read_pulse_width_s=%.9e write_voltage_v=%.9e num_bit_input=%d parallel_read=%d num_row_parallel=%d\n",
++		param->readVoltage, param->resistanceOn, param->resistanceOff, param->resistanceAccess, param->wireResistanceRow, param->wireResistanceCol,
++		param->numRowSubArray, param->numColSubArray, param->numColMuxed, param->levelOutput, param->technode, param->readPulseWidth,
++		param->writeVoltage, param->numBitInput, param->parallelRead, param->numRowParallel);
++	// one subarray slot as the engine sized it (after the read-only / two-plane adjustment); the digital subtractor is inside "accum"
++	printf("CTFM_SLOT area_m2=%.9e array_m2=%.9e adc_m2=%.9e accum_m2=%.9e other_m2=%.9e subtractor_m2=%.9e\n",
++		subArrayInPE->area, subArrayInPE->areaArray, subArrayInPE->areaADC, subArrayInPE->areaAccum, subArrayInPE->areaOther,
++		(param->ctfmDifferential && param->ctfmAdcOrder == 1) ? subArrayInPE->ctfmSub.area : 0.0);
++	for (int l = 0; l < (int) gCtfmLedger.size(); l++) {
++		const CtfmLayer& c = gCtfmLedger[l];
++		printf("CTFM_LAYER l=%d cycles=%.0f used_subarrays=%.0f instantiated_subarrays=%.0f active_rows=%.0f total_rows=%.0f "
++			"plus_wlcap_j=%.9e plus_mlsa_j=%.9e plus_drivers_j=%.9e plus_accum_j=%.9e "
++			"minus_wlcap_j=%.9e minus_mlsa_j=%.9e minus_drivers_j=%.9e minus_accum_j=%.9e "
++			"sub_j=%.9e col_delay_max_s=%.9e sense_latency_max_s=%.9e sub_latency_s=%.9e plus_colg_s=%.9e minus_colg_s=%.9e weight_cells=%.0f\n",
++			l, c.cycles, c.usedSub, c.instSub, c.activeRows, c.totalRows,
++			c.plane[0][0], c.plane[0][1], c.plane[0][2], c.plane[0][3],
++			c.plane[1][0], c.plane[1][1], c.plane[1][2], c.plane[1][3],
++			c.eSub, c.colDelayMax, c.senseLatencyMax, c.subLatency, c.colG[0], c.colG[1], c.weightCells);
++	}
++	printf("CTFM_LEDGER_END\n");
++}
+diff --git a/Inference_pytorch/NeuroSIM/Ctfm.h b/Inference_pytorch/NeuroSIM/Ctfm.h
+new file mode 100644
+index 0000000..af78294
+--- /dev/null
++++ b/Inference_pytorch/NeuroSIM/Ctfm.h
+@@ -0,0 +1,30 @@
++#ifndef CTFM_H_
++#define CTFM_H_
++// CTFM instrumentation: per-layer block ledger for the two-plane cost model (see engine-patches/neurosim/README.md).
++#include <vector>
++
++struct CtfmLayer {
++	double plane[2][4];   // [0]=G+ plane, [1]=G- plane; {WL cap energy, MLSA+encoder, drivers/mux, shift-add/accumulate} summed over subarray-cycles (J)
++	double eSub;          // digital subtractor energy (adc_then_subtract) (J)
++	double eArray;        // cell read energy is inside the MLSA model (column current); kept for completeness
++	double cycles;        // subarray-cycles accumulated
++	double usedSub, instSub;   // subarrays holding weights / subarray slots of the visited PEs (per plane)
++	double activeRows, totalRows;   // sum over subarray-cycles of rows read / rows
++	double colDelayMax, senseLatencyMax;
++	double subLatency;
++	double colG[2];        // sum over subarray-cycles and columns of the column conductance the engine derived from the G files (S)
++	double weightCells;    // weight cells (one per weight, per plane) inside the used subarrays
++	CtfmLayer() {
++		colG[0] = colG[1] = 0; weightCells = 0;
++		for (int p = 0; p < 2; p++) for (int b = 0; b < 4; b++) plane[p][b] = 0;
++		eSub = eArray = cycles = usedSub = instSub = activeRows = totalRows = colDelayMax = senseLatencyMax = subLatency = 0;
++	}
++};
++
++extern std::vector<CtfmLayer> gCtfmLedger;
++extern int gCtfmLayer;
++extern double gCtfmClkPeriod;
++CtfmLayer& CtfmLedgerAt(int layer);
++void CtfmLedgerPrint();
++
++#endif
+diff --git a/Inference_pytorch/NeuroSIM/Param.cpp b/Inference_pytorch/NeuroSIM/Param.cpp
+index 4af7f08..1355c5a 100644
+--- a/Inference_pytorch/NeuroSIM/Param.cpp
++++ b/Inference_pytorch/NeuroSIM/Param.cpp
+@@ -95,6 +95,14 @@ Param::Param() {
+ 	reLu = true;                // false: sigmoid
+ 								// true: reLu
+ 								
++	// CTFM patch 0002: all zero = reference behaviour
++	ctfmConductanceInput = 0;
++	ctfmDifferential = 0;
++	ctfmAdcOrder = 0;
++	ctfmNoDuplication = 0;
++	ctfmReadOnly = 0;
++	ctfmUsedOnly = 0;
++
+ 	novelMapping = true;        // false: conventional mapping
+ 								// true: novel mapping
+ 								
+diff --git a/Inference_pytorch/NeuroSIM/Param.h b/Inference_pytorch/NeuroSIM/Param.h
+index e5e7791..661e913 100644
+--- a/Inference_pytorch/NeuroSIM/Param.h
++++ b/Inference_pytorch/NeuroSIM/Param.h
+@@ -68,6 +68,7 @@ public:
+ 	int numlut, numColMuxed, numWriteColMuxed, levelOutput, avgWeightBit, numBitInput;
+ 	int numRowSubArray, numColSubArray;
+ 	int cellBit, synapseBit;
++	int ctfmConductanceInput, ctfmDifferential, ctfmAdcOrder, ctfmNoDuplication, ctfmReadOnly, ctfmUsedOnly;   // CTFM patch 0002
+ 	int speedUpDegree;
+ 	
+ 	int XNORparallelMode, XNORsequentialMode, BNNparallelMode, BNNsequentialMode, conventionalParallel, conventionalSequential; 
+diff --git a/Inference_pytorch/NeuroSIM/ProcessingUnit.cpp b/Inference_pytorch/NeuroSIM/ProcessingUnit.cpp
+index 6ac720a..3fa332b 100644
+--- a/Inference_pytorch/NeuroSIM/ProcessingUnit.cpp
++++ b/Inference_pytorch/NeuroSIM/ProcessingUnit.cpp
+@@ -50,6 +50,108 @@
+ #include "ProcessingUnit.h"
+ #include "Param.h"
+ #include "AdderTree.h"
++#include "Ctfm.h"
++
++extern Param *param;
++
++// CTFM patch 0002: one subarray, one input-bit cycle, for both physical planes.
++// SubArray keeps its results in its own members, so plane values are captured after each plane's call and the
++// combined result is written back for the unchanged accumulation code that follows.
++struct CtfmCap {
++	double readLatency, readLatencyADC, readLatencyAccum, readLatencyOther;
++	double energyArray, energyMlsa, energyOther, energyAccum;
++	double leakage, leakAdc, leakAccum, colDelay, senseLatency;
++};
++
++static void CtfmCapture(SubArray *s, bool clkPass, CtfmCap *c) {
++	c->readLatency = s->readLatency; c->readLatencyADC = s->readLatencyADC;
++	c->readLatencyAccum = s->readLatencyAccum; c->readLatencyOther = s->readLatencyOther;
++	c->colDelay = s->colDelay;
++	c->senseLatency = s->multilevelSenseAmp.readLatency + s->multilevelSAEncoder.readLatency + s->sarADC.readLatency;
++	c->energyArray = c->energyMlsa = c->energyOther = c->energyAccum = 0;
++	c->leakage = c->leakAdc = c->leakAccum = 0;
++	if (!clkPass) {
++		c->energyArray = s->readDynamicEnergyArray;   // word-line capacitance switching
++		// column read path: the MLSA power model is a fit against the column resistance, so cell read power and sensing are one block
++		c->energyMlsa = s->multilevelSenseAmp.readDynamicEnergy + s->multilevelSAEncoder.readDynamicEnergy + s->sarADC.readDynamicEnergy;
++		c->energyOther = s->wlNewSwitchMatrix.readDynamicEnergy + s->wlSwitchMatrix.readDynamicEnergy
++			+ (s->numColMuxed > 1 ? (s->mux.readDynamicEnergy + s->muxDecoder.readDynamicEnergy) : 0);
++		c->energyAccum = s->shiftAddWeight.readDynamicEnergy + s->shiftAddInput.readDynamicEnergy + s->adder.readDynamicEnergy + s->dff.readDynamicEnergy;
++		c->leakage = s->leakage;
++		c->leakAdc = s->multilevelSenseAmp.leakage + s->multilevelSAEncoder.leakage;
++		c->leakAccum = s->shiftAddWeight.leakage + s->shiftAddInput.leakage + s->dff.leakage + s->adder.leakage;
++	}
++}
++
++static void CtfmLedgerAdd(int plane, const CtfmCap& c) {
++	CtfmLayer& l = CtfmLedgerAt(gCtfmLayer);
++	l.plane[plane][0] += c.energyArray; l.plane[plane][1] += c.energyMlsa;
++	l.plane[plane][2] += c.energyOther; l.plane[plane][3] += c.energyAccum;
++	if (c.colDelay > l.colDelayMax) l.colDelayMax = c.colDelay;
++	if (c.senseLatency > l.senseLatencyMax) l.senseLatencyMax = c.senseLatency;
++}
++
++// reference (single-plane) path: only records what the engine computed
++static double CtfmSumG(const vector<double>& res) {
++	double g = 0;
++	for (size_t i = 0; i < res.size(); i++) g += 1.0/res[i];
++	return g;
++}
++
++static void CtfmRecordSingle(SubArray *s, double numRowRead, const vector<double>& res) {
++	CtfmCap c;
++	CtfmCapture(s, false, &c);
++	CtfmLedgerAdd(0, c);
++	CtfmLayer& l = CtfmLedgerAt(gCtfmLayer);
++	l.colG[0] += CtfmSumG(res);
++	l.cycles += 1; l.activeRows += numRowRead; l.totalRows += s->numRow;
++}
++
++static void CtfmDifferentialStep(SubArray *s, const vector<double>& resPlus, const vector<double>& resMinus, bool clkPass, double numRowRead) {
++	CtfmCap p, n;
++	s->CalculateLatency(1e20, resPlus, clkPass);
++	if (!clkPass) s->CalculatePower(resPlus);
++	CtfmCapture(s, clkPass, &p);
++	s->CalculateLatency(1e20, resMinus, clkPass);
++	if (!clkPass) s->CalculatePower(resMinus);
++	CtfmCapture(s, clkPass, &n);
++	if (clkPass) {
++		// both planes are sensed at the same time: the clock has to fit the slower one
++		s->readLatency = p.readLatency > n.readLatency ? p.readLatency : n.readLatency;
++		return;
++	}
++	bool ats = (param->ctfmAdcOrder == 1);
++	// the sensing-cycle counts are structural (columns per converter x reads) and equal for both planes
++	s->readLatencyADC = p.readLatencyADC > n.readLatencyADC ? p.readLatencyADC : n.readLatencyADC;
++	s->readLatencyOther = p.readLatencyOther > n.readLatencyOther ? p.readLatencyOther : n.readLatencyOther;
++	s->readLatencyAccum = p.readLatencyAccum;
++	double subE = 0, subLeak = 0, subLat = 0;
++	if (ats) {
++		// digital subtraction after the two converters, pipelined like the engine's own adder (only cycles beyond the first are exposed)
++		s->ctfmSub.CalculateLatency(1e20, s->dff.capTgDrain, 1);
++		s->ctfmSub.CalculatePower(s->numColMuxed, (int) ceil((double) s->numCol/(double) s->numColMuxed));
++		subE = s->ctfmSub.readDynamicEnergy;
++		subLeak = s->ctfmSub.leakage;
++		double extra = s->numColMuxed*(ceil(s->ctfmSub.readLatency*s->clkFreq) - 1);
++		if (extra > 0) { s->readLatencyAccum += extra; subLat = extra; }
++	}
++	s->readLatency = s->readLatencyADC + s->readLatencyAccum + s->readLatencyOther;
++	double array = p.energyArray + n.energyArray;
++	double adc = ats ? (p.energyMlsa + n.energyMlsa) : 0;   // subtract_then_adc: signed column sensing is not the unsigned MLSA of this engine
++	double other = p.energyOther + n.energyOther;
++	double accum = p.energyAccum + subE;                     // shift-add / accumulate once, after the subtraction
++	s->readDynamicEnergyArray = array;
++	s->readDynamicEnergyADC = array + adc;
++	s->readDynamicEnergyAccum = accum;
++	s->readDynamicEnergyOther = other;
++	s->readDynamicEnergy = array + adc + other + accum;
++	s->leakage = p.leakage + n.leakage - n.leakAccum - (ats ? 0 : (p.leakAdc + n.leakAdc)) + subLeak;
++	CtfmLedgerAdd(0, p);
++	CtfmLedgerAdd(1, n);
++	CtfmLayer& l = CtfmLedgerAt(gCtfmLayer);
++	l.colG[0] += CtfmSumG(resPlus); l.colG[1] += CtfmSumG(resMinus);
++	l.eSub += subE; l.cycles += 1; l.activeRows += numRowRead; l.totalRows += s->numRow; l.subLatency += subLat;
++}
+ #include "Bus.h"
+ #include "DFF.h"
+ 
+@@ -329,8 +431,10 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
+ 	}
+ 	// Anni update
+ 	double subArrayReadLatency, subArrayReadDynamicEnergy, subArrayLeakage, subArrayLeakageSRAMInUse, subArrayLatencyADC, subArrayLatencyAccum, subArrayLatencyOther;
++	int ctfmUsed = numSubArrayRow*numSubArrayCol;   // CTFM: subarray slots that hold weights
+ 
+ 	if (arrayDupRow*arrayDupCol > 1) {
++		if (param->ctfmDifferential) { cout << "ERROR: ctfmDifferential requires ctfmNoDuplication" << endl; exit(-1); }
+ 		// weight matrix is duplicated among subArray
+ 		if (arrayDupRow < numSubArrayRow || arrayDupCol < numSubArrayCol) {
+ 			// a couple of subArrays are mapped by the matrix
+@@ -488,6 +592,11 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
+ 					subArrayMemory = CopySubArray(newMemory, i*param->numRowSubArray, j*param->numColSubArray, numRowMatrix, numColMatrix);
+ 					vector<vector<double> > subArrayInput;
+ 					subArrayInput = CopySubInput(inputVector, i*param->numRowSubArray, numInVector, numRowMatrix);
++					vector<vector<double> > subArrayMemoryNeg;
++					if (param->ctfmDifferential) subArrayMemoryNeg = CopySubArray(oldMemory, i*param->numRowSubArray, j*param->numColSubArray, numRowMatrix, numColMatrix);
++					if (i == 0 && j == 0) ctfmUsed = 0;
++					ctfmUsed++;
++					if (!CalculateclkFreq) CtfmLedgerAt(gCtfmLayer).weightCells += (double) numRowMatrix*numColMatrix;
+ 					
+ 					subArrayReadLatency = 0;
+ 					subArrayLatencyADC = 0;
+@@ -513,14 +622,20 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
+ 						columnResistance = GetColumnResistance(input, subArrayMemory, cell, param->parallelRead, subArray->resCellAccess);
+ 
+ 						
+-						subArray->CalculateLatency(1e20, columnResistance, CalculateclkFreq);
++						if (param->ctfmDifferential) {
++							vector<double> columnResistanceNeg;
++							columnResistanceNeg = GetColumnResistance(input, subArrayMemoryNeg, cell, param->parallelRead, subArray->resCellAccess);
++							CtfmDifferentialStep(subArray, columnResistance, columnResistanceNeg, CalculateclkFreq, activityRowRead*param->numRowSubArray);
++						} else {
++							subArray->CalculateLatency(1e20, columnResistance, CalculateclkFreq);
++						}
+ 						
+ 						if(CalculateclkFreq && (*clkPeriod < subArray->readLatency)){
+ 							*clkPeriod = subArray->readLatency;					//clk freq is decided by the longest sensing latency
+ 						}
+ 						
+ 						if(!CalculateclkFreq){
+-							subArray->CalculatePower(columnResistance);
++							if (!param->ctfmDifferential) { subArray->CalculatePower(columnResistance); CtfmRecordSingle(subArray, activityRowRead*param->numRowSubArray, columnResistance); }
+ 							*readDynamicEnergy += subArray->readDynamicEnergy;
+ 							subArrayLeakage = subArray->leakage;
+ 							// Anni update: 
+@@ -563,6 +678,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
+ 	}
+ 	if(!CalculateclkFreq){
+ 		//considering buffer activation: no matter speedup or not, the total number of data transferred is fixed
++		{ CtfmLayer& ctfmL = CtfmLedgerAt(gCtfmLayer); ctfmL.usedSub += ctfmUsed; ctfmL.instSub += numSubArrayRow*numSubArrayCol; }
+ 		// input buffer: total num of data loaded in = weightMatrixRow*numInVector
+ 		// output buffer: total num of data transferred = weightMatrixRow*numInVector/param->numBitInput (total num of IFM in the PE) *adderTree->numAdderTree*adderTree->numAdderBit (bit precision of OFMs) 
+ 		if (NMpe) {
+@@ -588,7 +704,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
+ 			*icDynamicEnergy += busInputNM->readDynamicEnergy + busOutputNM->readDynamicEnergy;
+ 
+ 			// 1.4 update: leakage energy of interconnect
+-			*leakage = subArrayLeakage*numSubArrayRow*numSubArrayCol + adderTreeNM->leakage + bufferInputNM->leakage + bufferOutputNM->leakage + busInputNM->leakage + busOutputNM->leakage;
++			*leakage = subArrayLeakage*(param->ctfmUsedOnly ? ctfmUsed : numSubArrayRow*numSubArrayCol) + adderTreeNM->leakage + bufferInputNM->leakage + bufferOutputNM->leakage + busInputNM->leakage + busOutputNM->leakage;
+ 			// Anni update
+ 			*leakageSRAMInUse = subArrayLeakageSRAMInUse*numSubArrayRow*numSubArrayCol;
+ 		} else {
+@@ -615,7 +731,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
+ 			*icDynamicEnergy += busInputCM->readDynamicEnergy + busOutputCM->readDynamicEnergy;
+ 
+ 			// 1.4 update : leakage energy of IC
+-			*leakage = subArrayLeakage*numSubArrayRow*numSubArrayCol + adderTreeCM->leakage + bufferInputCM->leakage + bufferOutputCM->leakage + busInputCM->leakage + busOutputCM->leakage;
++			*leakage = subArrayLeakage*(param->ctfmUsedOnly ? ctfmUsed : numSubArrayRow*numSubArrayCol) + adderTreeCM->leakage + bufferInputCM->leakage + bufferOutputCM->leakage + busInputCM->leakage + busOutputCM->leakage;
+ 			// Anni update
+ 			*leakageSRAMInUse = subArrayLeakageSRAMInUse*numSubArrayRow*numSubArrayCol;
+ 		}
+diff --git a/Inference_pytorch/NeuroSIM/SubArray.cpp b/Inference_pytorch/NeuroSIM/SubArray.cpp
+index 2dccd69..87efac7 100644
+--- a/Inference_pytorch/NeuroSIM/SubArray.cpp
++++ b/Inference_pytorch/NeuroSIM/SubArray.cpp
+@@ -51,6 +51,7 @@ extern Param *param;
+ 
+ SubArray::SubArray(InputParameter& _inputParameter, Technology& _tech, MemCell& _cell):
+ 						inputParameter(_inputParameter), tech(_tech), cell(_cell),
++						ctfmSub(_inputParameter, _tech, _cell),
+ 						wllevelshifter(_inputParameter, _tech, _cell),
+ 						sllevelshifter(_inputParameter, _tech, _cell),
+ 						bllevelshifter(_inputParameter, _tech, _cell),
+@@ -532,7 +533,12 @@ void SubArray::Initialize(int _numRow, int _numCol, double _unitWireRes){  //ini
+ 				adder.Initialize(adderBit-1, numAdder, clkFreq);
+ 			}
+ 		}
+-	} 
++	}
++	if (param->ctfmDifferential && param->ctfmAdcOrder == 1) {
++		// two-input adder per converted column group; ADC output width + sign
++		int adcBits = (int) ceil(log2((double) levelOutput));
++		ctfmSub.Initialize(adcBits + 1, (int) ceil((double) numCol/(double) numColMuxed), clkFreq);
++	}
+ 	initialized = true;  //finish initialization
+ }
+ 
+@@ -775,6 +781,7 @@ void SubArray::CalculateArea() {  //calculate layout area for total design
+ 				
+ 				area = height * width;				
+ 				emptyArea = area - usedArea;
++				CtfmAdjustArea(widthArray);   // CTFM: read-only and two-plane accounting (no-op unless the flags are set)
+ 			} else if (BNNsequentialMode || XNORsequentialMode) {    
+ 				wlDecoder.CalculateArea(heightArray, NULL, NONE);
+ 				if (cell.accessType == CMOS_access) {
+@@ -1894,7 +1901,7 @@ void SubArray::CalculatePower(const vector<double> &columnResistance) {
+ 				leakage += repeater_leakage ;											   
+ 				leakage += wlSwitchMatrix.leakage;
+ 				leakage += wlNewSwitchMatrix.leakage;
+-				leakage += slSwitchMatrix.leakage;
++				if (!param->ctfmReadOnly) leakage += slSwitchMatrix.leakage;   // CTFM: SL switch matrix is write-only
+ 				leakage += ((numColMuxed > 1)==true? (mux.leakage):0);
+ 				leakage += ((numColMuxed > 1)==true? (muxDecoder.leakage):0);
+ 				leakage += multilevelSenseAmp.leakage;
+@@ -2194,3 +2201,34 @@ void SubArray::PrintProperty() {
+ 	cout << "Empty Area = " << emptyArea*1e12 << "um^2" << endl;
+ }
+ 
++
++
++// CTFM patch 0002. Area of the read datapath of one subarray slot.
++//   read-only: write-only circuits (SL switch matrix, level shifters) are not built
++//   differential: two arrays with their own row drivers/muxes; MLSA once per plane for adc_then_subtract, not costed for
++//   subtract_then_adc (a signed front end is not the unsigned MLSA of this engine); shift-add/accumulate once; subtractor.
++// The layout overhead (box area over module area) of the reference layout is kept.
++void SubArray::CtfmAdjustArea(double widthArray) {
++	if (!param->ctfmReadOnly && !param->ctfmDifferential) return;
++	double sllevel = (cell.writeVoltage > 1.5) ? (wllevelshifter.area + bllevelshifter.area + sllevelshifter.area) : 0;
++	double writeOnly = slSwitchMatrix.area + sllevel;
++	double readPath = areaOther - writeOnly;            // wl switch matrices, mux, mux decoder, repeaters
++	double adc = areaADC, accum = areaAccum, arr = areaArray;
++	double ratio = usedArea > 0 ? area/usedArea : 1;
++	double planes = param->ctfmDifferential ? 2 : 1;
++	double adcFactor = param->ctfmDifferential ? (param->ctfmAdcOrder == 1 ? 2 : 0) : 1;
++	double subArea = 0;
++	if (param->ctfmDifferential && param->ctfmAdcOrder == 1) {
++		ctfmSub.CalculateArea(0, widthArray, NONE);
++		subArea = ctfmSub.area;
++	}
++	double writeKept = param->ctfmReadOnly ? 0 : writeOnly;
++	areaArray = planes*arr;
++	areaADC = adcFactor*adc;
++	areaAccum = accum + subArea;
++	areaOther = planes*(readPath + writeKept);
++	double newUsed = areaArray + areaADC + areaAccum + areaOther;
++	usedArea = newUsed;
++	area = newUsed*ratio;
++	emptyArea = area - usedArea;
++}
+diff --git a/Inference_pytorch/NeuroSIM/SubArray.h b/Inference_pytorch/NeuroSIM/SubArray.h
+index 2405b69..da94a46 100644
+--- a/Inference_pytorch/NeuroSIM/SubArray.h
++++ b/Inference_pytorch/NeuroSIM/SubArray.h
+@@ -83,6 +83,7 @@ public:
+ 	void CalculateArea();
+ 	void CalculateLatency(double _rampInput, const vector<double> &columnResistance, bool CalculateclkFreq);
+ 	void CalculatePower(const vector<double> &columnResistance);
++	void CtfmAdjustArea(double widthArray);
+ 
+ 	/* Properties */	
+ 	bool initialized;	   // Initialization flag
+@@ -193,6 +194,7 @@ public:
+ 	SRAMWriteDriver          sramWriteDriver;
+ 	DFF                      dff;
+ 	Adder                    adder;
++	Adder ctfmSub;   // CTFM: digital subtractor of the adc_then_subtract order
+ 	ShiftAdd                 shiftAddInput;
+ 	ShiftAdd                 shiftAddWeight;
+ 	MultilevelSenseAmp       multilevelSenseAmp;
+diff --git a/Inference_pytorch/NeuroSIM/Tile.cpp b/Inference_pytorch/NeuroSIM/Tile.cpp
+index 0a4bac3..298ea1a 100644
+--- a/Inference_pytorch/NeuroSIM/Tile.cpp
++++ b/Inference_pytorch/NeuroSIM/Tile.cpp
+@@ -385,11 +385,13 @@ void TileCalculatePerformance(const vector<vector<double> > &newMemory, const ve
+ 				// assign weight and input to specific tile
+ 				vector<vector<double> > pEMemory;
+ 				pEMemory = CopyPEArray(newMemory, 0, 0, weightMatrixRow, weightMatrixCol);
++				vector<vector<double> > pEMemoryOld;
++				pEMemoryOld = CopyPEArray(oldMemory, 0, 0, weightMatrixRow, weightMatrixCol);
+ 				vector<vector<double> > pEInput;
+ 				pEInput = CopyPEInput(inputVector, 0, numInVector, weightMatrixRow);
+ 				// Anni update
+ 
+-				ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemory, pEInput, ceil((double)speedUpRow/(double)numPE), ceil((double)speedUpCol/(double)numPE), 
++				ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemoryOld, pEInput, ceil((double)speedUpRow/(double)numPE), ceil((double)speedUpCol/(double)numPE), 
+ 											numSubArrayRow, numSubArrayCol, weightMatrixRow, weightMatrixCol, numInVector, cell, false,
+ 											&PEreadLatency, &PEreadDynamicEnergy, &PEleakage, &PEleakageSRAMInUse,
+ 											&PEbufferLatency, &PEbufferDynamicEnergy, &PEicLatency, &PEicDynamicEnergy,
+@@ -423,12 +425,14 @@ void TileCalculatePerformance(const vector<vector<double> > &newMemory, const ve
+ 							// assign weight and input to specific tile
+ 							vector<vector<double> > pEMemory;
+ 							pEMemory = CopyPEArray(newMemory, i*peSize, j*peSize, numRowMatrix, numColMatrix);
++							vector<vector<double> > pEMemoryOld;
++							pEMemoryOld = CopyPEArray(oldMemory, i*peSize, j*peSize, numRowMatrix, numColMatrix);
+ 							vector<vector<double> > pEInput;
+ 							pEInput = CopyPEInput(inputVector, i*peSize, numInVector, numRowMatrix);
+ 							
+ 							// Anni update
+ 
+-							ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemory, pEInput, 1, 1, 
++							ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemoryOld, pEInput, 1, 1, 
+ 												numSubArrayRow, numSubArrayCol, numRowMatrix, numColMatrix, numInVector, cell, false,
+ 												&PEreadLatency, &PEreadDynamicEnergy, &PEleakage, &PEleakageSRAMInUse,
+ 												&PEbufferLatency, &PEbufferDynamicEnergy, &PEicLatency, &PEicDynamicEnergy,
+@@ -486,12 +490,14 @@ void TileCalculatePerformance(const vector<vector<double> > &newMemory, const ve
+ 						
+ 						vector<vector<double> > pEMemory;
+ 						pEMemory = CopyPEArray(newMemory, i*peSize, j*peSize, numRowMatrix, numColMatrix);
++						vector<vector<double> > pEMemoryOld;
++						pEMemoryOld = CopyPEArray(oldMemory, i*peSize, j*peSize, numRowMatrix, numColMatrix);
+ 						vector<vector<double> > pEInput;
+ 						pEInput = CopyPEInput(inputVector, i*peSize, numInVector, numRowMatrix);
+ 						// Anni update
+ 						
+ 						// Anni update: PEleakageSRAMInUse
+-						ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemory, pEInput, 1, 1, numSubArrayRow, numSubArrayCol, numRowMatrix,
++						ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemoryOld, pEInput, 1, 1, numSubArrayRow, numSubArrayCol, numRowMatrix,
+ 												numColMatrix, numInVector, cell, false, &PEreadLatency, &PEreadDynamicEnergy, &PEleakage, &PEleakageSRAMInUse,
+ 												&PEbufferLatency, &PEbufferDynamicEnergy, &PEicLatency, &PEicDynamicEnergy, 
+ 												&peLatencyADC, &peLatencyAccum, &peLatencyOther, &peEnergyADC, &peEnergyAccum, &peEnergyOther, CalculateclkFreq, clkPeriod);
+@@ -618,10 +624,12 @@ void TileCalculatePerformance(const vector<vector<double> > &newMemory, const ve
+ 			int location = i*MIN(peSize, (int) weightMatrixRow/numPE);
+ 			vector<vector<double> > pEMemory;
+ 			pEMemory = CopyPEArray(newMemory, location, 0, weightMatrixRow/numPE, weightMatrixCol);
++			vector<vector<double> > pEMemoryOld;
++			pEMemoryOld = CopyPEArray(oldMemory, location, 0, weightMatrixRow/numPE, weightMatrixCol);
+ 			vector<vector<double> > pEInput;
+ 			pEInput = CopyPEInput(inputVector, location, numInVector, weightMatrixRow/numPE);
+ 			// Anni update: PEleakageSRAMInUse
+-			ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemory, pEInput, 1, 1, numSubArrayRow, numSubArrayCol, weightMatrixRow/numPE,
++			ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemoryOld, pEInput, 1, 1, numSubArrayRow, numSubArrayCol, weightMatrixRow/numPE,
+ 									weightMatrixCol, numInVector, cell, true, &PEreadLatency, &PEreadDynamicEnergy, &PEleakage, &PEleakageSRAMInUse,
+ 									&PEbufferLatency, &PEbufferDynamicEnergy, &PEicLatency, &PEicDynamicEnergy, 
+ 									&peLatencyADC, &peLatencyAccum, &peLatencyOther, &peEnergyADC, &peEnergyAccum, &peEnergyOther, CalculateclkFreq, clkPeriod);
+diff --git a/Inference_pytorch/NeuroSIM/main.cpp b/Inference_pytorch/NeuroSIM/main.cpp
+index 4a651cf..0782886 100644
+--- a/Inference_pytorch/NeuroSIM/main.cpp
++++ b/Inference_pytorch/NeuroSIM/main.cpp
+@@ -52,6 +52,9 @@
+ #include "Param.h"
+ #include "Tile.h"
+ #include "Chip.h"
++#include "Ctfm.h"
++#include "SubArray.h"
++extern SubArray *subArrayInPE;
+ #include "ProcessingUnit.h"
+ #include "SubArray.h"
+ #include "Definition.h"
+@@ -286,7 +289,7 @@ int main(int argc, char * argv[]) {
+         // calculate clkFreq
+         for (int i=0; i<netStructure.size(); i++) {     
+             // Anni update: add &tileLeakageSRAMInUse
+-            ChipCalculatePerformance(inputParameter, tech, cell, i, argv[2*i+6], argv[2*i+6], argv[2*i+7], netStructure[i][6],
++            ChipCalculatePerformance(inputParameter, tech, cell, i, (param->ctfmDifferential ? argv[3*i+6] : argv[2*i+6]), (param->ctfmDifferential ? argv[3*i+7] : argv[2*i+6]), (param->ctfmDifferential ? argv[3*i+8] : argv[2*i+7]), netStructure[i][6],
+                         netStructure, markNM, numTileEachLayer, utilizationEachLayer, speedUpEachLayer, tileLocaEachLayer,
+                         numPENM, desiredPESizeNM, desiredTileSizeCM, desiredPESizeCM, CMTileheight, CMTilewidth, NMTileheight, NMTilewidth,
+                         &layerReadLatency, &layerReadDynamicEnergy, &tileLeakage, &tileLeakageSRAMInUse, &layerbufferLatency, &layerbufferDynamicEnergy, &layericLatency, &layericDynamicEnergy,
+@@ -308,7 +311,7 @@ int main(int argc, char * argv[]) {
+         for (int i=0; i<netStructure.size(); i++) {
+             cout << "-------------------- Estimation of Layer " << i+1 << " ----------------------" << endl;
+             // Anni update: add &tileLeakageSRAMInUse
+-            ChipCalculatePerformance(inputParameter, tech, cell, i, argv[2*i+6], argv[2*i+6], argv[2*i+7], netStructure[i][6],
++            ChipCalculatePerformance(inputParameter, tech, cell, i, (param->ctfmDifferential ? argv[3*i+6] : argv[2*i+6]), (param->ctfmDifferential ? argv[3*i+7] : argv[2*i+6]), (param->ctfmDifferential ? argv[3*i+8] : argv[2*i+7]), netStructure[i][6],
+                         netStructure, markNM, numTileEachLayer, utilizationEachLayer, speedUpEachLayer, tileLocaEachLayer,
+                         numPENM, desiredPESizeNM, desiredTileSizeCM, desiredPESizeCM, CMTileheight, CMTilewidth, NMTileheight, NMTilewidth,
+                         &layerReadLatency, &layerReadDynamicEnergy, &tileLeakage, &tileLeakageSRAMInUse, &layerbufferLatency, &layerbufferDynamicEnergy, &layericLatency, &layericDynamicEnergy,
+@@ -393,7 +396,7 @@ int main(int argc, char * argv[]) {
+         
+         for (int i=0; i<netStructure.size(); i++) {
+             // Anni update: add &tileLeakageSRAMInUse
+-            ChipCalculatePerformance(inputParameter, tech, cell, i, argv[2*i+6], argv[2*i+6], argv[2*i+7], netStructure[i][6],
++            ChipCalculatePerformance(inputParameter, tech, cell, i, (param->ctfmDifferential ? argv[3*i+6] : argv[2*i+6]), (param->ctfmDifferential ? argv[3*i+7] : argv[2*i+6]), (param->ctfmDifferential ? argv[3*i+8] : argv[2*i+7]), netStructure[i][6],
+                         netStructure, markNM, numTileEachLayer, utilizationEachLayer, speedUpEachLayer, tileLocaEachLayer,
+                         numPENM, desiredPESizeNM, desiredTileSizeCM, desiredPESizeCM, CMTileheight, CMTilewidth, NMTileheight, NMTilewidth,
+                         &layerReadLatency, &layerReadDynamicEnergy, &tileLeakage, &tileLeakageSRAMInUse, &layerbufferLatency, &layerbufferDynamicEnergy, &layericLatency, &layericDynamicEnergy,
+@@ -473,6 +476,16 @@ int main(int argc, char * argv[]) {
+         
+     }
+     
++    if (param->ctfmUsedOnly) {
++        // CTFM: subarray slots of partially filled PEs that hold no weights are not built
++        double ctfmDark = 0;
++        for (size_t l = 0; l < gCtfmLedger.size(); l++) ctfmDark += gCtfmLedger[l].instSub - gCtfmLedger[l].usedSub;
++        chipArea -= ctfmDark*subArrayInPE->area; chipAreaADC -= ctfmDark*subArrayInPE->areaADC;
++        chipAreaAccum -= ctfmDark*subArrayInPE->areaAccum; chipAreaOther -= ctfmDark*subArrayInPE->areaOther;
++        chipAreaArray -= ctfmDark*subArrayInPE->areaArray;
++        cout << "CTFM used-only: removed " << ctfmDark << " unused subarray slot(s)" << endl;
++    }
++    gCtfmClkPeriod = clkPeriod;
+     cout << "------------------------------ Summary --------------------------------" <<  endl;
+     cout << endl;
+     cout << "ChipArea : " << chipArea*1e12 << "um^2" << endl;
+@@ -599,6 +612,7 @@ int main(int argc, char * argv[]) {
+ 
+     */
+ 
++    CtfmLedgerPrint();
+     return 0;
+ }
+ 

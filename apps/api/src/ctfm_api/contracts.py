@@ -6,11 +6,27 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
+class IvBlockSelection(Strict):
+    """Explicit Vg/Id/Ig block and monotone Vg segment of a repeated-block IV sheet."""
+    type: Literal["iv_block"]
+    block: int = Field(ge=0, strict=True)
+    segment: int = Field(ge=0, strict=True)
+
+class RetentionColumnSelection(Strict):
+    """Explicit 0-based sheet columns for the independent Erase/Program time axes."""
+    type: Literal["retention_columns"]
+    columns: dict[str, int]
+
+RETENTION_ROLES = ("erase_time_s", "erase_id_a", "program_time_s", "program_id_a")
+
 class AnalysisInput(Strict):
     file_id: UUID
     sheet: str | None = None
-    column_mapping: dict[str, str]
-    units: dict[str, str]
+    column_mapping: dict[str, str] = Field(default_factory=dict)
+    units: dict[str, str] = Field(default_factory=dict)
+    selection: IvBlockSelection | RetentionColumnSelection | None = Field(default=None, discriminator="type")
+    measurement_conditions: dict | None = None
+    header_read_vgs_v: float | None = None
     device_id: str = Field(min_length=1, max_length=200)
     condition_id: str = Field(min_length=1, max_length=200)
     branch: Literal["program", "erase"] | None = None
@@ -23,7 +39,7 @@ class AnalysisInput(Strict):
     row_end: int | None = Field(default=None, ge=1, strict=True)
 
 class AnalysisRequest(Strict):
-    kind: Literal["iv", "d2d", "retention", "pulse_states"]
+    kind: Literal["iv", "d2d", "retention", "pulse_states", "c2c_detrended"]
     inputs: list[AnalysisInput] = Field(min_length=1, max_length=40)
     settings: dict = Field(default_factory=dict)
 
@@ -33,10 +49,29 @@ class AnalysisRequest(Strict):
         json.dumps(self.settings, allow_nan=False)
         keys = {"iv": {"vgs_v", "id_a"}, "d2d": {"vgs_v", "id_a"},
                 "pulse_states": {"time_s", "id_a", "vgs_v"},
-                "retention": {"time_s", "program_id_a", "erase_id_a"}}[self.kind]
+                "retention": {"time_s", "program_id_a", "erase_id_a"},
+                "c2c_detrended": set()}[self.kind]
+        if self.kind == "c2c_detrended" and len(self.inputs) != 1:
+            raise ValueError("Measured C2C analyzes exactly one workbook")
         for item in self.inputs:
             if not item.device_id.strip() or not item.condition_id.strip():
                 raise ValueError("Device and condition IDs must be explicit")
+            if item.measurement_conditions is not None and self.kind != "c2c_detrended":
+                raise ValueError("measurement_conditions belongs to measured C2C analyses only")
+            if self.kind == "c2c_detrended":
+                if item.column_mapping or item.units or item.selection is not None:
+                    raise ValueError("Measured C2C recognizes its columns by header; do not send a column mapping or selection")
+                if item.row_start or item.row_end:
+                    raise ValueError("Measured C2C uses every cycle row; row ranges are not supported")
+                from ctfm.measurement.c2c import C2CAnalysisError, validate_measurement_conditions
+                try:
+                    validate_measurement_conditions(item.measurement_conditions)
+                except C2CAnalysisError as exc:
+                    raise ValueError(str(exc)) from exc
+                continue
+            if item.selection is not None:
+                self._selected_layout(item)
+                continue
             if set(item.column_mapping) != keys or set(item.units) != keys:
                 raise ValueError("Explicit column mapping and units are required")
             if len(set(item.column_mapping.values())) != len(keys) or not all(item.column_mapping.values()):
@@ -56,6 +91,33 @@ class AnalysisRequest(Strict):
         if len({item.condition_id for item in self.inputs}) != 1:
             raise ValueError("Analyze A1-A5 separately; conditions cannot be mixed")
         return self
+
+    def _selected_layout(self, item):
+        """Explicit block/column selections replace the header-name mapping; nothing is inferred."""
+        if item.column_mapping or item.row_start or item.row_end:
+            raise ValueError("A layout selection replaces column_mapping and row ranges; do not send both")
+        selection = item.selection
+        if self.kind in ("iv", "d2d"):
+            if not isinstance(selection, IvBlockSelection):
+                raise ValueError("IV/D2D layout selection must be type iv_block")
+            if item.branch is None or item.sweep_amplitude_v is None or item.vds_v is None or not item.sheet:
+                raise ValueError("Sheet, branch, sweep amplitude and VDS must be explicit for a block selection")
+            if set(item.units) != {"vgs_v", "id_a"} or item.units["vgs_v"] not in ("V", "mV") or item.units["id_a"] not in ("A", "mA", "uA", "nA"):
+                raise ValueError("Block selection needs explicit vgs_v and id_a units")
+        elif self.kind == "retention":
+            if not isinstance(selection, RetentionColumnSelection):
+                raise ValueError("Retention layout selection must be type retention_columns")
+            if set(selection.columns) != set(RETENTION_ROLES) or len(set(selection.columns.values())) != 4 or min(selection.columns.values()) < 0:
+                raise ValueError("Retention selection needs four distinct non-negative column indices for " + ", ".join(RETENTION_ROLES))
+            if not item.sheet or not item.source_label or item.read_vgs_v is None or item.vds_v is None:
+                raise ValueError("Retention selection needs sheet, raw source label and read biases")
+            if set(item.units) != set(RETENTION_ROLES):
+                raise ValueError("Retention selection needs a unit for each of " + ", ".join(RETENTION_ROLES))
+            for key, unit in item.units.items():
+                if unit not in (["s", "ms"] if key.endswith("time_s") else ["A", "mA", "uA", "nA"]):
+                    raise ValueError("Unsupported unit for " + key)
+        else:
+            raise ValueError("This analysis kind has no layout selection")
 
 class ProfileCreate(Strict):
     condition_id: str = Field(min_length=1)

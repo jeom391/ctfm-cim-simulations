@@ -68,6 +68,9 @@ MODEL_MISMATCHES = (
                "encoding whose first plane carries the sign weight, so a nonnegative "
                "activation reaches only 2**(bits-1) levels -- one bit less than the accuracy "
                "path drives. Measured per layer in the result's activation_fidelity"},
+    {"id": "adc_order",
+     "detail": "The engine builds one converter per column group whatever ADC order was requested, so engine_totals are the same for "
+               "both orders; the order-dependent converter count and schedule exist only in the coverage inventory"},
     {"id": "adc_position",
      "detail": "The accuracy model quantizes the differential partial sum after digital "
                "subtraction; NeuroSim quantizes per physical column group"},
@@ -386,6 +389,7 @@ def engine_status(root=None):
     marker = root / "Inference_pytorch/NeuroSIM/compiler.txt"
     result["compiler"] = marker.read_text().strip() if marker.is_file() else None
     result["available"] = True
+    result["fixes"] = engine_fixes(root)
     return result
 
 
@@ -430,9 +434,21 @@ def preset_decision(preset=None, preset_path=None):
                 or not math.isfinite(value) or value <= 0:
             decision["problems"].append(field + " must be a positive finite SI value")
     decision["problems"].extend(read_window_problems(preset))
-    if not preset.get("validated_for_ctfm"):
+    status = preset.get("model_status")
+    if status == "assumed_proxy":
+        # docs/spec/08 section 3: the admitted model is a conditional estimate, labelled as such.
+        # validated_for_ctfm is never used as an approval flag and may not be claimed here.
+        if preset.get("validated_for_ctfm"):
+            decision["problems"].append("An assumed_proxy preset must not claim validated_for_ctfm")
+        if not preset.get("assumed_equivalent_circuit"):
+            decision["problems"].append("An assumed_proxy preset must declare assumed_equivalent_circuit")
+        decision["model_status"] = "assumed_proxy"
+        decision["label"] = preset.get("label")
+    elif not preset.get("validated_for_ctfm"):
         decision["problems"].append("Preset is not marked validated_for_ctfm; an unvalidated "
                                     "preset may not produce CTFM PPA numbers")
+    else:
+        decision["model_status"] = "validated_for_ctfm"
     if not decision["problems"]:
         decision["status"] = "supported"
     return decision
@@ -663,7 +679,57 @@ def write_network_csv(layer_dims, path):
     return rows
 
 
-def topology_support(layer_dims, sub_array=None):
+def hierarchy_problem(layer_dims, sub_array, columns_per_synapse):
+    """The engine's own chip-hierarchy rule for its default novel mapping (Chip.cpp ChipFloorPlan), or None.
+
+    With ``novelMapping`` (the Param.cpp default, which the adapter never changes) a layer whose input dimension is at
+    least the subArray height is mapped in processing elements of at least 2 x 2 subArrays. The PE size is the widest
+    such layer -- output features x physical columns per weight, rounded up to a power of two -- and must be at least
+    2 x subArray, otherwise the engine prints "SubArray Size is too large" and stops. This is a stated constraint of
+    the engine's hierarchy model, not a defect: a 128-column layer cannot form a PE of 2 x 2 subArrays of 128.
+    (Measured with gdb on this build: mnist_mlp_v1 with one column per weight passes at subArray 32/64 and is rejected at
+    128/256; evidence/11.)
+    """
+    if not layer_dims or not columns_per_synapse:
+        return None
+    sub = int(sub_array)
+    mapped = [int(out) for inn, out in layer_dims if int(inn) >= sub]
+    widest = max((1 << max(0, (out*int(columns_per_synapse) - 1).bit_length()) for out in mapped), default=0)
+    if widest >= 2*sub:
+        return None
+    return ("NeuroSim V1.4 rejects this chip hierarchy: its processing element must span at least 2 x 2 subArrays, but the "
+            "widest layer mapped this way is %d physical columns (%d column(s) per weight, spec 08 keeps one) and 2 x subArray "
+            "is %d. The engine prints \"SubArray Size is too large\" and stops; no other array size, model width or bit "
+            "slicing is substituted (evidence/11)." % (widest, int(columns_per_synapse), 2*sub))
+
+
+def engine_fixes(root=None):
+    """Which CTFM engine fixes the checkout at ``root`` contains, read from its source (not from a claim)."""
+    text = ""
+    base = Path(root or ENGINE_ROOT) / "Inference_pytorch/NeuroSIM"
+    try:
+        text = (base / "Chip.cpp").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        pass
+    return {"novel_mapping_tile_partition": "CTFM fix: TileCalculatePerformance below" in text,
+            # patch 0002: real-conductance two-plane cost model with a block ledger
+            "two_plane_cost_model": (base / "Ctfm.cpp").is_file() and "CtfmDifferentialStep" in _read(base / "ProcessingUnit.cpp")}
+
+
+def _read(path):
+    try:
+        return Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def engine_topology_support(layer_dims, sub_array, columns_per_synapse, root=None):
+    """topology_support for the engine checkout that will actually run (fixed or reference)."""
+    return topology_support(layer_dims, sub_array, columns_per_synapse,
+                            engine_fixes(root)["novel_mapping_tile_partition"])
+
+
+def topology_support(layer_dims, sub_array=None, columns_per_synapse=None, tile_partition_fixed=False):
     """Refuse (shape, subArray) pairs measured to crash; let anything else try.
 
     An unmeasured pair still runs: run_engine() spawns the binary in its own
@@ -677,6 +743,14 @@ def topology_support(layer_dims, sub_array=None):
     it crashed.
     """
     shape = tuple((int(a), int(b)) for a, b in layer_dims)
+    if sub_array is not None and columns_per_synapse:
+        problem = hierarchy_problem(shape, sub_array, columns_per_synapse)
+        if problem:
+            return False, problem
+    if tile_partition_fixed and sub_array is not None:
+        # MEASURED_TOPOLOGIES records the unpatched reference build, whose crash is the tile-partition defect the fix
+        # removes (evidence/11); with the fix only the engine's hierarchy rule above can refuse a size.
+        return True, None
     if sub_array is not None:
         known = MEASURED_TOPOLOGIES.get((shape, int(sub_array)))
         if known is False:
@@ -895,6 +969,38 @@ def export_preset(preset, out_dir, filename="neurosim-preset.json"):
     return {"filename": filename, "sha256": _sha256(path)}
 
 
+def engine_cross_check(coverage, parsed, preset):
+    """Compare what the engine instantiated with the spec 08 inventory. Exit code 0 is not validity.
+
+    The engine's "Chip total CIM array" is cells x cell footprint, so dividing it back gives the number of cells the
+    engine actually placed. NeuroSim floor-plans in PE-sized tiles and pads every layer up to them, whereas the spec
+    inventory counts one cell per weight per plane in ceil(fan/tile) logical tiles. The two are reported side by side;
+    nothing here changes a number, and a difference is surfaced as a model mismatch instead of being absorbed.
+    """
+    inventory = (coverage or {}).get("inventory") or {}
+    layers = inventory.get("layers") or []
+    footprint = (preset or {}).get("cell_footprint_f")
+    feature_nm = (preset or {}).get("technode_nm")
+    array_area = (parsed or {}).get("chip_array_area_m2")
+    if not (layers and footprint and feature_nm and array_area):
+        return {"status": "not_performed", "reason": "engine array area, preset footprint or inventory missing"}
+    cell_area = footprint[0]*footprint[1]*(feature_nm*1e-9)**2
+    engine_cells = array_area/cell_area
+    weights = sum(l["cells_per_plane"] for l in layers)
+    tile = inventory["tile_size"]
+    tiled = sum(l["logical_tiles"] for l in layers)*tile*tile
+    # the engine prints the area with six significant digits, so a whole cell count is only good to ~5e-6 relative
+    integral = abs(engine_cells-round(engine_cells)) <= 1e-5*engine_cells
+    out = {"status": "compared", "engine_array_cells_per_plane": round(engine_cells),
+           "engine_cells_are_whole_number": bool(integral),
+           "weights_per_plane": weights, "spec_tiled_cells_per_plane": tiled,
+           "engine_padding_cells": round(engine_cells)-weights,
+           "engine_weight_utilization": weights/engine_cells if engine_cells else None,
+           "matches_spec_tiling": round(engine_cells) == tiled,
+           "planes": "engine counts one plane; the second plane is not modelled (totals stay null)"}
+    return out
+
+
 def ppa_result(layer_dims, *, preset=None, preset_path=None, root=None, inputs=None,
                out_dir=None, timeout=1800.0, cancelled=None, hardware=None,
                cache_root=None, build=True):
@@ -909,7 +1015,11 @@ def ppa_result(layer_dims, *, preset=None, preset_path=None, root=None, inputs=N
     engine = engine_status(root)
     decision = preset_decision(preset, preset_path)
     sub_array = (hardware or {}).get("tile_size")
-    supported, reason = topology_support(layer_dims, sub_array)
+    per_weight = None
+    if preset and preset.get("synapse_bit") and preset.get("cell_bit"):
+        per_weight = -(-int(preset["synapse_bit"]) // int(preset["cell_bit"]))
+    supported, reason = topology_support(layer_dims, sub_array, per_weight,
+                                         engine_fixes(root)["novel_mapping_tile_partition"])
     # Two different kinds of "no": a blocking reason means the engine must not be
     # run at all, while an incomplete reason means the run is legitimate but its
     # numbers do not add up to a chip total. Collapsing them would either publish
@@ -1012,6 +1122,15 @@ def ppa_result(layer_dims, *, preset=None, preset_path=None, root=None, inputs=N
                   engine_totals={"area_m2": parsed["chip_area_m2"],
                                  "energy_j_per_inference": values.get("read_dynamic_energy_j"),
                                  "latency_s_per_inference": values.get("latency_s")})
+    cross = engine_cross_check(result["coverage"], parsed, preset)
+    result["engine_cross_check"] = cross
+    if cross.get("status") == "compared" and not cross["matches_spec_tiling"]:
+        result["model_mismatches"] = list(result["model_mismatches"]) + [{
+            "id": "array_cell_count",
+            "detail": "The engine instantiated %d cells per plane (weights %d, padding %d) in PE-sized tiles; the spec 08 "
+                      "inventory tiles %d cells per plane in %dx%d logical tiles. Area from the engine is for its own tiling."
+                      % (cross["engine_array_cells_per_plane"], cross["weights_per_plane"], cross["engine_padding_cells"],
+                         cross["spec_tiled_cells_per_plane"], hardware["tile_size"], hardware["tile_size"])}]
     if not missing:
         result.update(area_m2=parsed["chip_area_m2"],
                       energy_j_per_inference=values.get("read_dynamic_energy_j"),

@@ -33,6 +33,9 @@ class HardwareControls(ResponseModel):
     adc_orders: list[str]
     range_policies: list[str]
     validated_combinations: list[dict]
+    # assumed_proxy PPA: array sizes the built engine can cost with the spec 08 preset, and why the others cannot.
+    ppa_tile_sizes: list[int] = []
+    ppa_unsupported: dict[str, str] = {}
 
 
 class Capabilities(ResponseModel):

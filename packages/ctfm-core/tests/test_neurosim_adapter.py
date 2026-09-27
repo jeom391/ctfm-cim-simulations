@@ -201,6 +201,65 @@ class TopologyAndResultTests(unittest.TestCase):
             self.assertIn("segfault", reason)
         self.assertEqual(neurosim.topology_support(mnist, 256), (True, None))
 
+    def test_engine_hierarchy_rule_matches_the_measured_floorplan(self):
+        """With novel mapping a PE spans >= 2 x 2 subArrays, so the widest mapped layer (128 physical columns at one
+        column per weight, spec 08 section 5) must be >= 2 x subArray. gdb on the real build: 32/64 pass the check,
+        128/256 print "SubArray Size is too large" (evidence/11/trace-configs-before.json)."""
+        mnist = [(784, 128), (128, 10)]
+        for size in (32, 64):
+            self.assertIsNone(neurosim.hierarchy_problem(mnist, size, 1), size)
+        for size in (128, 256):
+            reason = neurosim.hierarchy_problem(mnist, size, 1)
+            self.assertIn("2 x 2 subArrays", reason, size)
+            supported, why = neurosim.topology_support(mnist, size, 1, True)
+            self.assertFalse(supported)
+            self.assertEqual(why, reason)
+        # the stock bit-sliced circuit has 1024 physical columns, a different circuit that does satisfy the rule
+        for size in (64, 128, 256):
+            self.assertIsNone(neurosim.hierarchy_problem(mnist, size, 8), size)
+
+    def test_the_measured_crash_table_describes_only_the_unpatched_engine(self):
+        mnist = [(784, 128), (128, 10)]
+        # unpatched reference: subArray 64 crashes in CopyPEArray (rows 784 are not a multiple of the PE size)
+        self.assertFalse(neurosim.topology_support(mnist, 64, 1, False)[0])
+        # with the tile-partition fix the same size is admitted; only the hierarchy rule can still refuse
+        self.assertEqual(neurosim.topology_support(mnist, 64, 1, True), (True, None))
+
+    def test_cross_check_reports_padding_and_never_absorbs_it(self):
+        """Real numbers from the fixed engine on mnist_mlp_v1 (evidence/11, proxy-mnist-64): the array area divides back to
+        8 tiles x 128 x 128 = 131072 cells, while 784x128 + 128x10 weights are 101632 and the spec tiling is 114688."""
+        from ctfm.adapters.proxy_preset import proxy_preset
+        coverage = neurosim.cost_coverage(neurosim.circuit_inventory(
+            [(784, 128), (128, 10)], tile_size=64, columns_per_adc=8, adc_bits=6, adc_order="subtract_then_adc"))
+        cross = neurosim.engine_cross_check(coverage, {"chip_array_area_m2": 3.04506e-09}, proxy_preset(64))
+        self.assertEqual(cross["engine_array_cells_per_plane"], 131072)
+        self.assertTrue(cross["engine_cells_are_whole_number"])
+        self.assertEqual((cross["weights_per_plane"], cross["spec_tiled_cells_per_plane"]), (101632, 114688))
+        self.assertEqual(cross["engine_padding_cells"], 131072-101632)
+        self.assertFalse(cross["matches_spec_tiling"])
+        self.assertEqual(neurosim.engine_cross_check(None, None, None)["status"], "not_performed")
+
+    def test_engine_fixes_are_read_from_the_checkout_source(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            chip = Path(tmp) / "Inference_pytorch/NeuroSIM/Chip.cpp"
+            chip.parent.mkdir(parents=True)
+            chip.write_text("// stock", encoding="utf-8")
+            self.assertFalse(neurosim.engine_fixes(tmp)["novel_mapping_tile_partition"])
+            chip.write_text("// CTFM fix: TileCalculatePerformance below is told", encoding="utf-8")
+            self.assertTrue(neurosim.engine_fixes(tmp)["novel_mapping_tile_partition"])
+        self.assertFalse(neurosim.engine_fixes("/nonexistent")["novel_mapping_tile_partition"])
+
+    def test_ppa_result_refuses_before_running_when_the_hierarchy_cannot_fit(self):
+        from ctfm.adapters.proxy_preset import proxy_preset
+        result = neurosim.ppa_result([(784, 128), (128, 10)], preset=proxy_preset(256),
+                                     hardware=dict(tile_size=256, adc_bits=6, adc_order="subtract_then_adc"))
+        self.assertEqual(result["status"], "unsupported")
+        self.assertTrue(any("2 x 2 subArrays" in r for r in result["blocking_reasons"]))
+        self.assertIsNone(result["area_m2"])
+        self.assertEqual(result["preset"]["model_status"], "assumed_proxy")
+
     def test_single_wide_layer_is_allowed(self):
         self.assertEqual(neurosim.topology_support([(784, 128)], 64), (True, None))
 

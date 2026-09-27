@@ -329,3 +329,8 @@ progress { width: 100%; height: 8px; margin: 12px 0; accent-color: var(--accent)
   .profile-option { align-items: flex-start }
   .profile-option > .status { display: none }
 }
+
+.layout-picker { display: grid; gap: 12px; margin: 12px 0 }
+.layout-picker .form-grid { margin: 0 }
+.c2c-source { display: grid; gap: 8px; border: 1px solid var(--line, #d8d2c4); border-radius: 6px; padding: 10px 12px; margin: 10px 0 }
+.c2c-source legend { padding: 0 6px; font-weight: 600 }

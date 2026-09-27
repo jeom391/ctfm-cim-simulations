@@ -25,6 +25,7 @@ ASSUMPTIONS=[
  {'id':'digital_bias','description':'Original digital bias, ideal DAC and fixed mapping scale; no gain or drift compensation','evidence_kind':'assumed'},
  {'id':'lognormal_d2d','description':'Mean-one positive lognormal distribution transfers IV-proxy CV to every pulse state; devices and polarities independent','evidence_kind':'assumed'},
  {'id':'manual_lognormal_c2c','description':'Mean-one positive lognormal distribution from a manually assumed relative CV, drawn independently per reprogram/layer/plane; not a measured CTFM cycle-to-cycle distribution (docs/completion-plan-2026-09-21.md P2)','evidence_kind':'assumed'},
+ {'id':'measured_detrended_c2c','description':'Program-branch trend-corrected relative deviation of one device repeated P/E measurement (cubic OLS detrend, ddof=1), applied as a mean-one lognormal to every selected LTP/LTD state and both planes, drawn independently per reprogram/layer/plane. Not an iid pure C2C estimate; temporal correlation of the measured residuals is not reproduced; the measured condition is not the pulse-read condition','evidence_kind':'derived'},
  {'id':'retention_ms_to_10s','description':'Millisecond pulse-read G is treated as the 10-second reference state','evidence_kind':'assumed'},
  {'id':'retention_read_bias_transfer','description':'Program fit may transfer across pulse/retention read VGS, including A3/A4/A5; source read biases are retained','evidence_kind':'assumed'},
  {'id':'retention_common_gain','description':'The same Program retention ratio affects both devices and every state; not a state-specific memory-loss model','evidence_kind':'assumed'},
@@ -50,7 +51,19 @@ def _save_json(path,value):
     return _sha(path)
 
 
-SCHEMA_VERSIONS=('1.2.0','1.3.0')
+SCHEMA_VERSIONS=('1.2.0','1.3.0','1.4.0')
+
+
+MEASURED_C2C_PROVENANCE_KEYS=('analysis_id','analysis_result_sha256','source_file_sha256','analysis_version','method','cycle_min','cycle_max','cycle_count','program_relative_std_percent','measurement_conditions','condition_id','unit')
+def _validate_measured_c2c(ref,schema_version):
+    """Measured C2C must be the server-resolved pin of a stored analysis: the number and its provenance must agree."""
+    if schema_version!='1.4.0':raise ValueError('measured_detrended C2C requires schema_version 1.4.0')
+    if ref.get('approved_assumption') is not True:raise ValueError('measured C2C requires the explicit user approval flag')
+    prov=ref.get('provenance')
+    if not isinstance(prov,dict) or any(k not in prov for k in MEASURED_C2C_PROVENANCE_KEYS):raise ValueError('measured C2C requires the server-resolved analysis provenance')
+    cv=ref.get('cv_percent');pv=prov['program_relative_std_percent']
+    if isinstance(cv,bool) or not isinstance(cv,(int,float)) or not _math.isfinite(cv) or not _math.isclose(cv,pv,rel_tol=1e-12,abs_tol=0):raise ValueError('measured C2C cv_percent does not equal the pinned analysis Program deviation')
+    if str(prov['analysis_id'])!=str(ref.get('analysis_id')):raise ValueError('measured C2C provenance analysis_id differs from the reference')
 
 
 def _validate(config,profiles):
@@ -63,9 +76,14 @@ def _validate(config,profiles):
     n_reprogram=config.get('n_reprogram')
     if isinstance(n_reprogram,bool) or not isinstance(n_reprogram,int) or not 1<=n_reprogram<=100:raise ValueError('n_reprogram must be an integer 1..100')
     if effects.get('c2c'):
-        if schema_version!='1.3.0':raise ValueError('C2C requires schema_version 1.3.0')
+        if schema_version not in ('1.3.0','1.4.0'):raise ValueError('C2C requires schema_version 1.3.0 or 1.4.0')
     elif n_reprogram!=1:raise ValueError('C2C off requires n_reprogram=1 (a single write)')
-    if config['engines'].get('ppa')!='off' or hardware.get('preset_id') is not None:raise ValueError('PPA is unsupported without a validated CTFM preset')
+    ppa_mode=config['engines'].get('ppa')
+    if ppa_mode not in ('off','assumed_proxy'):raise ValueError('engines.ppa must be off or assumed_proxy')
+    if hardware.get('preset_id') is not None:raise ValueError('The assumed_proxy preset is fixed by spec 08; preset_id is not a request input')
+    if ppa_mode=='assumed_proxy':
+        if schema_version!='1.4.0':raise ValueError('assumed_proxy PPA requires schema_version 1.4.0')
+        if not effects.get('adc'):raise ValueError('PPA needs the ADC on: an ADC-off cost is not a removed-converter cost (spec 08 section 6)')
     engine=config['engines']['accuracy'];caps=engine_capabilities()
     if engine not in ('torch_reference','aihwkit_ideal') or not caps[engine]['available']:raise ValueError('Requested accuracy engine is unavailable: '+str(caps.get(engine)))
     if not config['pools'] or len(set(config['pools']))!=len(config['pools']) or any(p not in POOL_ORDER for p in config['pools']):raise ValueError('Invalid pools')
@@ -96,7 +114,9 @@ def _validate(config,profiles):
             # Manual assumption, never inherited: every referenced profile revision
             # must state its own cv_percent explicitly (docs/completion-plan P2).
             ref=ref_by_key[(m['profile_id'],m['revision'])];c2c_ref=ref.get('c2c') or {}
-            if c2c_ref.get('source')!='manual_assumption':raise ValueError('C2C requires source=manual_assumption on every referenced profile')
+            source=c2c_ref.get('source')
+            if source not in ('manual_assumption','measured_detrended'):raise ValueError('C2C requires source=manual_assumption or measured_detrended on every referenced profile')
+            if source=='measured_detrended':_validate_measured_c2c(c2c_ref,schema_version)
             cv_percent=c2c_ref.get('cv_percent')
             if isinstance(cv_percent,bool) or not isinstance(cv_percent,(int,float)) or not _math.isfinite(cv_percent) or cv_percent<0:raise ValueError('C2C requires a finite nonnegative relative CV percent on every referenced profile')
         if effects['retention']:
@@ -186,12 +206,13 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
     total=len(profiles)*len(config['pools'])*len(config['mappings'])*config['arrays']*config['n_reprogram']*len(config['years'])
     for profile in profiles:
         manifest=profile['manifest'];state_by_id={s['state_id']:s for s in profile['states']};profile_candidates=[]
-        c2c_cv_percent=c2c_ratio=None
+        c2c_cv_percent=c2c_ratio=c2c_provenance=None;c2c_source='manual_assumption'
         if effects.get('c2c'):
             # Manual assumption is per profile revision, never per pool/mapping,
             # so it is resolved once here and reused by every candidate below.
             ref=next(r for r in config['profile_refs'] if r['id']==manifest['profile_id'] and r['revision']==manifest['revision'])
             c2c_cv_percent=ref['c2c']['cv_percent'];c2c_ratio=c2c_relative_cv_percent_to_ratio(c2c_cv_percent)
+            c2c_source=ref['c2c']['source'];c2c_provenance=ref['c2c'].get('provenance')
         for pool in POOL_ORDER:
             if pool not in config['pools']:continue
             pool_info=manifest['pools'].get(pool,{})
@@ -234,9 +255,10 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                     calibration_filename=candidate_id+'-calibration.json'
                     calibration_hash=_save_json(output_dir/calibration_filename,dict(**identity,bounds=bounds,tile_size=hardware['tile_size'],range_policy='validation_max_abs',adc_order=hardware['adc_order'],source='nominal M0 with the ADC bypassed; complete validation set only',validation_count=5000,split_sha256=split_hash,units='siemens x input bit; physical current is this times VDS',input_ranges=ranges,shared_across='bits, arrays and all retention timepoints; both orders collected in one pass'))
                     calibrations.append(dict(**identity,filename=calibration_filename,sha256=calibration_hash,bounds=bounds))
+                    if ppa_source is not None and ppa_source['identity'] is identity:ppa_source['bounds']=bounds
                 candidate_records.append(dict(**identity,mapping_artifact=mapping_filename,mapping_errors=mapping_meta,
                     hardware={**hardware,'calibration_filename':calibration_filename,'calibration_sha256':calibration_hash,'bounds':bounds},
-                    c2c=dict(cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source='manual_assumption') if effects.get('c2c') else None))
+                    c2c=dict(cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source=c2c_source,**({'analysis_id':c2c_provenance['analysis_id'],'provenance':c2c_provenance} if c2c_source=='measured_detrended' else {})) if effects.get('c2c') else None))
                 # year -> {array_index: [accuracy per reprogram]}; a record never
                 # counts as its own independent array (docs/spec review).
                 samples={str(y):{} for y in sorted(config['years'])}
@@ -284,7 +306,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                                     c2c_diag[name+'_'+polarity]=dict(seed=seed_info['seed'],factor_mean=stats['mean'],factor_std=stats['std'],factor_empirical_cv=stats['empirical_cv'],**violation)
                                 record_layers.append(dict(layer,weights=layer['scale']*(gs[0]-gs[1]),g_plus=gs[0],g_minus=gs[1]))
                             record_filename=candidate_id+'-array-'+str(array_index)+'-record-'+str(reprogram_index)+'.json'
-                            _save_json(output_dir/record_filename,dict(**identity,array_index=array_index,reprogram_index=reprogram_index,cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source='manual_assumption',seeds=record_seed_records,diagnostics=c2c_diag))
+                            _save_json(output_dir/record_filename,dict(**identity,array_index=array_index,reprogram_index=reprogram_index,cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source=c2c_source,**({'analysis_id':c2c_provenance['analysis_id']} if c2c_source=='measured_detrended' else {}),seeds=record_seed_records,diagnostics=c2c_diag))
                         # Only 1.2.0-identical run_ids when off: n_reprogram==1 is the
                         # only value 1.2.0/C2C-off ever allows, so this suffix is empty
                         # for every existing (non-C2C) result.
@@ -356,7 +378,8 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                     code_sha256={str(f.relative_to(Path(__file__).parent.parent)).replace(chr(92),'/'):_sha(f) for folder in (Path(__file__).parent,Path(__file__).parent.parent/'adapters') for f in folder.glob('*.py')},
                     d2d_seed_policy='SHA256(compact UTF-8 JSON [root_seed,profile_hash,array_index,layer,polarity]) first 8 bytes big-endian uint64; NumPy PCG64 standard_normal row-major',
                     trace=dict(filename='trace-test-first-256.npz',sha256=_sha(output_dir/'trace-test-first-256.npz'),count=256,source='first 256 official test examples; also the PPA activation trace source'))
-    used_assumptions=[a for a in ASSUMPTIONS if (effects['d2d'] or a['id']!='lognormal_d2d') and (effects['retention'] or not a['id'].startswith('retention_')) and (effects['adc'] or a['id']!='adc_bipolar_grid') and (effects.get('c2c') or a['id']!='manual_lognormal_c2c')]
+    c2c_sources_used={r['c2c']['source'] for r in config['profile_refs'] if r.get('c2c')} if effects.get('c2c') else set()
+    used_assumptions=[a for a in ASSUMPTIONS if (effects['d2d'] or a['id']!='lognormal_d2d') and (effects['retention'] or not a['id'].startswith('retention_')) and (effects['adc'] or a['id']!='adc_bipolar_grid') and ('manual_assumption' in c2c_sources_used or a['id']!='manual_lognormal_c2c') and ('measured_detrended' in c2c_sources_used or a['id']!='measured_detrended_c2c')]
     # Ask the adapter rather than hard-coding the refusal, so the result carries
     # the engine build state, the preset decision and the structural model
     # differences instead of an empty mismatch list.
@@ -369,12 +392,25 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
         trace_batch=torch.as_tensor(test_images[:256],dtype=torch.float32)/255.
         with torch.inference_mode():Network(ppa_source['nominal'],'torch_reference',tile_size=hardware['tile_size'],input_bits=INPUT_BITS)(trace_batch,record_inputs=recorded)
         try:
-            ppa_inputs=build_engine_inputs(ppa_source['nominal'],recorded,output_dir/'neurosim-inputs',
+            if config['engines'].get('ppa')!='assumed_proxy':ppa_inputs=build_engine_inputs(ppa_source['nominal'],recorded,output_dir/'neurosim-inputs',
                                            input_bits=8,synapse_bit=8,profile_states=ppa_source['states'])
         except ValueError as exc:
             warnings.append('NeuroSim engine inputs could not be assembled ('+type(exc).__name__+')')
-    _decision=_ppa_result(MNIST_MLP_V1_LAYERS,inputs=ppa_inputs,out_dir=output_dir,
-                          hardware={**hardware,'input_bits':INPUT_BITS} if effects['adc'] else None)
+    from ctfm.adapters.proxy_preset import proxy_preset
+    ppa_preset=proxy_preset(hardware['tile_size']) if config['engines'].get('ppa')=='assumed_proxy' else None
+    if ppa_preset is not None and ppa_source is not None:
+        # Two-plane path: the engine gets the mapped G+/G- (siemens) and the accuracy path's own unsigned 8 bit codes for the
+        # first test images, not a re-quantised weight file and a signed-encoded first sample.
+        from ctfm.adapters.neurosim_ppa import assumed_proxy_result
+        cost_net=Network(ppa_source['nominal'],'torch_reference',tile_size=hardware['tile_size'],input_bits=INPUT_BITS)
+        codes=[cost_net._encode(torch.as_tensor(np.asarray(rec),dtype=torch.float32),layer)[0].numpy().astype(np.int64) for rec,layer in zip(recorded,cost_net.layers)]
+        _decision=assumed_proxy_result(MNIST_MLP_V1_LAYERS,preset=ppa_preset,hardware={**hardware,'input_bits':INPUT_BITS},
+                                       layers=[dict(name=l['name'],g_plus=np.asarray(l['g_plus']),g_minus=np.asarray(l['g_minus'])) for l in ppa_source['nominal']],
+                                       codes=codes,states=ppa_source['states'],out_dir=output_dir/'neurosim-engine',
+                                       adc_bounds=ppa_source.get('bounds'))
+    else:
+        _decision=_ppa_result(MNIST_MLP_V1_LAYERS,preset=ppa_preset,inputs=ppa_inputs,out_dir=output_dir,
+                              hardware={**hardware,'input_bits':INPUT_BITS} if effects['adc'] else None)
     if ppa_source is not None:_decision['candidate']=ppa_source['identity']
     # Keep the list as well as the joined text: individual reasons contain their
     # own semicolons, so the joined string cannot be split back apart.
@@ -383,21 +419,34 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
              area_m2=_decision['area_m2'],energy_j_per_inference=_decision['energy_j_per_inference'],
              latency_s_per_inference=_decision['latency_s_per_inference'],
              model_mismatches=_decision['model_mismatches'],raw_output=_decision['raw_output'],
-             engine=_decision['engine'],preset=_decision['preset'],
+             engine=_decision['engine'],preset=_decision['preset'],requested=config['engines'].get('ppa'),
+             model_status=(_decision['preset'] or {}).get('model_status'),label=(_decision['preset'] or {}).get('label'),
              preset_artifact=_decision.get('preset_artifact'),candidate=_decision.get('candidate'),
              coverage=_decision.get('coverage'),schedule_check=_decision.get('schedule_check'),
-             engine_totals=_decision.get('engine_totals'),build=_decision.get('build'),
+             engine_totals=_decision.get('engine_totals'),engine_cross_check=_decision.get('engine_cross_check'),build=_decision.get('build'),
              blocking_reasons=list(_decision.get('blocking_reasons') or []),
              incomplete_reasons=list(_decision.get('incomplete_reasons') or []),
              normalization=_decision.get('normalization'),conductance=_decision.get('conductance'),
-             trace_sample=_decision['trace_sample'],time_basis=_decision['time_basis'])
+             trace_sample=_decision['trace_sample'],time_basis=_decision['time_basis'],
+             **{key:_decision[key] for key in ('known_total','known_components','unknown_components','placement','fidelity','consistency','adc_range_note','input_encoding','diagnostics','order','failure_code','failure_details') if key in _decision})
+    if ppa.get('requested')=='assumed_proxy' and ppa.get('build'):
+        from ctfm.adapters.neurosim_ppa import effective_ppa
+        effective['ppa']=effective_ppa(hardware,ppa)
+    from ctfm.adapters.neurosim_ppa import ppa_for_run
     candidate_by_id={c['candidate_id']:c for c in candidate_records}
     for run in runs:
         run['engine']='torch_reference' if run['kind'] in ('D0','D1') else engine
         run['profile_ref']=dict(id=run['profile_id'],revision=run['profile_revision']) if 'profile_id' in run else None
-        run['ppa']=deepcopy(ppa)
+        run['ppa']=ppa_for_run(ppa,run)
         candidate=candidate_by_id.get(run.get('candidate_id'))
         run['mapping_errors']=candidate['mapping_errors'] if candidate else None
+        # Official names are mapping_metrics / adc_metrics; mapping_errors / adc stay as legacy aliases with the same
+        # content. A diagnostic that was not produced stays absent/null -- it is never replaced by an empty success value.
+        if run['mapping_errors'] is not None:run['mapping_metrics']=deepcopy(run['mapping_errors'])
+        # torch_runner reports zero-count ADC diagnostics when no converter ran (D0/D1/M0, or ADC off): that is an absent
+        # diagnostic, not a measured one, so it is nulled instead of being passed on as an empty success value.
+        if run.get('adc') is not None and not (run['kind']=='ALL' and effects['adc']):run['adc']=None
+        if run.get('adc') is not None:run['adc_metrics']=deepcopy(run['adc'])
         run['hardware']=deepcopy(candidate['hardware']) if candidate and run['kind']=='ALL' else dict(tile_size=None,adc_bits=None,adc_order=None,range_policy=None,preset_id=None)
     completed_runs=sum(r['kind']=='ALL' and r['status']=='succeeded' for r in runs)
     failed_runs=sum(r['kind']=='ALL' and r['status']=='invalid' for r in runs)

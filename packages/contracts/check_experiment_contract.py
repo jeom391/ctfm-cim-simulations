@@ -13,7 +13,7 @@ MAX_REQUESTED_RUNS = 2000
 # constant is only what /capabilities advertises as current. A 1.2.0 request
 # keeps its exact original meaning (C2C unavailable, a single write) via the
 # schema's schema_version-conditional allOf entries.
-SCHEMA_VERSION = "1.3.0"
+SCHEMA_VERSION = "1.4.0"
 # docs/spec/08-hardware-baseline.md section 6: a 1.1.0 request must not be
 # reinterpreted under 1.2.0 semantics. Its tile_size=null meant "ADC off", which
 # 1.2.0 spells as an explicit array size, and it carries no adc_order, so there

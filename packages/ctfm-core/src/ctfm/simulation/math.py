@@ -176,7 +176,9 @@ def retention_ratio(fit, years):
     current = float(fit['a']) + float(fit['b'])*math.log10(target)
     result = dict(years=years, t_ref_s=10., target_time_s=target, reference_current_a=base if math.isfinite(base) else None,
                   target_current_a=current if math.isfinite(current) else None,
-                  extrapolated=target > float(fit['time_max_s']) or target < float(fit['time_min_s']),
+                  # Year 0 is the 10 s reference itself (ratio 1 by definition), not a prediction, even when the first
+                  # fitted sample lies a few microseconds after 10 s.
+                  extrapolated=years > 0 and (target > float(fit['time_max_s']) or target < float(fit['time_min_s'])),
                   ratio=None, status='invalid', reason=None)
     if not all(math.isfinite(v) and v > 0 for v in (base, current)):
         result['reason'] = 'nonpositive_or_nonfinite_fit_current'

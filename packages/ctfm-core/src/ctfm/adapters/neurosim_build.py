@@ -30,7 +30,14 @@ import time
 import uuid
 from pathlib import Path
 
-CACHE_ROOT = Path(os.environ.get("CTFM_NEUROSIM_CACHE", "/opt/ctfm-engines/cache"))
+
+class EngineBuildError(RuntimeError):
+    """The external compiler failed or produced no executable."""
+
+
+# Follows CTFM_ENGINE_ROOT when the engine lives outside /opt (e.g. a user-level install).
+CACHE_ROOT = Path(os.environ.get("CTFM_NEUROSIM_CACHE")
+                  or Path(os.environ.get("CTFM_ENGINE_ROOT", "/opt/ctfm-engines")) / "cache")
 PARAM_RELPATH = Path("Inference_pytorch/NeuroSIM/Param.cpp")
 BINARY_RELPATH = Path("Inference_pytorch/NeuroSIM/main")
 BUILD_COMMAND = ("make", "-C", "Inference_pytorch/NeuroSIM", "-j4")
@@ -60,6 +67,17 @@ PARAM_FIELDS = {
     "adc_levels": "levelOutput",
     "cell_bit": "cellBit",
     "read_pulse_width_s": "readPulseWidth",
+    # patch 0002 (engine-patches/neurosim): physical resistance window from the pool, write voltage below the level-shifter
+    # threshold, and the CTFM accounting flags. All flags are 0 in the reference source.
+    "resistance_on_ohm": "resistanceOn",
+    "resistance_off_ohm": "resistanceOff",
+    "write_voltage_v": "writeVoltage",
+    "ctfm_conductance_input": "ctfmConductanceInput",
+    "ctfm_differential": "ctfmDifferential",
+    "ctfm_adc_order": "ctfmAdcOrder",
+    "ctfm_no_duplication": "ctfmNoDuplication",
+    "ctfm_read_only": "ctfmReadOnly",
+    "ctfm_used_only": "ctfmUsedOnly",
 }
 
 # Values the engine computes from the ones above. Patching them would be
@@ -100,7 +118,7 @@ def _flag(value):
 def resolve_config(*, adc_bits, columns_per_adc, technode_nm, cell_bit, sub_array,
                    read_pulse_width_s, operation_mode=2, memcell_type=2, access_type=1,
                    global_bus_type=False, sar_adc=False, current_mode=True,
-                   pipeline=False, speed_up_degree=1, temperature_k=300):
+                   pipeline=False, speed_up_degree=1, temperature_k=300, extra=None):
     """The compile-time half of a run's hardware configuration.
 
     ``adc_bits`` becomes ``levelOutput = 2**adc_bits``; the spec's ADC bit count
@@ -120,7 +138,7 @@ def resolve_config(*, adc_bits, columns_per_adc, technode_nm, cell_bit, sub_arra
     if not isinstance(read_pulse_width_s, (int, float)) or isinstance(read_pulse_width_s, bool) \
             or not read_pulse_width_s > 0:
         raise ValueError("read_pulse_width_s must be a positive number of seconds")
-    return {"adc_bits": adc_bits, "adc_levels": 2**adc_bits, "columns_per_adc": columns_per_adc,
+    config = {"adc_bits": adc_bits, "adc_levels": 2**adc_bits, "columns_per_adc": columns_per_adc,
             "technode_nm": technode_nm, "cell_bit": cell_bit,
             "sub_array_rows": sub_array, "sub_array_cols": sub_array,
             "read_pulse_width_s": float(read_pulse_width_s),
@@ -129,6 +147,11 @@ def resolve_config(*, adc_bits, columns_per_adc, technode_nm, cell_bit, sub_arra
             "global_bus_type": _flag(global_bus_type), "sar_adc": _flag(sar_adc),
             "current_mode": _flag(current_mode), "pipeline": _flag(pipeline),
             "speed_up_degree": speed_up_degree, "temperature_k": temperature_k}
+    for key, value in (extra or {}).items():
+        if key not in PARAM_FIELDS:
+            raise ValueError("Unknown build option: " + key)
+        config[key] = value
+    return config
 
 
 def _digest(value):
@@ -298,11 +321,11 @@ def build(root, config, *, cache_root=None, compiler=None, flags=(), upstream_co
                                        capture_output=True, text=True, timeout=timeout,
                                        env=environment)
             if completed.returncode != 0:
-                raise RuntimeError("NeuroSim build failed (%d):\n%s"
+                raise EngineBuildError("NeuroSim build failed (%d):\n%s"
                                    % (completed.returncode, completed.stderr[-4000:]))
             binary = staging/"src"/BINARY_RELPATH
             if not binary.is_file():
-                raise RuntimeError("Build reported success but produced no binary at "+str(binary))
+                raise EngineBuildError("Build reported success but produced no binary at "+str(binary))
             shutil.move(str(binary), str(staging/BINARY_RELPATH.name))
             (staging/"effective.json").write_text(json.dumps(effective, indent=2, sort_keys=True),
                                                   encoding="utf-8")

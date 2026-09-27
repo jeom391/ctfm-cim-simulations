@@ -144,8 +144,12 @@ def iv_dataset(data: bytes, filename: str, *, block: int, segment: int, branch: 
     expected = 'increasing' if branch == 'erase' else 'decreasing' if branch == 'program' else None
     if expected is None or seg['direction'] != expected:
         raise ValueError(f'branch {branch!r} needs a {expected or "program/erase"} segment; segment {segment} is {seg["direction"]}')
-    if not math.isclose(float(sweep_amplitude_v), info['proposed_amplitude_v'], abs_tol=1e-9):
-        raise ValueError(f'sweep_amplitude_v {sweep_amplitude_v} does not match block {block} (max |Vg| = {info["proposed_amplitude_v"]})')
+    voltage_factor = {'V': 1.0, 'mV': 1e-3}.get(units.get('vgs_v'))
+    if voltage_factor is None:
+        raise ValueError('Vg unit must be V or mV')
+    amplitude_v = info['proposed_amplitude_v'] * voltage_factor
+    if not math.isclose(float(sweep_amplitude_v), amplitude_v, abs_tol=1e-9):
+        raise ValueError(f'sweep_amplitude_v {sweep_amplitude_v} does not match block {block} (max |Vg| = {amplitude_v} V)')
     raw = _select_sheet(data, filename, sheet)[0]
     vg, idd, _ig = _block_series(raw, info['columns'], block)
     lo, hi = seg['start_offset'], seg['end_offset']

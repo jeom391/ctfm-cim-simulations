@@ -24,6 +24,7 @@ export function PpaPanel({ppa}:{ppa?:PpaSummary|null}){
  const inventory=ppa.coverage?.inventory;const placement=ppa.placement;const sched=ppa.schedule_check;const fid=ppa.fidelity;
  return <div className="ppa-panel"><div className="result-title"><h4>PPA (면적·에너지·지연) · 조건부 비용 추정</h4><Status value={ppa.status}/></div>
   <p className="muted">{ppa.label||'측정 전도도를 적용한 선형 등가 회로의 조건부 비용 추정입니다. 실제 제작 CTFM 가속기의 성능이 아닙니다.'}{ppa.model_status?<> 모델 상태 <code>{ppa.model_status}</code> · validated_for_ctfm {String(ppa.preset?.validated_for_ctfm??false)}{ppa.order?` · ADC 순서 ${orderNames[ppa.order]||ppa.order}`:''}</>:null}</p>
+  {ppa.candidate?<p className="notice">PPA 평가 대상: {ppa.candidate.profile_id} / revision {ppa.candidate.profile_revision} · {ppa.candidate.pool} · {ppa.candidate.mapping}. 첫 번째 유효 후보의 기준 시점 비용만 평가합니다. 다른 후보의 비용을 보려면 해당 후보만 선택해 실행하세요. D2D·C2C·Retention에 따른 비용 변화는 평가하지 않습니다.</p>:null}
   <Notices items={ppa.blocking_reasons?.length?ppa.blocking_reasons:undefined} title="PPA를 실행하지 못한 이유"/>
   {total?<div className="notice" role="status"><strong>완전한 PPA 값은 제공하지 않습니다 — 비용이 산정되지 않은 블록 {unknown.length}개가 있습니다.</strong>
    <DataTable caption="알려진 블록의 합계 (미산정 블록은 0이 아니라 포함되지 않음 · 상한도 하한도 아님)" rows={[{'면적':area(total.area_m2),'추론당 에너지':total.energy_j_per_inference==null?'— (산정 불가)':energy(total.energy_j_per_inference),'추론당 지연(읽기 창 보정)':total.latency_s_per_inference==null?'— (산정 불가)':seconds(total.latency_s_per_inference),'완전한 값':String(total.complete)}]}/>

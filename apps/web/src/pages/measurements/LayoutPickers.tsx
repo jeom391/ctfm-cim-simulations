@@ -1,5 +1,5 @@
 import type {Analysis, Dataset} from '../../lib/api';
-import {c2cConditionFields, unitOptions} from '../../lib/payload';
+import {c2cConditionFields, unitOptions, ivAmplitudeV} from '../../lib/payload';
 import {DataTable, Field, Notices} from '../../shared';
 
 type Update = (patch: Partial<Dataset>) => void;
@@ -16,11 +16,11 @@ export function IvBlockPicker({d, update}: {d: Dataset; update: Update}) {
       <Field label="Vg/Id/Ig 블록" hint="블록마다 스윕 진폭(최대 |Vg|)이 다릅니다.">
         <select value={d.block || ''} onChange={e => {
           const next = layout.blocks.find(b => String(b.index) === e.target.value);
-          update({block: e.target.value, segment: '', branch: '', sweep_amplitude_v: next?.status === 'ok' ? next.proposed_amplitude_v ?? '' : ''});
+          update({block: e.target.value, segment: '', branch: '', sweep_amplitude_v: next?.status === 'ok' ? ivAmplitudeV(next.proposed_amplitude_v,d.units.vgs_v) : ''});
         }}>
           <option value="">블록 선택</option>
           {layout.blocks.map(b => <option key={b.index} value={String(b.index)} disabled={b.status !== 'ok'}>
-            {b.status === 'ok' ? `#${b.index} · 진폭 ${b.proposed_amplitude_v} V · ${b.points}점` : `#${b.index} · 사용 불가 (${b.error})`}
+            {b.status === 'ok' ? `#${b.index} · 진폭 ${ivAmplitudeV(b.proposed_amplitude_v,d.units.vgs_v)} V · ${b.points}점` : `#${b.index} · 사용 불가 (${b.error})`}
           </option>)}
         </select>
       </Field>
@@ -31,11 +31,11 @@ export function IvBlockPicker({d, update}: {d: Dataset; update: Update}) {
         }}>
           <option value="">{usable ? '구간 선택' : '먼저 블록을 선택하세요'}</option>
           {usable?.segments?.map(s => <option key={s.index} value={String(s.index)}>
-            {`#${s.index} · ${s.direction === 'increasing' ? '상승 (Erase)' : '하강 (Program)'} · Vg ${s.vg_start} → ${s.vg_end} V · ${s.points}점 · 원본 행 ${s.source_row_start}–${s.source_row_end}`}
+            {`#${s.index} · ${s.direction === 'increasing' ? '상승 (Erase)' : '하강 (Program)'} · Vg ${s.vg_start} → ${s.vg_end} ${d.units.vgs_v||"(원본 단위)"} · ${s.points}점 · 원본 행 ${s.source_row_start}–${s.source_row_end}`}
           </option>)}
         </select>
       </Field>
-      <Field label="Vg 단위"><select value={d.units.vgs_v || ''} onChange={e => update({units: {...d.units, vgs_v: e.target.value}})}><option value="">단위 선택</option>{unitOptions('vgs_v').map(u => <option key={u}>{u}</option>)}</select></Field>
+      <Field label="Vg 단위"><select value={d.units.vgs_v || ''} onChange={e => update({units: {...d.units, vgs_v: e.target.value}, sweep_amplitude_v: usable ? ivAmplitudeV(usable.proposed_amplitude_v,e.target.value) : ''})}><option value="">단위 선택</option>{unitOptions('vgs_v').map(u => <option key={u}>{u}</option>)}</select></Field>
       <Field label="Id 단위"><select value={d.units.id_a || ''} onChange={e => update({units: {...d.units, id_a: e.target.value}})}><option value="">단위 선택</option>{unitOptions('id_a').map(u => <option key={u}>{u}</option>)}</select></Field>
     </div>
     <p className="muted">분기와 스윕 진폭은 선택한 구간과 블록에서 채워지며, 서버가 방향·진폭이 맞는지 다시 검사합니다.</p>

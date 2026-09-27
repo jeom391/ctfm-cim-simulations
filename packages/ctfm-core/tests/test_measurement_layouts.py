@@ -300,3 +300,17 @@ def test_real_a5_225_has_twelve_usable_blocks_one_unavailable_block_and_a_usable
     ds = iv_dataset(data, A5_225.name, block=13, segment=up['index'], branch='erase', sweep_amplitude_v=15, **m)
     assert ds['block']['columns'] == [38, 39, 40]
     assert analyze('iv', [ds], {})['tables']['vth'][0]['status'] in ('ok', 'no_crossing', 'ambiguous_crossing')
+
+
+def test_iv_millivolts_match_volts_for_threshold_and_window():
+    results = []
+    for scale, unit in [(1, 'V'), (1000, 'mV')]:
+        rows = [['Vg', 'Id', 'Ig']] + [(v*scale, i, g) for v, i, g in sweep(3, lambda v: 1e-6*(v+2))]
+        data = book(rows)
+        metadata = dict(meta(data), units=dict(vgs_v=unit, id_a='A'))
+        datasets = [iv_dataset(data, 'iv.xlsx', block=0, segment=seg, branch=branch,
+                               sweep_amplitude_v=3, **metadata) for seg, branch in [(1, 'erase'), (2, 'program')]]
+        results.append(analyze('iv', datasets, {}))
+    assert results[0]['tables']['memory_window'] == results[1]['tables']['memory_window']
+    assert results[0]['tables']['by_amplitude'] == results[1]['tables']['by_amplitude']
+    assert [r['vth_v'] for r in results[0]['tables']['vth']] == [r['vth_v'] for r in results[1]['tables']['vth']]

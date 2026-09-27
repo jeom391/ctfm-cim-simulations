@@ -89,7 +89,7 @@ function ivBlockInput(d:Dataset,prefix:string){
  check((d.branch==='erase')===(segment!.direction==='increasing'),prefix+`${d.branch} 분기는 ${d.branch==='erase'?'상승':'하강'} 구간이어야 합니다.`);
  check(unitOptions('vgs_v').includes(d.units.vgs_v)&&unitOptions('id_a').includes(d.units.id_a),prefix+'Vg와 Id 단위를 선택하세요.');
  check(d.sweep_amplitude_v!==''&&Number.isFinite(Number(d.sweep_amplitude_v))&&Number(d.sweep_amplitude_v)>0,prefix+'양의 스윕 진폭이 필요합니다.');
- check(Number(d.sweep_amplitude_v)===block!.proposed_amplitude_v,prefix+`스윕 진폭은 선택한 블록의 최대 |Vg| (${block!.proposed_amplitude_v} V)와 같아야 합니다.`);
+ check(Math.abs(Number(d.sweep_amplitude_v)-ivAmplitudeV(block!.proposed_amplitude_v,d.units.vgs_v))<1e-9,prefix+`스윕 진폭은 선택한 블록의 최대 |Vg| (${ivAmplitudeV(block!.proposed_amplitude_v,d.units.vgs_v)} V)와 같아야 합니다.`);
  check(!d.row_start&&!d.row_end,prefix+'블록 선택에서는 원본 행 범위를 지정하지 않습니다.');
  return {file_id:d.file_id,sheet:d.sheet,units:{vgs_v:d.units.vgs_v,id_a:d.units.id_a},device_id:d.device_id.trim(),condition_id:d.condition_id.trim(),branch:d.branch,sweep_amplitude_v:Number(d.sweep_amplitude_v),vds_v:0.1,read_vgs_v:0,selection:{type:'iv_block',block:Number(d.block),segment:Number(d.segment)}} as Record<string,unknown>;
 }
@@ -133,3 +133,6 @@ export function buildAnalysis({kind,datasets,settings}:{kind:Kind;datasets:Datas
  check(!value.row_start||!value.row_end||Number(value.row_start)<=Number(value.row_end),prefix+'시작 행이 종료 행보다 클 수 없습니다.');return value;});
  return {kind,inputs,settings};
 }
+
+// Block layout values are raw instrument numbers; selection supplies the unit.
+export function ivAmplitudeV(raw:number|undefined,unit:string):number { return (raw??0)*(unit==='mV'?0.001:1); }

@@ -30,6 +30,11 @@ import time
 import uuid
 from pathlib import Path
 
+
+class EngineBuildError(RuntimeError):
+    """The external compiler failed or produced no executable."""
+
+
 # Follows CTFM_ENGINE_ROOT when the engine lives outside /opt (e.g. a user-level install).
 CACHE_ROOT = Path(os.environ.get("CTFM_NEUROSIM_CACHE")
                   or Path(os.environ.get("CTFM_ENGINE_ROOT", "/opt/ctfm-engines")) / "cache")
@@ -316,11 +321,11 @@ def build(root, config, *, cache_root=None, compiler=None, flags=(), upstream_co
                                        capture_output=True, text=True, timeout=timeout,
                                        env=environment)
             if completed.returncode != 0:
-                raise RuntimeError("NeuroSim build failed (%d):\n%s"
+                raise EngineBuildError("NeuroSim build failed (%d):\n%s"
                                    % (completed.returncode, completed.stderr[-4000:]))
             binary = staging/"src"/BINARY_RELPATH
             if not binary.is_file():
-                raise RuntimeError("Build reported success but produced no binary at "+str(binary))
+                raise EngineBuildError("Build reported success but produced no binary at "+str(binary))
             shutil.move(str(binary), str(staging/BINARY_RELPATH.name))
             (staging/"effective.json").write_text(json.dumps(effective, indent=2, sort_keys=True),
                                                   encoding="utf-8")

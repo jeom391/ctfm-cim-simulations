@@ -1,0 +1,62 @@
+# 2026-09-27 이전 인수인계 누적 기록
+
+> 과거 시점의 상태입니다. 현재 구현 판단에는 README와 release-readiness 문서를 사용하세요.
+
+> **PPA 모델 정합 (2026-09-26, 작업 12):** [문서](../docs/ppa-model-alignment-2026-09-26.md)를 먼저 읽으세요. mnist_mlp_v1 tile 64에서 실제 G+/G− 전달·unsigned 8 bit 입력·두 plane·명세 타일링 배치를 엔진 패치 0002로 연결했습니다. 결과는 **가정한 회로의 부분 비용 평가**이며 총계는 null(완전한 PPA 아님)입니다. A3 풀은 가상 셀 footprint 규칙으로 비용 평가가 실패하며(정확도는 정상) 이는 CTFM 소자 판정이 아닙니다. 128/256 PPA, 미산정 블록(ADC 범위 스케일링, bias, 아날로그 차감, 부호 감지)과 연구용 D2D 소자 쌍은 남은 결정입니다.
+
+> **NeuroSIM 실패 원인·엔진 수정 (2026-09-26, 작업 11):** [문서](../docs/neurosim-engine-fix-2026-09-26.md)를 먼저 읽으세요. 작업 10의 “4×subArray 규칙” 설명은 정정됐고, 타일 분할 결함을 격리 엔진 패치(`engine-patches/neurosim/`)로 고쳐 mnist_mlp_v1이 tile 64에서 실행됩니다(`assumed_proxy`, partial, 총계 null). tile 128/256은 엔진의 PE 최소 크기 제약으로 계속 거부됩니다.
+
+> **남은 실측 연결·NeuroSim 조건부 PPA (2026-09-26, 작업 10):** [문서](../docs/remaining-integration-and-ppa-2026-09-26.md)를 먼저 읽으세요. A3 Retention·D2D 두 소자·같은 조건 A3 실측 C2C 흐름, IV A5 #225(50/50 읽힘), `assumed_proxy` 게이트(schema 1.4.0)가 들어갔고, **spec 08 조건(가중치당 column 1개)에서 NeuroSim이 mnist_mlp_v1을 64/128/256 모두 실행하지 못함**이 측정으로 확인됐습니다(실제 PPA 수치 없음). 이 폴더의 이전 “엔진 부재/256에서 실행됨” 서술은 이 문서가 우선합니다. D2D 연구용 소자 쌍은 아직 정해지지 않았습니다.
+
+> **통합 마무리 (2026-09-26):** [실측 C2C·IV/Retention 연결과 통합 마무리](../docs/integration-finish-2026-09-26.md)를 먼저 읽으세요. 실측 C2C(A3)를 업로드→분석→서버 고정 provenance→시뮬레이터(Program 편차만, 승인 필요)까지 연결했고, 반복 블록 IV·독립 시간축 Retention 실측 파일 55개 중 54개를 읽습니다. 웹은 실제 브라우저로 확인했습니다. **NeuroSim PPA 실행은 이 머신에 엔진이 없어 여전히 blocked**(문서 4절).
+
+> **C2C 웹 입력·측정 화면 (2026-09-23 후속):** [구현과 검증 기록](../docs/c2c-web-input-2026-09-23.md). 시뮬레이터에 C2C 토글·프로파일별 상대 CV(%)·재기록 횟수를 연결했고(1.3.0), 측정 화면은 파일 이름/열 이름에서 조건 ID·방향·열·단위를 미리 채우며 LTP/LTD 쌍 집계와 실행 차단 사유를 표시한다. 실제 브라우저로 A1 업로드 → 분석 1020 states → 프로필 발행 → C2C on 실행까지 확인했다. 같은 날 확인한 **NeuroSim 정정: 엔진은 `/opt/ctfm-engines/neurosim`에 있고 실행된다 — 남은 차단 요인은 preset 값**이다. 실측 IV/Retention 파서는 원본 파일 부재로 여전히 미착수.
+
+> **최신 인수인계 (2026-09-23, 브랜치 `claude/adc-order-comparison`):** [개발 담당 인수인계](03_developer-handoff-2026-09-23.md)를 먼저 읽으세요. 06 일괄 백엔드 검증(측정 파이프라인 A1~A5 실제 재실행, ADC 순서 비교, 전체 pytest 322 passed)을 원본 보고서·evidence·diff와 대조해 확정했습니다. NeuroSim 엔진 실행, 실측 IV/Retention 연결, 05 프론트 마무리는 여전히 남아 있으며 이번 게시로 완료된 것은 아닙니다. 팀 공유용 요약은 [백엔드 일괄 검증 결과](../docs/verification-backend-batch-2026-09-23.md)를 참고하세요.
+
+> **측정 결과 UI 후속 완료:** [표시 개선·실측 브라우저 검증](../docs/measurement-results-ui-2026-09-21.md). 계산 요약·접힐 때 미렌더링·50행 페이지 이동·후보 선택 유지를 구현했다. 서버 전송량 최적화는 별도다.
+
+> **최신 진행도·개발 인계:** [main 6c590ea 기준 확인 결과](02_measurement-fix-and-next-steps.md)를 먼저 읽으세요. CSV 수정은 이미 main에 병합됐고 팀의 HTTP/브라우저/엔진 검증이 추가됐습니다. ADC 순서 간 통제 비교·UI 개선·C2C·PPA는 남아 있습니다.
+
+> **웹·API·엔진 실제 실행 검증 (2026-09-21):** [검증 결과](../docs/verification-2026-09-21.md). 실측 CSV 10개 HTTP·브라우저 흐름, 실측 프로필 torch vs AIHWKit 일치, worker export O(n²) 정지와 시뮬레이터 ADC 지표 미표시를 수정했습니다. PPA는 여전히 blocked입니다.
+
+> **CSV 파서 수정:** [수정 내용·검증 결과](../docs/csv-parser-fix-2026-09-21.md)를 먼저 확인하세요. 최신 CSV 10개 파싱·분석 및 A1~A5 프로필 생성/발행 함수 검증을 완료했습니다. C2C/PPA는 후속 작업입니다.
+
+> **최신 후속 작업:** [마무리 계획](../docs/completion-plan-2026-09-21.md)을 먼저 읽으세요. [CSV10개와 manifest](../data/reference/ltp-ltd-2026-09-21/README.md)가 공유됐으므로 LTP/LTD 원본 미제공은 더 이상 대기 사유가 아닙니다. 이번 변경은 자료·문서이며 parser/C2C/PPA 코드 수정 완료를 뜻하지 않습니다.
+
+> **최신 인수인계 (2026-09-20):** 팀 구현은 main 57af5ec에 반영됐습니다. 아래의 초기 골격/미구현 상태 설명은 당시 기록입니다. 먼저 [두 PDF 답변·작업 순서](../docs/implementation-decisions-2026-09-20.md) → [하드웨어 기준 v1.2](../docs/spec/08-hardware-baseline.md) → [근거·보고서 기준](../docs/research/hardware-baseline-evidence.md)을 읽으세요. 충돌 시 새 문서가 우선하며 코드/schema는 별도 이행이 필요합니다.
+
+# 최신 개발 인수인계
+
+전체 계산·API 설계는 v1.0.0이며 통합 웹 저장소 구조를 v1.0.1로 갱신했습니다. 기존 세 시뮬레이터를 각각 구현하지 않고 단일 웹 앱과 공통 실험 실행기를 사용합니다.
+
+## 먼저 읽을 문서
+
+1. [개발 시작](../docs/spec/README.md)
+2. [통합 저장소 구조·이관표](../docs/spec/06-repository-structure.md)
+3. [화면·API 계약](../docs/spec/04-web-api.md)
+4. [구현 순서와 검증 기준](../docs/spec/05-implementation.md)
+
+## 담당별 시작 위치
+
+- 프론트엔드: apps/web. 홈, /measurements, /simulator 페이지.
+- API: apps/api. 업로드·분석·프로필 발행·실험·작업 API.
+- 계산/엔진: packages/ctfm-core. 측정/프로필/매핑/비이상성/adapter.
+- 장기 작업: apps/worker. queue 처리·진행률·취소.
+- 공동 계약: packages/contracts. P0에서 OpenAPI/JSON Schema/합성 fixture 생성.
+
+## 완료와 남은 작업
+
+저장소 골격, 파트별 README, 구조 명세, 이전 문서 archive 이동을 완료했습니다. 현재 폴더는 구현 시작용이며 실행 가능한 웹/API를 만들었다는 뜻은 아닙니다. 기존 루트 ctfm/ 및 초기 설정/테스트는 로컬 미커밋 참조 구현으로 보존했고 이번 배포에는 포함하지 않았습니다. 검증 후 core 패키지로 이관합니다.
+
+개발은 P0 계약/환경 → P1 분석 → P2 프로필·기준 추론 → P3 비이상성 → P4 엔진 → P5 웹 통합 순서입니다. 프론트는 P0 합성 계약으로 먼저 작업할 수 있습니다. 원본 측정 파일·runtime DB·실험 결과는 Git에 올리지 않습니다.
+
+01_current-design-handoff.md는 과거 기록입니다. 본문의 이전 경로나 구현 중지 지시보다 현재 docs/spec를 우선하세요.
+
+## ADC·NeuroSim 후속 정정 (문서 v1.0.2)
+
+ADC bits/배열 크기는 사용자가 선택하는 실행 입력이며 추천 preset 수치를 고정하지 않는다. [설정 검토](../docs/neurosim-user-controls-review.md)를 확인한다. upstream SRAM 기본 설정 또는 0.1 V 단순 대입으로 CTFM PPA를 구현하지 않는다. 실제 등가 회로/전압 모델 검증 전 PPA는 unsupported이고 정확도 실험은 별도로 진행한다. SAR/MLSA·공유 ADC·노드 등은 검토된 추가 후보이며 아직 API 지원 완료가 아니다.
+
+## 현재 착수 기준: v1.1.0
+
+[1차 사용자 선택 명세](../docs/spec/07-first-release-controls.md)를 추가로 읽는다. ADC on/off·3~8 bit·타일 64/128/256, 풀/매핑, D2D 반복, Retention 연수를 실행 입력으로 연결한다. [공유 계약](../packages/contracts/README.md)에 schema와 합성 예시·검증 명령이 있다. schema_version=1.1.0이며 과거 실험 요청 shape보다 우선한다. 검증기는 inference를 수행하지 않는다. 개발 담당은 form→API→resolved config→실행기→결과의 선택값 일치와 실제 중간 계산 변화를 테스트한다. C2C 및 PPA는 아직 비활성화한다.

@@ -432,11 +432,12 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
     if ppa.get('requested')=='assumed_proxy' and ppa.get('build'):
         from ctfm.adapters.neurosim_ppa import effective_ppa
         effective['ppa']=effective_ppa(hardware,ppa)
+    from ctfm.adapters.neurosim_ppa import ppa_for_run
     candidate_by_id={c['candidate_id']:c for c in candidate_records}
     for run in runs:
         run['engine']='torch_reference' if run['kind'] in ('D0','D1') else engine
         run['profile_ref']=dict(id=run['profile_id'],revision=run['profile_revision']) if 'profile_id' in run else None
-        run['ppa']=deepcopy(ppa)
+        run['ppa']=ppa_for_run(ppa,run)
         candidate=candidate_by_id.get(run.get('candidate_id'))
         run['mapping_errors']=candidate['mapping_errors'] if candidate else None
         # Official names are mapping_metrics / adc_metrics; mapping_errors / adc stay as legacy aliases with the same

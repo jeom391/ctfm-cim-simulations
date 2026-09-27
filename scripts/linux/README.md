@@ -1,3 +1,5 @@
+> **현재 실행 기준 (2026-09-27):** 아래 stock 엔진 검증은 과거 환경 기록입니다. 현재 assumed_proxy는 [0001/0002 패치](../../engine-patches/neurosim/)와 tile 64를 사용합니다. stock 설정의 256 완주는 현재 proxy 256 지원을 뜻하지 않습니다. [현재 PPA 범위](../../docs/ppa-model-alignment-2026-09-26.md), [최종 상태](../../docs/release-readiness-2026-09-27.md)를 우선하세요.
+
 # Linux 가속기 엔진 환경
 
 AIHWKit(정확도)과 NeuroSim(PPA)은 Linux에서만 동작합니다. 이 디렉터리의 스크립트는 전용 환경을
@@ -79,7 +81,7 @@ CPU로 옮겨도 수치가 바뀌지 않습니다. 첫 forward pass는 CPU에서
 이 smoke는 상류 VGG8 8개 레이어 trace를 상류 hook으로 만들고 상류가 생성한 `trace_command.sh`를
 그대로 실행해 rc=0을 확인했습니다. 파싱은 어댑터의 `parse_stdout`을 그대로 사용합니다.
 
-**PPA는 여전히 off입니다.** 엔진이 빌드되고 실행된다는 사실과 CTFM 등가 회로 preset이 검증됐다는
+**stock 엔진만으로 CTFM PPA를 제공하지 않습니다.** 엔진이 빌드되고 실행된다는 사실과 CTFM 등가 회로 preset이 검증됐다는
 사실은 별개입니다. 검증된 preset이 없으므로 gate는 닫혀 있고 수치는 `null`입니다.
 필요한 물리값 목록은 `ctfm.adapters.neurosim.REQUIRED_PRESET_FIELDS`에 있습니다.
 

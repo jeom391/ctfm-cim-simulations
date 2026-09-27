@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -34,7 +35,7 @@ def fidelity_checks(layers, codes_first, agg, tile, layer_dims):
             "input_bits_set": int(planes.sum()), "cycles_per_subarray": ledger["cycles"],
             "weight_cells": ledger["weight_cells"], "weight_cells_expected": dims[0]*dims[1],
             "used_slots": ledger["used_subarrays"], "used_slots_expected": nd.spec_slots([dims], tile)[0]})
-    passed = all(max(x["column_conductance_rel_error"].values()) < 1e-9 and x["rows_read"] == x["rows_read_expected"]
+    passed = bool(per_layer) and len(per_layer) == len(layers) == len(codes_first) == len(ledger_layers) == len(layer_dims) and all(max(x["column_conductance_rel_error"].values()) < 1e-9 and x["rows_read"] == x["rows_read_expected"]
                  and x["weight_cells"] == x["weight_cells_expected"] and x["used_slots"] == x["used_slots_expected"]
                  for x in per_layer)
     return {"status": "passed" if passed else "failed", "image_index": 0, "layers": per_layer,
@@ -114,6 +115,15 @@ def run_ppa(layers, codes, preset, hardware, states, *, root, out_dir, cache_roo
     layer_dims = dims
     fidelity = fidelity_checks(layers, [c[0] for c in codes], agg, tile, layer_dims)
     composed = compose_mod.compose(agg, order=order, tile=tile, layer_dims=layer_dims, adc_bounds=adc_bounds, bounds=bounds)
+    required = ["array_area_equals_slots"]
+    if order == "adc_then_subtract":
+        required += ["adc_area_equals_slots", "adc_class_energy_equals_ledger"]
+    if fidelity["status"] != "passed" or any(composed["consistency"].get(k) is not True for k in required):
+        return {"status": "failed", "order": order, "build": built, "bounds": bounds,
+                "reason": "Engine fidelity/consistency verification failed; cost values are withheld.",
+                "failure_code": "model_verification_failed", "fidelity": fidelity,
+                "consistency": composed["consistency"],
+                "raw_output": {"stdout_first_image_tail": runs[0][1][-3000:]}}
     return {"status": "partial", "order": order, "build": built, "bounds": bounds, "images": agg["images"],
             "stats": agg["stats"], "static": agg["static"], "ledger": {"flags": agg["ledger_flags"], "params": agg["ledger_params"],
                                                                     "slot": agg["ledger_slot"], "layers": agg["ledger_layers_mean"]},
@@ -138,14 +148,22 @@ def assumed_proxy_result(layer_dims, *, preset, hardware, layers, codes, states,
                         "assumed_proxy needs it" % root)
     if blocking:
         return dict(base, status="unsupported", blocking_reasons=blocking, reasons=blocking)
-    run = run_ppa(layers, codes, preset, hardware, states, root=root, out_dir=out_dir, cache_root=cache_root,
-                  cancelled=cancelled, adc_bounds=adc_bounds, images=images)
+    try:
+        run = run_ppa(layers, codes, preset, hardware, states, root=root, out_dir=out_dir, cache_root=cache_root,
+                      cancelled=cancelled, adc_bounds=adc_bounds, images=images)
+    except (OSError, subprocess.SubprocessError, neurosim_build.EngineBuildError) as exc:
+        # Accuracy has already completed. External engine failures must not discard it.
+        # Cancellation and programming errors are deliberately not caught here.
+        run = {"status": "failed", "reason": "NeuroSim execution failed: " + str(exc),
+               "failure_code": "engine_execution_error", "order": hardware.get("adc_order"),
+               "failure_details": {"exception": type(exc).__name__}}
     if run["status"] != "partial":
         reason = run.get("reason")
         return dict(base, status=run["status"], blocking_reasons=[reason], reasons=[reason], build=_public_build(run.get("build")),
                     raw_output=run.get("raw_output"), failure_code=run.get("failure_code"), failure_details=run.get("failure_details"),
                     conductance=dict(run.get("bounds") or {}), order=run.get("order"),
-                    diagnostics={"ledger": {}, "images": 0})
+                    diagnostics={"ledger": {}, "images": 0}, fidelity=run.get("fidelity"),
+                    consistency=run.get("consistency"))
     composed = run["composed"]
     unknown = composed["unknown_components"]
     incomplete = ["%s: %s" % (u["id"], u["detail"]) for u in unknown]
@@ -231,3 +249,12 @@ def effective_ppa(hardware, ppa):
         "write_level_shifters_not_built": cost["write_voltage_v"] is not None and cost["write_voltage_v"] <= 1.5}
     return {"accuracy_side": accuracy, "cost_side": cost, "agreement": agree, "engine_ran": ran,
             "all_agree": all(v is True for v in agree.values() if v is not None)}
+
+
+def ppa_for_run(ppa, run):
+    """Only the evaluated candidate's nominal hardware cost belongs on its ALL runs."""
+    from copy import deepcopy
+    candidate = ppa.get("candidate") or {}
+    if run.get("kind") == "ALL" and candidate.get("candidate_id") == run.get("candidate_id") and candidate:
+        return deepcopy(ppa)
+    return None

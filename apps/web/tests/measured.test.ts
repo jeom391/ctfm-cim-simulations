@@ -1,7 +1,7 @@
 // Measured C2C, explicit IV/Retention layout selections and measured C2C experiment references.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildExperiment, buildAnalysis, suggestRetentionColumns} from '../src/lib/payload.ts';
+import {buildExperiment, buildAnalysis, suggestRetentionColumns, ivAmplitudeV} from '../src/lib/payload.ts';
 
 const caps = {engines: {torch_reference: {available: true}}, effects: {adc: {available: true}}, hardware: {adc_orders: ['subtract_then_adc', 'adc_then_subtract'], validated_combinations: [{tile_size: 64, adc_bits: 6, adc_order: 'subtract_then_adc'}]}};
 const base = {profileKeys: [], pools: ['combined'], mappings: ['fixed_reference'], d2d: false, retention: false, adc: false, c2c: false, nReprogram: 1, c2cCv: {}, arrays: 1, years: '0', seed: 20260917, tileSize: 64, adcBits: 6, adcOrder: 'subtract_then_adc', engine: 'torch_reference', checkpoint: ''};
@@ -117,4 +117,13 @@ test('manual and measured references stay separate per profile revision, and man
   const off = buildExperiment({...mform(), c2c: false, nReprogram: 1}, [A3], caps, [analysis]);
   assert.equal(off.schema_version, '1.2.0');
   assert.equal('c2c' in off.profile_refs[0], false);
+});
+
+
+test('IV millivolt block amplitude is converted to volts before request validation', () => {
+  const layout = {...ivLayout, blocks: ivLayout.blocks.map(b => b.status === 'ok' ? {...b, proposed_amplitude_v: 15000} : b)};
+  const d = {...ivBlock, ivLayout: layout, units: {vgs_v:'mV',id_a:'A'}, sweep_amplitude_v:ivAmplitudeV(15000,'mV')};
+  assert.equal(d.sweep_amplitude_v,15);
+  assert.equal(buildAnalysis({kind:'iv',datasets:[d],settings:{}}).inputs[0].sweep_amplitude_v,15);
+  assert.throws(() => buildAnalysis({kind:'iv',datasets:[{...d,sweep_amplitude_v:15000}],settings:{}}));
 });

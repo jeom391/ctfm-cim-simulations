@@ -1,6 +1,6 @@
 # 최신 개발 인수인계 (2026-09-27)
 
-먼저 [최종 점검·사용 가능 범위](../docs/release-readiness-2026-09-27.md)를 읽으세요. 과거의 “C2C 비활성”, “IV/Retention 미구현”, “NeuroSim 엔진 없음”은 현재 상태가 아닙니다.
+먼저 [최종 점검·사용 가능 범위](../docs/release-readiness-2026-09-27.md)를 읽으세요. 과거의 “C2C 비활성”, “IV/Retention 미구현”, “NeuroSim 엔진 없음”은 현재 상태가 아닙니다. 작업 14에서 전체 Python 432개·웹 34개 검사, 실측 IV/Retention 55개 읽기와 웹 사용자 흐름 확인을 완료했습니다(기존 A1 환경변수 미지정 검사 5개는 skipped).
 
 ## 현재 범위
 
@@ -20,7 +20,9 @@
 
 ## 개발 위치와 전달 상태
 
-이번 로컬 검증은 `tmp/fix-measurement-csv` worktree의 `claude/adc-order-comparison`에서 수행했다. 기준 HEAD는 `34e2f3b`이며 이번 최종 수정은 그 이후 변경이다. 바깥 저장소의 오래된 main과 혼동하지 말 것. 원격 push/merge 여부는 별도로 확인해야 한다.
+최종 구현 검증은 `tmp/fix-measurement-csv` worktree의 `claude/adc-order-comparison`, 구현 커밋 `7ccae46`에서 수행했다. 해당 커밋의 원격 push와 해시 일치를 확인했다. 후속 문서 갱신은 계산 코드 변경을 포함하지 않는다. 바깥 저장소의 오래된 main과 혼동하지 말 것. main 병합은 별도이며 [브랜치 비교·PR 상태](https://github.com/jeom391/ctfm-cim-simulations/compare/main...claude/adc-order-comparison)를 확인한다.
+
+브라우저 업로드는 FileList 주입, A3 실험 생성은 API 스크립트, 결과 표시는 실제 브라우저로 확인했다. 네이티브 파일 선택창이나 모든 실험을 수동 웹 조작으로 검증했다고 표현하지 않는다. 전체 확인 범위와 알려진 PPA 한계는 위 최종 상태 문서에 정리했다.
 
 현재 요청 계약은 C2C off 1.2.0, 수동 C2C 1.3.0, 실측 C2C/PPA 1.4.0을 지원한다. 코드·계약의 실제 지원 범위와 각 문서의 과거 버전을 구분한다.
 

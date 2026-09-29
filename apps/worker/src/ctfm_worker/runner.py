@@ -49,6 +49,7 @@ def run_once(store):
     job=store.claim()
     if job is None:return False
     output=store.job_dir(job["id"]);process=None
+    comparison_id=store.get_entity(job["kind"],job["entity_id"]).get("comparison_id")
     try:
         output.mkdir(parents=True,exist_ok=False)
         env=os.environ.copy();env["CTFM_STORAGE_ROOT"]=str(store.root);env["PYTHONUNBUFFERED"]="1";env["PYTHONUTF8"]="1";env["CTFM_PARENT_PID"]=str(os.getpid())
@@ -61,30 +62,38 @@ def run_once(store):
                     terminate_owned_process(process);break
                 time.sleep(.2)
         cancelled=store.get_job(job["id"])["cancel_requested"]
-        if cancelled:
+        if cancelled and not comparison_id:
             store.finish(job["id"],state="cancelled");return True
         result_path=output/"worker-result.json"
         result=json.loads(result_path.read_text(encoding="utf-8")) if result_path.is_file() else {}
+        if not result and comparison_id:
+            partial=output/"comparison-partial.json"
+            if partial.is_file(): result=json.loads(partial.read_text(encoding="utf-8"))
         artifacts=[]
         for path in sorted(output.rglob("*")):
             if not path.is_file() or path.name.startswith("worker-"):continue
             artifacts.append(store.register_artifact(path,path.suffix.lstrip(".") or "file"))
         result["artifacts"]=artifacts
-        if process.returncode==0 and result_path.is_file():
-            filename=result.get("checkpoint_filename")
-            if filename:
-                path=(output/filename).resolve()
-                if not path.is_relative_to(output) or not path.is_file():raise ValueError("Invalid generated checkpoint path")
-                store.put_entity("checkpoint",result["checkpoint_id"],dict(checkpoint_id=result["checkpoint_id"],relative_path=path.relative_to(store.root).as_posix(),sha256=sha256(path.read_bytes()),model_id="mnist_mlp_v1"))
+        filename=result.get("checkpoint_filename")
+        if filename:
+            path=(output/filename).resolve()
+            if not path.is_relative_to(output) or not path.is_file():raise ValueError("Invalid generated checkpoint path")
+            store.put_entity("checkpoint",result["checkpoint_id"],dict(checkpoint_id=result["checkpoint_id"],relative_path=path.relative_to(store.root).as_posix(),sha256=sha256(path.read_bytes()),model_id="mnist_mlp_v1"))
+        if cancelled:
+            store.finish(job["id"],state="cancelled",result=result)
+        elif process.returncode==0 and result_path.is_file():
             store.finish(job["id"],state="succeeded",result=result)
         else:
             error_path=output/"worker-error.json"
             error=json.loads(error_path.read_text(encoding="utf-8")) if error_path.is_file() else {"code":"worker_failed","message":"Calculation subprocess exited without a result."}
-            store.finish(job["id"],state="failed",result={"artifacts":artifacts},error=error)
+            store.finish(job["id"],state="failed",result=result,error=error)
     except BaseException:
         if process is not None:terminate_owned_process(process)
         store.finish(job["id"],state="failed",error={"code":"worker_failed","message":"Worker could not complete the job."})
         raise
+    if comparison_id:
+        from ctfm_api.comparisons import cleanup
+        cleanup(store,comparison_id)
     return True
 
 def main():

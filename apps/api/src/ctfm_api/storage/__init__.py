@@ -156,10 +156,17 @@ class Store:
             if job["state"] not in ("queued", "running"):
                 return False
             if job["cancel_requested"]:
-                state, result = "cancelled", None
+                state = "cancelled"
             db.execute("UPDATE jobs SET state=?,stage=?,finished_at=?,error=?,pid=NULL,progress=? WHERE id=?",
                        (state, state, now(), encode(error) if error else None, 1 if state == "succeeded" else job["progress"], job_id))
             item = json.loads(db.execute("SELECT data FROM entities WHERE kind=? AND id=?", (job["kind"], job["entity_id"])).fetchone()[0])
+            if job["cancel_requested"] and not item.get("comparison_id"):
+                result = None
+            if item.get("comparison_id") and not result:
+                partial=self.job_dir(job_id)/"comparison-partial.json"
+                if partial.is_file():
+                    try: result=json.loads(partial.read_text(encoding="utf-8"))
+                    except (OSError,ValueError): pass
             if result:
                 item.update(result)
             item["status"] = result.get("status", state) if result and state == "succeeded" else state
@@ -167,6 +174,9 @@ class Store:
             if error:
                 item["error"] = error
             db.execute("UPDATE entities SET data=? WHERE kind=? AND id=?", (encode(item), job["kind"], job["entity_id"]))
+            if item.get("comparison_id"):
+                from ctfm_api.comparisons import reconcile
+                reconcile(db, item)
         return True
 
     def cancel(self, job_id):
@@ -202,6 +212,16 @@ class Store:
                            (manifest["status"], encode(manifest), encode(states), identifier, revision))
             else:
                 db.execute("INSERT INTO profiles VALUES(?,?,?,?,?)", (identifier, revision, manifest["status"], encode(manifest), encode(states)))
+
+    def create_profile_revision(self, identifier, base_revision, build):
+        with self.connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row=db.execute("SELECT manifest,states FROM profiles WHERE id=? AND revision=?",(identifier,base_revision)).fetchone()
+            if row is None: raise KeyError(identifier)
+            revision=db.execute("SELECT MAX(revision) FROM profiles WHERE id=?",(identifier,)).fetchone()[0]+1
+            result=build(json.loads(row['manifest']),json.loads(row['states']),revision)
+            db.execute("INSERT INTO profiles VALUES(?,?,?,?,?)",(identifier,revision,'draft',encode(result['manifest']),encode(result['states'])))
+            return result
 
     def get_profile(self, identifier, revision):
         identifier = str(UUID(str(identifier)))

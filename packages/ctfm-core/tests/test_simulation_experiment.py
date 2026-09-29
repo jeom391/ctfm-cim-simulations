@@ -285,3 +285,45 @@ class C2CIntegrationTests(unittest.TestCase):
             download.assert_not_called()
 
 if __name__=='__main__':unittest.main()
+
+
+def test_comparison_isolates_mapping_failure_and_preserves_shared_checkpoint(tmp_path,monkeypatch):
+    import ctfm.simulation as simulation
+    p,q=synthetic_profile(),synthetic_profile()
+    cfg=configuration(p,False);cfg['pools']=['combined'];cfg['profile_refs'].append(dict(id=q['manifest']['profile_id'],revision=1))
+    trained=[]
+    def train(*args): trained.append(1);return create_model(),[]
+    monkeypatch.setattr(simulation,'load_mnist',lambda *a:synthetic_data())
+    monkeypatch.setattr(simulation,'train_model',train)
+    original=simulation.map_weights; calls=[]
+    def mapping(*args):
+        calls.append(1)
+        if len(calls)==1: raise ValueError('synthetic first profile mapping failure')
+        return original(*args)
+    monkeypatch.setattr(simulation,'map_weights',mapping)
+    r=run_experiment(cfg,[p,q],tmp_path/'comparison',cache_dir=tmp_path/'cache',comparison=True)
+    assert trained==[1]
+    assert r['summary']['requested']==2 and r['summary']['failed']==1 and r['summary']['completed']==1
+    failed=[x for x in r['runs'] if x['kind']=='ALL' and x['profile_id']==p['manifest']['profile_id']]
+    peer=[x for x in r['runs'] if x['kind']=='ALL' and x['profile_id']==q['manifest']['profile_id']]
+    assert failed[0]['status']=='failed' and failed[0]['accuracy'] is None
+    assert peer[0]['status']=='succeeded' and peer[0]['accuracy'] is not None
+    partial=json.loads((tmp_path/'comparison'/'comparison-partial.json').read_text())
+    assert partial['checkpoint_id']==r['checkpoint_id']
+    assert partial['provenance']['checkpoint']['sha256']==r['provenance']['checkpoint']['sha256']
+    assert {x['profile_id'] for x in partial['runs'] if x['kind']=='ALL'}=={p['manifest']['profile_id'],q['manifest']['profile_id']}
+    calls.clear()
+    with __import__('pytest').raises(ValueError,match='synthetic first profile'):
+        run_experiment(cfg,[p,q],tmp_path/'strict',cache_dir=tmp_path/'cache')
+
+
+def test_comparison_profile_validation_does_not_block_peer(tmp_path,monkeypatch):
+    import ctfm.simulation as simulation
+    p,q=synthetic_profile(),synthetic_profile()
+    p['manifest']['profile_hash']='0'*64
+    cfg=configuration(p,False);cfg['pools']=['combined'];cfg['profile_refs'].append(dict(id=q['manifest']['profile_id'],revision=1))
+    monkeypatch.setattr(simulation,'load_mnist',lambda *a:synthetic_data())
+    monkeypatch.setattr(simulation,'train_model',lambda *a:(create_model(),[]))
+    result=run_experiment(cfg,[p,q],tmp_path/'comparison',cache_dir=tmp_path/'cache',comparison=True)
+    assert result['summary']['failed']==1 and result['summary']['completed']==1
+    assert any('hash mismatch' in r.get('reason','').lower() for r in result['runs'])

@@ -126,6 +126,7 @@ class AnalysisRequest(Strict):
             raise ValueError("This analysis kind has no layout selection")
 
 class ProfileCreate(Strict):
+    c2c_analysis_id: UUID | None = None
     condition_id: str = Field(min_length=1)
     state_analysis_id: UUID
     selected_state_ids: list[str]
@@ -134,6 +135,10 @@ class ProfileCreate(Strict):
     display_name: str | None = None
 
 class ProfileRevision(Strict):
+    state_analysis_id: UUID | None = None
+    d2d_analysis_id: UUID | None = None
+    retention_analysis_id: UUID | None = None
+    c2c_analysis_id: UUID | None = None
     base_revision: int = Field(ge=1, strict=True)
     selected_state_ids: list[str] | None = None
     display_name: str | None = None

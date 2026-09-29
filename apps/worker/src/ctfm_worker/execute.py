@@ -57,7 +57,27 @@ def execute(job_id):
         from ctfm.simulation import run_experiment
         validate_request(request)
         validate_product_scope(request)
-        profiles=[store.get_profile(r["id"],r["revision"]) for r in request["profile_refs"]]
+        comparison=bool(item.get("comparison_id"))
+        profiles=[]
+        snapshot=store.get_entity("comparison",item["comparison_id"])["snapshot"] if comparison else None
+        for ref in request["profile_refs"]:
+            try:
+                profile=store.get_profile(ref["id"],ref["revision"])
+                if comparison:
+                    frozen=next(m for m in snapshot["profiles"] if m["profile_id"]==ref["id"] and m["revision"]==ref["revision"])
+                    if profile["manifest"]["profile_hash"]!=frozen["profile_hash"]: raise ValueError("Published profile differs from the run snapshot")
+                c2c=ref.get("c2c") if request["effects"]["c2c"] else None
+                if c2c and c2c["source"]=="measured_detrended":
+                    from ctfm.measurement.c2c import result_pin
+                    analysis=store.get_entity("analysis",c2c["analysis_id"])
+                    if analysis.get("status")!="succeeded" or result_pin(analysis)!=c2c["provenance"]["analysis_result_sha256"]:
+                        raise ValueError("Measured C2C differs from the pinned analysis")
+            except (ValueError,KeyError) as exc:
+                if not comparison: raise
+                # Keep identity and frozen provenance; core records this profile's reason.
+                frozen=next(m for m in snapshot["profiles"] if m["profile_id"]==ref["id"] and m["revision"]==ref["revision"])
+                profile=dict(manifest=frozen,states=[],comparison_error=str(exc))
+            profiles.append(profile)
         checkpoint_path=None
         if request["checkpoint_id"]:
             record=store.get_entity("checkpoint",str(UUID(request["checkpoint_id"])))
@@ -65,7 +85,7 @@ def execute(job_id):
             if sha256(checkpoint_path.read_bytes())!=record["sha256"]:raise ValueError("Checkpoint hash mismatch")
         # Latest spec07 takes precedence: the requested seed controls splitting.
         result=run_experiment(request,profiles,output,cache_dir=store.root/"cache",
-                              checkpoint_path=checkpoint_path,progress=progress,split_seed=request["seed"])
+                              checkpoint_path=checkpoint_path,progress=progress,split_seed=request["seed"],comparison=comparison)
         result["experiment_id"]=item["id"];result["design_version"]="1.1.0"
         requested=len(request["profile_refs"])*len(request["pools"])*len(request["mappings"])*int(request["arrays"])*int(request["n_reprogram"])*len(request["years"])
         actual=[r for r in result["runs"] if r.get("kind")=="ALL"]

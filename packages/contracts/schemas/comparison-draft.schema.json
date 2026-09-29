@@ -1,0 +1,180 @@
+{
+  "$defs": {
+    "ComparisonCard": {
+      "additionalProperties": false,
+      "properties": {
+        "c2c_analysis_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "C2C Analysis Id"
+        },
+        "c2c_approved_assumption": {
+          "default": false,
+          "title": "C2C Approved Assumption",
+          "type": "boolean"
+        },
+        "card_id": {
+          "format": "uuid",
+          "title": "Card Id",
+          "type": "string"
+        },
+        "condition_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition Id"
+        },
+        "cross_condition_acknowledged": {
+          "default": false,
+          "title": "Cross Condition Acknowledged",
+          "type": "boolean"
+        },
+        "d2d_analysis_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "D2D Analysis Id"
+        },
+        "display_name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "manual_c2c_cv_percent": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual C2C Cv Percent"
+        },
+        "profile_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComparisonProfileRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retention_analysis_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retention Analysis Id"
+        },
+        "selected_state_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected State Ids"
+        },
+        "state_analysis_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State Analysis Id"
+        }
+      },
+      "required": [
+        "card_id",
+        "display_name"
+      ],
+      "title": "ComparisonCard",
+      "type": "object"
+    },
+    "ComparisonProfileRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "ComparisonProfileRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cards": {
+      "items": {
+        "$ref": "#/$defs/ComparisonCard"
+      },
+      "maxItems": 5,
+      "title": "Cards",
+      "type": "array"
+    },
+    "common_settings": {
+      "additionalProperties": true,
+      "description": "ExperimentRequest fields except profile_refs. Incomplete settings may be persisted; run validates the authoritative contract.",
+      "title": "Common Settings",
+      "type": "object"
+    }
+  },
+  "title": "ComparisonDraft",
+  "type": "object"
+}

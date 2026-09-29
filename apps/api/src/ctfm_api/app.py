@@ -217,7 +217,8 @@ def create_app(storage_root=None):
         from ctfm.profiles import build_profile
         result = build_profile(request.condition_id, completed_analysis(store, request.state_analysis_id),
             request.selected_state_ids, completed_analysis(store, request.d2d_analysis_id),
-            completed_analysis(store, request.retention_analysis_id), display_name=request.display_name)
+            completed_analysis(store, request.retention_analysis_id), display_name=request.display_name,
+            c2c_analysis=completed_analysis(store, request.c2c_analysis_id))
         store.save_profile(**result)
         return JSONResponse(result["manifest"], status_code=201)
 
@@ -262,11 +263,12 @@ def create_app(storage_root=None):
 
     @app.post("/api/v1/profiles/{identifier}/revisions", status_code=201, response_model=ProfileManifest, response_model_exclude_unset=True)
     def profile_revision(identifier: UUID, request: ProfileRevision, store: Store = Depends(storage)):
-        from ctfm.profiles import revise_profile
-        record = store.get_profile(str(identifier), request.base_revision)
-        result = revise_profile(**record, selected_state_ids=request.selected_state_ids,
-                                revision=store.next_revision(str(identifier)), display_name=request.display_name)
-        store.save_profile(**result)
+        from ctfm.profiles import compose_revision
+        replacements={kind:completed_analysis(store,getattr(request,kind+'_analysis_id'))
+                      for kind in ('state','d2d','retention','c2c') if kind+'_analysis_id' in request.model_fields_set}
+        result=store.create_profile_revision(str(identifier),request.base_revision,
+            lambda manifest,states,revision:compose_revision(manifest,states,revision=revision,replacements=replacements,
+                selected_state_ids=request.selected_state_ids,display_name=request.display_name))
         return JSONResponse(result["manifest"], status_code=201)
 
     @app.post("/api/v1/profiles/{identifier}/revisions/{revision}/publish", response_model=ProfileManifest, response_model_exclude_unset=True)
@@ -330,6 +332,9 @@ def create_app(storage_root=None):
                 approved_assumption=True, cross_condition_acknowledged=bool(crossing), profile_condition_id=profile_condition)
         validate_request(config)
         return config
+
+    from .comparisons import register_comparisons
+    register_comparisons(app, storage, resolve_measured_c2c, capabilities)
 
     @app.post("/api/v1/experiments", status_code=202, response_model=QueuedExperiment)
     def experiment_create(request: ExperimentRequest, store: Store = Depends(storage)):

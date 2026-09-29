@@ -178,3 +178,31 @@ def test_spreadsheet_export_scales_to_measured_table_size(tmp_path):
     started=time.monotonic()
     export_result({"tables":{"raw":rows}},tmp_path)
     assert time.monotonic()-started<60
+
+
+def test_failed_comparison_subprocess_retains_partial_rows_and_checkpoint(tmp_path,monkeypatch):
+    import json,subprocess,sys
+    from uuid import uuid4
+    import ctfm_worker.runner as runner
+    from ctfm_api.comparisons import create,write
+    from ctfm_api.storage import encode
+    store=Store(tmp_path);pid=str(uuid4());cpid=str(uuid4())
+    card=dict(card_id=str(uuid4()),display_name='synthetic',profile_ref=dict(id=pid,revision=1),status='queued')
+    with store.connection() as db:
+        comparison=create(db,dict(common_settings={},cards=[]))
+    item,job=store.enqueue('experiment',{})
+    item['comparison_id']=comparison['comparison_id'];store.put_entity('experiment',item['id'],item,replace=True)
+    comparison.update(lifecycle='running',experiment_id=item['id'],job_id=job['id'],cards=[card])
+    with store.connection() as db:write(db,comparison)
+    row=dict(profile_id=pid,profile_revision=1,candidate_id='candidate-1',kind='ALL',status='succeeded',accuracy=.75)
+    partial=dict(checkpoint_id=cpid,checkpoint_filename='checkpoint.pt',runs=[row])
+    script="from pathlib import Path;import sys;p=Path("+repr(str(store.job_dir(job['id'])))+");(p/'checkpoint.pt').write_bytes(b'completed training');(p/'comparison-partial.json').write_text("+repr(json.dumps(partial))+");sys.exit(1)"
+    original=subprocess.Popen
+    monkeypatch.setattr(runner.subprocess,'Popen',lambda command,**kwargs:original([sys.executable,'-c',script],**kwargs))
+    assert run_once(store)
+    result=store.get_entity('comparison',comparison['comparison_id'])
+    assert result['lifecycle']=='temporary' and result['outcome']=='partial'
+    assert result['cards'][0]['runs']==[row]
+    checkpoint=store.get_entity('checkpoint',cpid)
+    assert store.managed_path(checkpoint['relative_path']).read_bytes()==b'completed training'
+    assert store.get_job(job['id'])['state']=='failed'

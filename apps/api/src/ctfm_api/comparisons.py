@@ -125,7 +125,7 @@ def register_comparisons(app, storage, resolve_c2c, capabilities):
     def update(identifier: UUID,request: ComparisonUpdate,store=Depends(storage)):
         with store.connection() as db:
             db.execute('BEGIN IMMEDIATE'); item=read(db,str(identifier))
-            if item['lifecycle']!='drafting' or item['version']!=request.expected_version:
+            if item['discard_requested'] or item['lifecycle']!='drafting' or item['version']!=request.expected_version:
                 raise HTTPException(409,'Draft changed or has already run; reload or clone it')
             item.update(common_settings=request.common_settings,cards=[dict(c.model_dump(mode='json'),status='draft') for c in request.cards],version=item['version']+1,updated_at=now())
             write(db,item); return item
@@ -134,6 +134,7 @@ def register_comparisons(app, storage, resolve_c2c, capabilities):
     def run(identifier: UUID,request: ComparisonRun,store=Depends(storage)):
         with store.connection() as db:
             db.execute('BEGIN IMMEDIATE'); item=read(db,str(identifier))
+            if item['discard_requested']: raise HTTPException(409,'Comparison discard has already been requested')
             if item['lifecycle'] in ('running','temporary','saved'): return item
             if item['lifecycle']!='drafting' or item['version']!=request.expected_version:
                 raise HTTPException(409,'Draft version changed; reload before running')

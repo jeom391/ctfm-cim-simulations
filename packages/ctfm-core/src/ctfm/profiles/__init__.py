@@ -429,7 +429,8 @@ def analysis_link(analysis):
 
 def compose_revision(manifest, states, *, revision, replacements, selected_state_ids=None, display_name=None):
     """An explicit replacement creates a reviewed-again draft, never edits its base."""
-    result=revise_profile(manifest,states,selected_state_ids=selected_state_ids,revision=revision,display_name=display_name)
+    # Replacement IDs belong to the new analysis, not the immutable base table.
+    result=revise_profile(manifest,states,selected_state_ids=None if 'state' in replacements else selected_state_ids,revision=revision,display_name=display_name)
     links=deepcopy(manifest.get('analysis_links') or {})
     if any(kind in replacements for kind in ('state','d2d','retention')):
         extraction=manifest['extraction']

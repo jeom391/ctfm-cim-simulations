@@ -64,11 +64,14 @@ async def test_legacy_store_records_are_not_migrated_or_reinterpreted(tmp_path):
     assert Store(tmp_path).get_entity("experiment",legacy["id"])==legacy
 
 
-def seed_analysis(store):
+def seed_analysis(store, *, sha="a"*64, onset=1, direction="ltp"):
     from ctfm.measurement import analyze
     aid,fid=str(uuid4()),str(uuid4())
     rows=[{'time_s':t,'id_a':i,'vgs_v':v} for t,i,v in [(1,1e-6,0),(2,1e-6,0),(3,0,-1),(4,0,-6),(5,2e-6,0),(6,2e-6,0),(7,0,-1),(8,0,-6)]]
-    data=dict(file_id=fid,sha256='a'*64,filename='synthetic.csv',sheet=None,rows=rows,source_rows=list(range(2,10)),column_mapping={k:k for k in rows[0]},units={'time_s':'s','id_a':'A','vgs_v':'V'},device_id='d',condition_id='A1',direction='ltp',read_vgs_v=0,vds_v=.1,start_time_s=1)
+    for row in rows:
+        row['time_s']+=onset-1
+        if direction=='ltd': row['vgs_v']*=-1
+    data=dict(file_id=fid,sha256=sha,filename='synthetic.csv',sheet=None,rows=rows,source_rows=list(range(2,10)),column_mapping={k:k for k in rows[0]},units={'time_s':'s','id_a':'A','vgs_v':'V'},device_id='d',condition_id='A1',direction=direction,read_vgs_v=0,vds_v=.1,start_time_s=onset)
     analysis=analyze('pulse_states',[data],{})
     analysis.update(id=aid,analysis_id=aid,status='succeeded')
     store.put_entity('analysis',aid,analysis)
@@ -165,7 +168,7 @@ async def test_discard_waits_terminal_preserves_shared_checkpoint_and_measuremen
         assert store.list_entities('analysis')
         assert (await c.post(f'/api/v1/comparisons/{cid}/discard')).status_code==200
 
-async def test_interrupted_comparison_retains_completed_candidate_rows(tmp_path):
+async def test_interrupted_comparison_retains_completed_candidate_rows(tmp_path,monkeypatch):
     store=Store(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=create_app(tmp_path)),base_url='http://test') as c:
         card=await published_card(c,store)
@@ -173,12 +176,51 @@ async def test_interrupted_comparison_retains_completed_candidate_rows(tmp_path)
         run=(await c.post(f'/api/v1/comparisons/{cid}/run',json={'expected_version':1})).json();store.claim()
         out=store.job_dir(run['job_id']);out.mkdir()
         row=dict(profile_id=card['profile_ref']['id'],profile_revision=1,candidate_id='candidate-1',kind='ALL',status='succeeded',accuracy=.9)
-        (out/'comparison-partial.json').write_text(json.dumps({'runs':[row]}))
+        import hashlib,numpy as np,torch
+        from ctfm.simulation.torch_runner import create_model
+        from ctfm_api.storage import sha256
+        import ctfm.simulation as simulation
+        from ctfm_worker.execute import execute
+        cpid=str(uuid4());seed=common()['seed']
+        permutation=torch.randperm(60000,generator=torch.Generator().manual_seed(seed)).numpy()
+        data_sources=[{'synthetic':True}]
+        metadata=dict(checkpoint_id=cpid,model_id='mnist_mlp_v1',split_seed=seed,
+                      split_sha256=hashlib.sha256(permutation.astype('<i8').tobytes()).hexdigest(),
+                      dataset_sha256=hashlib.sha256(json.dumps(data_sources,sort_keys=True,separators=(',',':')).encode()).hexdigest())
+        checkpoint=out/'checkpoint.pt'
+        torch.save(dict(state_dict=create_model().state_dict(),metadata=metadata),checkpoint)
+        checkpoint_sha=sha256(checkpoint.read_bytes())
+        partial=dict(runs=[row],checkpoint_id=cpid,checkpoint_filename='checkpoint.pt',provenance=dict(checkpoint=dict(metadata,sha256=checkpoint_sha)))
+        (out/'comparison-partial.json').write_text(json.dumps(partial))
         assert store.recover_interrupted()==1
         restored=(await c.get(f'/api/v1/comparisons/{cid}')).json()
         assert restored['lifecycle']=='temporary'
         assert restored['cards'][0]['runs']==[row]
         assert restored['outcome']=='partial'
+        registered=store.get_entity('checkpoint',cpid)
+        assert registered['sha256']==checkpoint_sha and store.managed_path(registered['relative_path'])==checkpoint
+        recovered_experiment=(await c.get('/api/v1/experiments/'+run['experiment_id'])).json()
+        checkpoint_artifact=next(a for a in recovered_experiment['artifacts'] if a['filename']=='checkpoint.pt')
+        assert (await c.get(checkpoint_artifact['download_url'])).content==checkpoint.read_bytes()
+        assert store.recover_interrupted()==0
+        saved=await c.post(f'/api/v1/comparisons/{cid}/save',json={'name':'Recovered partial comparison'})
+        assert saved.status_code==200
+        clone=(await c.post(f'/api/v1/comparisons/{cid}/clone',json={'operation_id':str(uuid4())})).json()
+        reused=common();reused['checkpoint_id']=cpid
+        updated=await c.put('/api/v1/comparisons/'+clone['comparison_id']+'/draft',json={'expected_version':1,'common_settings':reused,'cards':[card]})
+        assert updated.status_code==200,updated.text
+        queued=await c.post('/api/v1/comparisons/'+clone['comparison_id']+'/run',json={'expected_version':2})
+        assert queued.status_code==200,queued.text
+        second=queued.json();assert second['job_id']!=run['job_id']
+        store.claim();monkeypatch.setenv('CTFM_STORAGE_ROOT',str(tmp_path))
+        train=np.zeros((60000,784),dtype=np.uint8);test=np.zeros((10000,784),dtype=np.uint8)
+        monkeypatch.setattr(simulation,'load_mnist',lambda *a:(train,np.zeros(60000,dtype=np.uint8),test,np.zeros(10000,dtype=np.uint8),data_sources))
+        def no_training(*args):raise AssertionError('Recovered checkpoint must be reused without training')
+        monkeypatch.setattr(simulation,'train_model',no_training)
+        execute(second['job_id'])
+        result=json.loads((store.job_dir(second['job_id'])/'worker-result.json').read_text())
+        assert result['checkpoint_id']==cpid and result['checkpoint_filename'] is None
+        assert result['provenance']['checkpoint']['sha256']==checkpoint_sha
 
 
 async def test_worker_comparison_revalidates_snapshot_and_keeps_peer_metrics(tmp_path,monkeypatch):
@@ -283,3 +325,84 @@ def test_cleanup_preserves_artifact_referenced_by_another_experiment(tmp_path):
     with store.connection() as db:write(db,item)
     cleanup(store,item['comparison_id'])
     assert store.artifact_path(artifact['id']).read_text()=='{"legacy":true}'
+
+
+async def test_replacing_state_analysis_with_new_hashes_publishes_without_editing_base(tmp_path):
+    store=Store(tmp_path)
+    async with AsyncClient(transport=ASGITransport(app=create_app(tmp_path)),base_url='http://test') as c:
+        card=await published_card(c,store)
+        pid=card['profile_ref']['id'];old=store.get_profile(pid,1)
+        replacement=seed_analysis(store,sha='b'*64)
+        selected=[row['state_id'] for row in replacement['states']]
+        assert not set(selected)&{row['state_id'] for row in old['states']}
+        revised=await c.post(f'/api/v1/profiles/{pid}/revisions',json=dict(base_revision=1,state_analysis_id=replacement['analysis_id'],selected_state_ids=selected))
+        assert revised.status_code==201,revised.text
+        assert revised.json()['status']=='draft'
+        published=await c.post(f'/api/v1/profiles/{pid}/revisions/2/publish',json={'reviewer':'test','review_note':'Adopt newly measured states'})
+        assert published.status_code==200,published.text
+        new=store.get_profile(pid,2)
+        assert {row['state_id'] for row in new['states'] if row['selected']}==set(selected)
+        assert new['manifest']['analysis_links']['state']['analysis_id']==replacement['analysis_id']
+        assert new['manifest']['d2d']==old['manifest']['d2d']
+        assert new['manifest']['retention']==old['manifest']['retention']
+        assert store.get_profile(pid,1)==old
+
+
+async def test_mixed_onsets_create_publish_export_import_api(tmp_path):
+    import io,zipfile
+    store=Store(tmp_path)
+    early=seed_analysis(store,onset=1)
+    late=seed_analysis(store,sha='b'*64,onset=10,direction='ltd')
+    combined=deepcopy(early);combined['states']+=late['states'];combined['provenance']+=late['provenance']
+    store.put_entity('analysis',early['analysis_id'],combined,replace=True)
+    async with AsyncClient(transport=ASGITransport(app=create_app(tmp_path)),base_url='http://test') as c:
+        created=await c.post('/api/v1/profiles',json=dict(condition_id='A1',state_analysis_id=early['analysis_id'],selected_state_ids=[s['state_id'] for s in combined['states']]))
+        assert created.status_code==201,created.text
+        pid=created.json()['profile_id']
+        published=await c.post(f'/api/v1/profiles/{pid}/revisions/1/publish',json={'reviewer':'test','review_note':'Adopt explicit mixed-onset sources'})
+        assert published.status_code==200,published.text
+        before=store.get_profile(pid,1)
+        exported=await c.get(f'/api/v1/profiles/{pid}/revisions/1/export')
+        assert exported.status_code==200
+        with zipfile.ZipFile(io.BytesIO(exported.content)) as archive:
+            assert json.loads(archive.read('manifest.json'))==before['manifest']
+            original_states=archive.read('states.csv')
+        imported=await c.post('/api/v1/profiles/import',files={'file':('mixed-onsets.zip',exported.content)})
+        assert imported.status_code==201,imported.text
+        imported_id=imported.json()['profile_id']
+        assert imported_id!=pid and imported.json()['status']=='draft'
+        assert (await c.post(f'/api/v1/profiles/{imported_id}/revisions/1/publish',json={'reviewer':'test','review_note':'Review imported mixed-onset sources'})).status_code==200
+        again=await c.get(f'/api/v1/profiles/{imported_id}/revisions/1/export')
+        with zipfile.ZipFile(io.BytesIO(again.content)) as archive: assert archive.read('states.csv')==original_states
+        assert {s['start_time_s'] for s in imported.json()['sources']}=={1,10}
+        assert {s['time_s'] for s in store.get_profile(imported_id,1)['states']}=={1,5,10,14}
+        assert store.get_profile(pid,1)==before
+
+
+@pytest.mark.parametrize("action",["update","run"])
+async def test_discard_intent_blocks_interleaved_update_and_run(tmp_path,monkeypatch,action):
+    import asyncio,threading
+    import ctfm_api.comparisons as comparisons
+    store=Store(tmp_path);intent=threading.Event();release=threading.Event()
+    cleanup=comparisons.cleanup
+    def paused_cleanup(*args):
+        intent.set()
+        assert release.wait(10),'test did not release discard cleanup'
+        return cleanup(*args)
+    async with AsyncClient(transport=ASGITransport(app=create_app(tmp_path)),base_url='http://test') as c:
+        card=await published_card(c,store)
+        draft=(await c.post('/api/v1/comparisons',json={'common_settings':common(),'cards':[card]})).json();cid=draft['comparison_id']
+        monkeypatch.setattr(comparisons,'cleanup',paused_cleanup)
+        pending=asyncio.create_task(c.post(f'/api/v1/comparisons/{cid}/discard'))
+        try:
+            assert await asyncio.to_thread(intent.wait,10)
+            if action=='update':
+                response=await c.put(f'/api/v1/comparisons/{cid}/draft',json={'expected_version':1,'common_settings':common(),'cards':[card]})
+            else:
+                response=await c.post(f'/api/v1/comparisons/{cid}/run',json={'expected_version':1})
+            assert response.status_code==409,response.text
+            assert store.list_jobs()==[]
+        finally:
+            release.set()
+            discarded=await pending
+        assert discarded.status_code==200 and discarded.json()['lifecycle']=='discarded'

@@ -191,11 +191,66 @@ class Store:
             self.finish(job_id, state="cancelled")
         return self.get_job(job_id)
 
+    def _recover_comparison_outputs(self, job_id):
+        """Register completed partial outputs before recovery exposes terminal references.
+
+        A second supervisor crash can happen between registration and finish; reuse
+        matching entities rather than replacing shared checkpoints or duplicating artifacts.
+        """
+        output=self.job_dir(job_id)
+        if output != self.root/'artifacts'/str(UUID(job_id)):
+            raise ValueError("Recovery requires the exact owned job directory")
+        partial=output/"comparison-partial.json"
+        try:
+            result=json.loads(partial.read_text(encoding="utf-8"))
+        except (OSError,ValueError):
+            return None
+        if not isinstance(result,dict): return None
+        checkpoint_path=None
+        if result.get("checkpoint_filename"):
+            try:
+                path=(output/result["checkpoint_filename"]).resolve()
+                pin=result.get("provenance",{}).get("checkpoint",{})
+                identifier=str(UUID(result["checkpoint_id"]))
+                if not path.is_relative_to(output) or not path.is_file():
+                    raise ValueError("Recovered checkpoint path is unavailable")
+                digest=sha256(path.read_bytes())
+                if digest!=pin.get("sha256") or pin.get("checkpoint_id")!=identifier or pin.get("model_id")!="mnist_mlp_v1":
+                    raise ValueError("Recovered checkpoint does not match its completed snapshot pin")
+                checkpoint=dict(checkpoint_id=identifier,relative_path=path.relative_to(self.root).as_posix(),sha256=digest,model_id="mnist_mlp_v1")
+                try: existing=self.get_entity("checkpoint",identifier)
+                except KeyError: self.put_entity("checkpoint",identifier,checkpoint)
+                else:
+                    if any(existing.get(key)!=value for key,value in checkpoint.items()):
+                        raise ValueError("Recovered checkpoint conflicts with an existing immutable checkpoint")
+                checkpoint_path=path
+            except (OSError,ValueError,KeyError,TypeError) as exc:
+                result.pop("checkpoint_id",None);result.pop("checkpoint_filename",None)
+                result["checkpoint_recovery_error"]=str(exc)
+        existing_artifacts={a["relative_path"]:a for a in self.list_entities("artifact")}
+        artifacts=[]
+        for path in sorted(output.rglob("*")):
+            path=path.resolve()
+            if not path.is_relative_to(output) or not path.is_file() or path.name.startswith("worker-") or path.suffix==".tmp": continue
+            if path.suffix==".pt" and path!=checkpoint_path: continue
+            relative=path.relative_to(self.root).as_posix()
+            existing=existing_artifacts.get(relative)
+            if existing:
+                if existing["sha256"]!=sha256(path.read_bytes()): continue
+                artifacts.append({k:v for k,v in existing.items() if k!="relative_path"})
+            else:
+                artifacts.append(self.register_artifact(path,path.suffix.lstrip(".") or "file"))
+        result["artifacts"]=artifacts
+        return result
+
     def recover_interrupted(self):
         with self.connection() as db:
             rows = db.execute("SELECT id FROM jobs WHERE state='running'").fetchall()
         for row in rows:
-            self.finish(row["id"], state="failed", error={"code": "interrupted", "message": "Worker stopped before completing this job."})
+            job=self.get_job(row["id"])
+            item=self.get_entity(job["kind"],job["entity_id"])
+            result=self._recover_comparison_outputs(row["id"]) if item.get("comparison_id") else None
+            self.finish(row["id"], state="failed", result=result, error={"code": "interrupted", "message": "Worker stopped before completing this job."})
         return len(rows)
 
     def save_profile(self, manifest, states, *, replace_draft=False):

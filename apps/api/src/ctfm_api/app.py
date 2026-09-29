@@ -14,8 +14,9 @@ from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from ctfm_contracts.check_experiment_contract import MAX_REQUESTED_RUNS, SCHEMA, SCHEMA_VERSION, validate_request
+from ctfm_contracts.check_experiment_contract import ContractError, MAX_REQUESTED_RUNS, SCHEMA, SCHEMA_VERSION, validate_request
 from ctfm_contracts.models import ExperimentRequest
+from ctfm_contracts.product_policy import validate_product_scope
 from ctfm.profiles import ProfileManifest
 from .contracts import AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
 from .models import Capabilities, Capability, ErrorResponse, HardwareControls
@@ -38,22 +39,13 @@ def capabilities():
     # Import verifies executable package availability; adapters do not claim fallback.
     try:
         from ctfm.simulation import engine_capabilities
-        engines = engine_capabilities()
+        engines = engine_capabilities(include_neurosim=False)
     except ImportError:
         engines = {name: dict(available=False, version=None, reason="adapter_not_installed") for name in ("torch_reference", "aihwkit_ideal", "neurosim")}
     version("ctfm-core")
     torch_available = engines["torch_reference"]["available"]
     properties = SCHEMA["properties"]
     controls = SCHEMA["allOf"][2]["then"]["properties"]["hardware"]["properties"]
-    ppa_tiles, ppa_unsupported = [], {}
-    if engines["neurosim"]["available"]:
-        from ctfm.adapters.neurosim import engine_topology_support
-        from ctfm.adapters.proxy_preset import proxy_preset
-        from ctfm.simulation import MNIST_MLP_V1_LAYERS
-        for tile in controls["tile_size"]["enum"]:
-            preset = proxy_preset(tile)
-            ok, why = engine_topology_support(MNIST_MLP_V1_LAYERS, tile, -(-preset["synapse_bit"] // preset["cell_bit"]))
-            (ppa_tiles.append(tile) if ok else ppa_unsupported.__setitem__(str(tile), why))
     effect = lambda available, reason: Capability(available=available, version=None, reason=None if available else reason)
     return Capabilities(
         schema_version=SCHEMA_VERSION, profile_schema_version="1.0.0",
@@ -64,26 +56,20 @@ def capabilities():
                  # Manual-assumption C2C (schema_version 1.3.0): a per-profile-revision
                  # relative CV, never a measured CTFM cycle-to-cycle distribution.
                  "c2c": effect(torch_available, "torch_unavailable")},
-        hardware=HardwareControls(tile_sizes=controls["tile_size"]["enum"], adc_bits=controls["adc_bits"]["enum"],
-            adc_orders=controls["adc_order"]["enum"],
+        hardware=HardwareControls(tile_sizes=[64], adc_bits=controls["adc_bits"]["enum"],
+            adc_orders=["adc_then_subtract"],
             range_policies=["validation_max_abs"],
-            # Only engines whose ADC/tile combinations were compared against the
-            # independent NumPy reference are advertised. AIHWKit earns its rows
-            # from scripts/linux/verify_aihwkit_adc_combinations.py (18/18) and
-            # still has to be available in *this* process to be listed.
-            # Both ADC orders are compared against the independent NumPy model in
-            # the same sweep, so the order is part of what is advertised: a caller
-            # must not assume a verified bit/tile pair is verified in both orders.
-            ppa_tile_sizes=ppa_tiles, ppa_unsupported=ppa_unsupported,
+            # Advertise only verified combinations that are also in current scope.
+            ppa_tile_sizes=[], ppa_unsupported={},
             validated_combinations=[{"tile_size": t, "adc_bits": b, "adc_order": o, "engine": name}
                                     for name in ("torch_reference", "aihwkit_ideal") if engines[name]["available"]
-                                    for t in (64,128,256) for b in range(3,9)
-                                    for o in controls["adc_order"]["enum"]] if torch_available else []),
+                                    for t in (64,) for b in range(3,9)
+                                    for o in ("adc_then_subtract",)] if torch_available else []),
         limits={"max_profiles": properties["profile_refs"]["maxItems"], "max_arrays": properties["arrays"]["maximum"],
                 "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"],
                 "max_n_reprogram": properties["n_reprogram"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
         supported_file_formats=["csv","xlsx"],
-        warnings=["PPA is an assumed_proxy conditional estimate, never a validated CTFM chip result."])
+        warnings=["PPA is outside the current product scope."])
 
 def create_app(storage_root=None):
     app = FastAPI(title="CTFM measurement and CIM API", version="1.2.0",
@@ -111,6 +97,10 @@ def create_app(storage_root=None):
     @app.exception_handler(APIError)
     async def domain_error(request, error):
         return error_response(error.status, error.code, error.message, error.field, error.details)
+
+    @app.exception_handler(ContractError)
+    async def product_scope_error(request, error):
+        return error_response(422, error.code, str(error), error.field)
 
     @app.exception_handler(HTTPException)
     async def http_error(request, error):
@@ -333,6 +323,7 @@ def create_app(storage_root=None):
     def experiment_create(request: ExperimentRequest, store: Store = Depends(storage)):
         from ctfm.profiles import validate_profile
         config = request.root
+        validate_product_scope(config)
         for ref in config["profile_refs"]:
             record = store.get_profile(ref["id"], ref["revision"])
             validate_profile(**record, published_required=True)
@@ -343,18 +334,6 @@ def create_app(storage_root=None):
                 fit = record["manifest"]["retention"]["program_fit"]
                 if fit["a"] + fit["b"] <= 0:
                     raise APIError(422,"unavailable_measurement","Retention reference current must be positive.","effects.retention")
-        if config["engines"]["ppa"] == "assumed_proxy":
-            from ctfm.adapters.neurosim import engine_topology_support
-            from ctfm.simulation import MNIST_MLP_V1_LAYERS
-            neurosim = capabilities().engines["neurosim"]
-            if not neurosim.available:
-                raise APIError(422,"unavailable_engine","The NeuroSim engine is not usable in this environment.","engines.ppa",{"reason":neurosim.reason})
-            from ctfm.adapters.proxy_preset import proxy_preset
-            preset = proxy_preset(config["hardware"]["tile_size"])
-            supported, reason = engine_topology_support(MNIST_MLP_V1_LAYERS, config["hardware"]["tile_size"],
-                                                 -(-preset["synapse_bit"] // preset["cell_bit"]))
-            if not supported:
-                raise APIError(422,"unsupported_ppa_configuration",reason,"hardware.tile_size",{"tile_size":config["hardware"]["tile_size"]})
         engine = config["engines"]["accuracy"]
         capability = capabilities().engines[engine]
         if not capability.available:

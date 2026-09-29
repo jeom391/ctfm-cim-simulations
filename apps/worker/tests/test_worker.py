@@ -62,16 +62,46 @@ def test_experiment_summary_accounts_for_the_reprogram_multiplier(tmp_path, monk
     import numpy as np
     train = np.zeros((60000, 784), dtype=np.uint8); test = np.zeros((10000, 784), dtype=np.uint8)
     data = (train, np.zeros(60000, dtype=np.uint8), test, np.zeros(10000, dtype=np.uint8), [{"synthetic": True}])
-    with patch("ctfm.simulation.load_mnist", return_value=data), patch("ctfm.simulation.train_model", return_value=(create_model(), [])):
+    with patch("ctfm.simulation.load_mnist", return_value=data), patch("ctfm.simulation.train_model", return_value=(create_model(), [])), \
+         patch("ctfm.adapters._neurosim_capability", side_effect=AssertionError("NeuroSim capability probed while off")), \
+         patch("ctfm.adapters.neurosim.ppa_result", side_effect=AssertionError("PPA evaluation called while off")), \
+         patch("ctfm.adapters.neurosim.build_engine_inputs", side_effect=AssertionError("NeuroSim inputs built while off")):
         execute(job["id"])
     # execute() writes worker-result.json but does not itself call store.finish
     # (runner.run_once does that after the real subprocess exits); read the
     # file directly, exactly what execute() actually produced.
-    summary = json.loads((store.job_dir(job["id"]) / "worker-result.json").read_text(encoding="utf-8"))["summary"]
+    result = json.loads((store.job_dir(job["id"]) / "worker-result.json").read_text(encoding="utf-8"))
+    summary = result["summary"]
     # 1 profile * 1 pool * 1 mapping * 1 array * 2 reprogram * 1 year = 2.
     assert summary["requested"] == 2, summary
     assert summary["completed"] == 2, summary
     assert summary["skipped"] == 0, summary
+    assert result["effective_config"]["input_encoding"]["bits"] == 8
+    assert result["resolved_config"]["hardware"]["adc_order"] is None
+    assert result["ppa"]["status"] == "not_evaluated"
+    assert result["ppa"]["area_m2"] is None
+    assert result["ppa"]["energy_j_per_inference"] is None
+    assert result["ppa"]["latency_s_per_inference"] is None
+
+
+def test_worker_rejects_queued_ppa_request_without_api(tmp_path, monkeypatch):
+    import json
+    import pytest
+    from ctfm_contracts.check_experiment_contract import ContractError
+    from ctfm_worker.execute import execute
+
+    monkeypatch.setenv("CTFM_STORAGE_ROOT", str(tmp_path))
+    store = Store(tmp_path)
+    fixture = Path(__file__).resolve().parents[3] / "packages/contracts/fixtures/experiment-effects.request.json"
+    request = json.loads(fixture.read_text(encoding="utf-8"))
+    request["schema_version"] = "1.4.0"
+    request["hardware"].update(tile_size=64, adc_bits=5, adc_order="adc_then_subtract")
+    request["engines"]["ppa"] = "assumed_proxy"
+    _, job = store.enqueue("experiment", request)
+    store.claim()
+    with pytest.raises(ContractError, match="PPA") as error:
+        execute(job["id"])
+    assert error.value.field == "engines.ppa"
 
 
 def test_analysis_job_executes_in_subprocess_and_exports(tmp_path):

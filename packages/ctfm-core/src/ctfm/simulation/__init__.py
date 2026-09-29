@@ -84,7 +84,7 @@ def _validate(config,profiles):
     if ppa_mode=='assumed_proxy':
         if schema_version!='1.4.0':raise ValueError('assumed_proxy PPA requires schema_version 1.4.0')
         if not effects.get('adc'):raise ValueError('PPA needs the ADC on: an ADC-off cost is not a removed-converter cost (spec 08 section 6)')
-    engine=config['engines']['accuracy'];caps=engine_capabilities()
+    engine=config['engines']['accuracy'];caps=engine_capabilities(include_neurosim=config['engines']['ppa']!='off')
     if engine not in ('torch_reference','aihwkit_ideal') or not caps[engine]['available']:raise ValueError('Requested accuracy engine is unavailable: '+str(caps.get(engine)))
     if not config['pools'] or len(set(config['pools']))!=len(config['pools']) or any(p not in POOL_ORDER for p in config['pools']):raise ValueError('Invalid pools')
     if not config['mappings'] or len(set(config['mappings']))!=len(config['mappings']) or any(m not in MAPPING_ORDER for m in config['mappings']):raise ValueError('Invalid mappings')
@@ -361,7 +361,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
             best=max(profile_candidates,key=lambda r:r['validation_accuracy'])
             recommendations.append(dict(profile_id=manifest['profile_id'],profile_hash=manifest['profile_hash'],candidate_id=best['candidate_id'],pool=best['pool'],mapping=best['mapping'],validation_accuracy=best['validation_accuracy'],selection='nominal M0 validation accuracy; canonical pool/mapping order breaks ties'))
     if effects['retention']:warnings.append('Retention beyond the measured time range is extrapolation sensitivity, not measured long-term accuracy. No automatic gain compensation.')
-    if not engine_capabilities()['aihwkit_ideal']['available']:warnings.append('AIHWKit ideal is unavailable; no AIHWKit parity claim is made for this run.')
+    if not engine_capabilities(include_neurosim=False)['aihwkit_ideal']['available']:warnings.append('AIHWKit ideal is unavailable; no AIHWKit parity claim is made for this run.')
     effective=deepcopy(config)
     effective.update(checkpoint_id=checkpoint_id,split_seed=split_seed,candidates=candidate_records,
                      dtype='float32',device='cpu',mapping_scale_policy='fixed_nominal',digital_bias='unchanged',dac='ideal',
@@ -374,43 +374,39 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                     deterministic_algorithms=True,cpu_threads=4,dataset=data_sources,dataset_sha256=dataset_hash,
                     split=dict(seed=split_seed,sha256=split_hash,train=55000,validation=5000,test=10000,algorithm='torch.randperm CPU; first 55000 train'),
                     checkpoint=dict(**metadata,sha256=_sha(checkpoint_path)),training_epoch_losses=training_losses,
-                    profiles=[dict(manifest=p['manifest']) for p in profiles],engines=engine_capabilities(),
+                    profiles=[dict(manifest=p['manifest']) for p in profiles],engines=engine_capabilities(include_neurosim=config['engines']['ppa']!='off'),
                     code_sha256={str(f.relative_to(Path(__file__).parent.parent)).replace(chr(92),'/'):_sha(f) for folder in (Path(__file__).parent,Path(__file__).parent.parent/'adapters') for f in folder.glob('*.py')},
                     d2d_seed_policy='SHA256(compact UTF-8 JSON [root_seed,profile_hash,array_index,layer,polarity]) first 8 bytes big-endian uint64; NumPy PCG64 standard_normal row-major',
                     trace=dict(filename='trace-test-first-256.npz',sha256=_sha(output_dir/'trace-test-first-256.npz'),count=256,source='first 256 official test examples; also the PPA activation trace source'))
     c2c_sources_used={r['c2c']['source'] for r in config['profile_refs'] if r.get('c2c')} if effects.get('c2c') else set()
     used_assumptions=[a for a in ASSUMPTIONS if (effects['d2d'] or a['id']!='lognormal_d2d') and (effects['retention'] or not a['id'].startswith('retention_')) and (effects['adc'] or a['id']!='adc_bipolar_grid') and ('manual_assumption' in c2c_sources_used or a['id']!='manual_lognormal_c2c') and ('measured_detrended' in c2c_sources_used or a['id']!='measured_detrended_c2c')]
-    # Ask the adapter rather than hard-coding the refusal, so the result carries
-    # the engine build state, the preset decision and the structural model
-    # differences instead of an empty mismatch list.
-    from ctfm.adapters.neurosim import build_engine_inputs,ppa_result as _ppa_result
-    ppa_inputs=None
-    if ppa_source is not None:
-        # Capture each layer's input from the same trace the result records, using
-        # the nominal network so the engine sees exactly the mapped weights.
-        recorded=[]
-        trace_batch=torch.as_tensor(test_images[:256],dtype=torch.float32)/255.
-        with torch.inference_mode():Network(ppa_source['nominal'],'torch_reference',tile_size=hardware['tile_size'],input_bits=INPUT_BITS)(trace_batch,record_inputs=recorded)
-        try:
-            if config['engines'].get('ppa')!='assumed_proxy':ppa_inputs=build_engine_inputs(ppa_source['nominal'],recorded,output_dir/'neurosim-inputs',
-                                           input_bits=8,synapse_bit=8,profile_states=ppa_source['states'])
-        except ValueError as exc:
-            warnings.append('NeuroSim engine inputs could not be assembled ('+type(exc).__name__+')')
-    from ctfm.adapters.proxy_preset import proxy_preset
-    ppa_preset=proxy_preset(hardware['tile_size']) if config['engines'].get('ppa')=='assumed_proxy' else None
-    if ppa_preset is not None and ppa_source is not None:
-        # Two-plane path: the engine gets the mapped G+/G- (siemens) and the accuracy path's own unsigned 8 bit codes for the
-        # first test images, not a re-quantised weight file and a signed-encoded first sample.
-        from ctfm.adapters.neurosim_ppa import assumed_proxy_result
-        cost_net=Network(ppa_source['nominal'],'torch_reference',tile_size=hardware['tile_size'],input_bits=INPUT_BITS)
-        codes=[cost_net._encode(torch.as_tensor(np.asarray(rec),dtype=torch.float32),layer)[0].numpy().astype(np.int64) for rec,layer in zip(recorded,cost_net.layers)]
-        _decision=assumed_proxy_result(MNIST_MLP_V1_LAYERS,preset=ppa_preset,hardware={**hardware,'input_bits':INPUT_BITS},
-                                       layers=[dict(name=l['name'],g_plus=np.asarray(l['g_plus']),g_minus=np.asarray(l['g_minus'])) for l in ppa_source['nominal']],
-                                       codes=codes,states=ppa_source['states'],out_dir=output_dir/'neurosim-engine',
-                                       adc_bounds=ppa_source.get('bounds'))
+    if config['engines']['ppa']=='off':
+        _decision=dict(status='not_evaluated',reasons=['PPA evaluation was not requested.'],
+                       engine=None,preset=None,area_m2=None,energy_j_per_inference=None,
+                       latency_s_per_inference=None,model_mismatches=[],raw_output=None,
+                       trace_sample=None,time_basis=None,coverage=None,schedule_check=None,
+                       build=None,blocking_reasons=[],incomplete_reasons=[])
     else:
-        _decision=_ppa_result(MNIST_MLP_V1_LAYERS,preset=ppa_preset,inputs=ppa_inputs,out_dir=output_dir,
-                              hardware={**hardware,'input_bits':INPUT_BITS} if effects['adc'] else None)
+        # Preserve the legacy cost path for reference runs outside the normal worker.
+        from ctfm.adapters.neurosim import ppa_result as _ppa_result
+        ppa_inputs=None
+        if ppa_source is not None:
+            recorded=[]
+            trace_batch=torch.as_tensor(test_images[:256],dtype=torch.float32)/255.
+            with torch.inference_mode():Network(ppa_source['nominal'],'torch_reference',tile_size=hardware['tile_size'],input_bits=INPUT_BITS)(trace_batch,record_inputs=recorded)
+        from ctfm.adapters.proxy_preset import proxy_preset
+        ppa_preset=proxy_preset(hardware['tile_size'])
+        if ppa_source is not None:
+            from ctfm.adapters.neurosim_ppa import assumed_proxy_result
+            cost_net=Network(ppa_source['nominal'],'torch_reference',tile_size=hardware['tile_size'],input_bits=INPUT_BITS)
+            codes=[cost_net._encode(torch.as_tensor(np.asarray(rec),dtype=torch.float32),layer)[0].numpy().astype(np.int64) for rec,layer in zip(recorded,cost_net.layers)]
+            _decision=assumed_proxy_result(MNIST_MLP_V1_LAYERS,preset=ppa_preset,hardware={**hardware,'input_bits':INPUT_BITS},
+                                           layers=[dict(name=l['name'],g_plus=np.asarray(l['g_plus']),g_minus=np.asarray(l['g_minus'])) for l in ppa_source['nominal']],
+                                           codes=codes,states=ppa_source['states'],out_dir=output_dir/'neurosim-engine',
+                                           adc_bounds=ppa_source.get('bounds'))
+        else:
+            _decision=_ppa_result(MNIST_MLP_V1_LAYERS,preset=ppa_preset,inputs=ppa_inputs,out_dir=output_dir,
+                                  hardware={**hardware,'input_bits':INPUT_BITS} if effects['adc'] else None)
     if ppa_source is not None:_decision['candidate']=ppa_source['identity']
     # Keep the list as well as the joined text: individual reasons contain their
     # own semicolons, so the joined string cannot be split back apart.

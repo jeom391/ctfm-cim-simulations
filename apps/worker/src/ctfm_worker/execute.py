@@ -49,7 +49,11 @@ def execute(job_id):
             result=analyze(request["kind"],datasets,request["settings"])
             result["analysis_id"]=item["id"]
     else:
+        from ctfm_contracts.check_experiment_contract import validate_request
+        from ctfm_contracts.product_policy import validate_product_scope
         from ctfm.simulation import run_experiment
+        validate_request(request)
+        validate_product_scope(request)
         profiles=[store.get_profile(r["id"],r["revision"]) for r in request["profile_refs"]]
         checkpoint_path=None
         if request["checkpoint_id"]:

@@ -76,14 +76,12 @@ class ExperimentIntegrationTests(unittest.TestCase):
             self.assertEqual(r['runs'][2]['profile_ref'],config['profile_refs'][0])
             self.assertIsNone(r['runs'][2]['ppa'])
             self.assertIsNone(r['runs'][0]['ppa'])
-            self.assertEqual(r['runs'][3]['ppa']['status'],'unsupported')
-            # The refusal must come from the adapter, carrying why it refused and
-            # how the two models differ, with no number standing in for absence.
+            self.assertEqual(r['runs'][3]['ppa']['status'],'not_evaluated')
+            # PPA off records absence without probing the cost adapter.
             ppa=r['runs'][3]['ppa']
             self.assertTrue(ppa['reason'])
-            self.assertTrue(ppa['reasons'] if 'reasons' in ppa else ppa['model_mismatches'])
-            self.assertIn('nonuniform_states',{m['id'] for m in ppa['model_mismatches']})
-            self.assertEqual(ppa['preset']['status'],'unsupported')
+            self.assertIsNone(ppa['preset'])
+            self.assertEqual(ppa['model_mismatches'],[])
             for key in ('area_m2','energy_j_per_inference','latency_s_per_inference','raw_output'):
                 self.assertIsNone(ppa[key])
             self.assertTrue(r['runs'][2]['mapping_errors'])

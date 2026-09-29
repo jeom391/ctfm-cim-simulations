@@ -73,9 +73,15 @@ async def test_upload_analysis_review_publish_import_revision_and_queue(tmp_path
         config["profile_refs"]=[dict(id=profile_id,revision=1)]
         response=await client.post("/api/v1/experiments",json=config)
         assert response.status_code==202,response.text
+        assert store.get_entity("experiment", response.json()["experiment_id"])["request"] == config
         job_id=response.json()["job_id"]
         assert (await client.post(f"/api/v1/jobs/{job_id}/cancel")).status_code==202
         assert (await client.get(f"/api/v1/jobs/{job_id}")).json()["state"]=="cancelled"
+        config["effects"]["adc"] = True
+        config["hardware"].update(adc_bits=5, adc_order="adc_then_subtract", range_policy="validation_max_abs")
+        response=await client.post("/api/v1/experiments",json=config)
+        assert response.status_code==202,response.text
+        assert store.get_entity("experiment", response.json()["experiment_id"])["request"] == config
         config["effects"]["d2d"]=True
         assert (await client.post("/api/v1/experiments",json=config)).status_code==422
         artifact=result["artifacts"][0]

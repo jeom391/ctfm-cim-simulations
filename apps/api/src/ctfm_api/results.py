@@ -50,7 +50,8 @@ class ExperimentResult(ScientificResult):
     experiment_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","partial","failed","cancelled"]
-    schema_version: Literal["1.2.0","1.3.0","1.4.0"] | None=None
+    # Historical results are read verbatim; the request contract still rejects 1.1.0 execution.
+    schema_version: Literal["1.1.0","1.2.0","1.3.0","1.4.0"] | None=None
     requested_config: dict | None=None
     resolved_config: dict | None=None
     effective_config: dict | None=None

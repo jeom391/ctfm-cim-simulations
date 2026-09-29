@@ -406,3 +406,24 @@ async def test_discard_intent_blocks_interleaved_update_and_run(tmp_path,monkeyp
             release.set()
             discarded=await pending
         assert discarded.status_code==200 and discarded.json()['lifecycle']=='discarded'
+
+
+async def test_legacy_1_1_results_read_without_reinterpreting_or_allowing_new_execution(tmp_path):
+    store=Store(tmp_path);eid,jid=str(uuid4()),str(uuid4())
+    request=common();request.update(schema_version='1.1.0',profile_refs=[dict(id=str(uuid4()),revision=1)])
+    request['hardware']['tile_size']=None;request['hardware'].pop('adc_order')
+    runs=[dict(kind='D0',status='succeeded',accuracy=.81),dict(kind='ALL',status='succeeded',accuracy=.72)]
+    legacy=dict(id=eid,experiment_id=eid,job_id=jid,status='succeeded',schema_version='1.1.0',request=request,runs=runs,artifacts=[])
+    store.put_entity('experiment',eid,legacy)
+    with store.connection() as db:before=tuple(db.execute("SELECT data,created_at FROM entities WHERE kind='experiment' AND id=?",(eid,)).fetchone())
+    async with AsyncClient(transport=ASGITransport(app=create_app(tmp_path),raise_app_exceptions=False),base_url='http://test') as c:
+        read=await c.get('/api/v1/experiments/'+eid)
+        assert read.status_code==200,read.text
+        assert read.json()['request']==request and read.json()['runs']==runs
+        assert read.json()['schema_version']=='1.1.0' and read.json()['request']['hardware']['tile_size'] is None
+        listed=await c.get('/api/v1/experiments')
+        assert listed.status_code==200 and listed.json()['items'][0]['request']==request
+        rerun=await c.post('/api/v1/experiments',json=request)
+        assert rerun.status_code==422 and rerun.json()['error']['code']=='schema_migration_required'
+        assert store.list_jobs()==[]
+    with store.connection() as db:assert tuple(db.execute("SELECT data,created_at FROM entities WHERE kind='experiment' AND id=?",(eid,)).fetchone())==before

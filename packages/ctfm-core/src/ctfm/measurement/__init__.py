@@ -259,7 +259,7 @@ def _crossing_selection(d,result):
 
 
 def _source(d):
-    fields = ('file_id','sha256','filename','sheet','device_id','condition_id','branch','sweep_amplitude_v','direction','source_label','read_vgs_v','vds_v','header_read_vgs_v','current_basis','time_axes','block','selected_columns','skipped_blank_rows')
+    fields = ('file_id','sha256','filename','sheet','device_id','condition_id','branch','sweep_amplitude_v','direction','source_label','read_vgs_v','vds_v','header_read_vgs_v','current_basis','time_axes','block','selected_columns','skipped_blank_rows','start_time_s')
     return {**{k:deepcopy(d.get(k)) for k in fields}, 'columns':deepcopy(d['column_mapping']), 'units':deepcopy(d['units']), 'source_rows':deepcopy(d['source_rows']), 'selection_key':crossing_selection_key(d)}
 
 
@@ -345,7 +345,7 @@ def _pulse(prepared, result):
             if j < 2 or not all(read[j-2:j]) or rows[j]['source_row']-rows[j-2]['source_row'] != 2:
                 _excluded(result,d,'insufficient_preceding_read_samples',transition_row=rows[j]['source_row']); continue
             r=rows[j-2]
-            if r['time_s'] < c['start_time_s']:
+            if r['time_s'] < _finite(d.get('start_time_s', c['start_time_s']), 'start_time_s'):
                 _excluded(result,d,'before_start_time',source_row=r['source_row'],transition_row=rows[j]['source_row']); continue
             extraction_index+=1
             identity=json.dumps([d['sha256'],d.get('sheet'),r['source_row'],PARSER_VERSION],separators=(',',':'),ensure_ascii=False)

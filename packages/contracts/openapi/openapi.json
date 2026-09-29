@@ -205,6 +205,18 @@
             ],
             "title": "Source Label"
           },
+          "start_time_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time S"
+          },
           "sweep_amplitude_v": {
             "anyOf": [
               {
@@ -285,6 +297,18 @@
             "title": "Kind",
             "type": "string"
           },
+          "recognition_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognition Id"
+          },
           "settings": {
             "additionalProperties": true,
             "title": "Settings",
@@ -361,6 +385,16 @@
               }
             ],
             "title": "Kind"
+          },
+          "recognition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "settings": {
             "anyOf": [
@@ -798,6 +832,32 @@
           "assumption_ids"
         ],
         "title": "D2D",
+        "type": "object"
+      },
+      "D2DRecognitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "condition_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Condition Id",
+            "type": "string"
+          },
+          "selections": {
+            "items": {
+              "$ref": "#/components/schemas/PhysicalDeviceSelection"
+            },
+            "maxItems": 40,
+            "minItems": 2,
+            "title": "Selections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "condition_id",
+          "selections"
+        ],
+        "title": "D2DRecognitionRequest",
         "type": "object"
       },
       "ErrorResponse": {
@@ -2097,6 +2157,66 @@
         "title": "Measurement",
         "type": "object"
       },
+      "PhysicalDeviceSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "minimum": 0.0,
+            "title": "Block",
+            "type": "integer"
+          },
+          "device_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Device Id",
+            "type": "string"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "identity_evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Identity Evidence",
+            "type": "string"
+          },
+          "segment": {
+            "minimum": 0.0,
+            "title": "Segment",
+            "type": "integer"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "file_id",
+          "device_id",
+          "identity_evidence",
+          "block",
+          "segment",
+          "units"
+        ],
+        "title": "PhysicalDeviceSelection",
+        "type": "object"
+      },
       "Pool": {
         "additionalProperties": false,
         "properties": {
@@ -2436,6 +2556,114 @@
         "title": "ProfileRevision",
         "type": "object"
       },
+      "PulsePair": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "condition_id": {
+            "title": "Condition Id",
+            "type": "string"
+          },
+          "file_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "File Ids",
+            "type": "array"
+          },
+          "pair_key": {
+            "title": "Pair Key",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "needs_choice"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pair_key",
+          "condition_id",
+          "file_ids",
+          "status",
+          "basis"
+        ],
+        "title": "PulsePair",
+        "type": "object"
+      },
+      "PulseRecognition": {
+        "additionalProperties": false,
+        "properties": {
+          "pre_write_read_is_state": {
+            "const": false,
+            "title": "Pre Write Read Is State",
+            "type": "boolean"
+          },
+          "preceding_read_source_row": {
+            "title": "Preceding Read Source Row",
+            "type": "integer"
+          },
+          "preceding_read_time_s": {
+            "title": "Preceding Read Time S",
+            "type": "number"
+          },
+          "read_tolerance_v": {
+            "title": "Read Tolerance V",
+            "type": "number"
+          },
+          "recording_start_time_s": {
+            "title": "Recording Start Time S",
+            "type": "number"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "sample_offset_rows": {
+            "const": 2,
+            "title": "Sample Offset Rows",
+            "type": "integer"
+          },
+          "write_onset_source_row": {
+            "title": "Write Onset Source Row",
+            "type": "integer"
+          },
+          "write_onset_time_s": {
+            "title": "Write Onset Time S",
+            "type": "number"
+          },
+          "write_threshold_v": {
+            "title": "Write Threshold V",
+            "type": "number"
+          },
+          "write_transition_count": {
+            "title": "Write Transition Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "write_onset_time_s",
+          "write_onset_source_row",
+          "preceding_read_time_s",
+          "preceding_read_source_row",
+          "recording_start_time_s",
+          "row_count",
+          "write_transition_count",
+          "sample_offset_rows",
+          "read_tolerance_v",
+          "write_threshold_v",
+          "pre_write_read_is_state"
+        ],
+        "title": "PulseRecognition",
+        "type": "object"
+      },
       "QueuedAnalysis": {
         "additionalProperties": false,
         "properties": {
@@ -2476,6 +2704,538 @@
           "job_id"
         ],
         "title": "QueuedExperiment",
+        "type": "object"
+      },
+      "RecognitionEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "file_header",
+              "filename",
+              "snapshot_manifest",
+              "project_assumption",
+              "project_source",
+              "user_confirmed",
+              "waveform",
+              "unknown"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "field",
+          "scope",
+          "rule",
+          "detail"
+        ],
+        "title": "RecognitionEvidence",
+        "type": "object"
+      },
+      "RecognitionIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block"
+          },
+          "cell": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cell"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "source_row": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "RecognitionIssue",
+        "type": "object"
+      },
+      "RecognitionProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "pulse_pairs": {
+            "items": {
+              "$ref": "#/components/schemas/PulsePair"
+            },
+            "title": "Pulse Pairs",
+            "type": "array"
+          },
+          "recognition_id": {
+            "format": "uuid",
+            "title": "Recognition Id",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/RecognizedSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recognition_id",
+          "rule",
+          "sources",
+          "pulse_pairs"
+        ],
+        "title": "RecognitionProvenance",
+        "type": "object"
+      },
+      "RecognitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "file_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "File Ids",
+            "type": "array"
+          },
+          "resolutions": {
+            "items": {
+              "$ref": "#/components/schemas/RecognitionResolution"
+            },
+            "maxItems": 100,
+            "title": "Resolutions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "file_ids"
+        ],
+        "title": "RecognitionRequest",
+        "type": "object"
+      },
+      "RecognitionResolution": {
+        "additionalProperties": false,
+        "description": "Only uncertain facts; reason is recorded as user evidence, never file evidence.",
+        "properties": {
+          "column_mapping": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Mapping"
+          },
+          "condition_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Id"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ltp",
+                  "ltd"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pulse_states",
+                  "iv",
+                  "retention",
+                  "c2c_detrended"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "measurement_group": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Group"
+          },
+          "read_vgs_v": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Vgs V"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "source_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Label"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          }
+        },
+        "required": [
+          "file_id",
+          "reason"
+        ],
+        "title": "RecognitionResolution",
+        "type": "object"
+      },
+      "RecognitionResult": {
+        "additionalProperties": false,
+        "properties": {
+          "pulse_pairs": {
+            "items": {
+              "$ref": "#/components/schemas/PulsePair"
+            },
+            "title": "Pulse Pairs",
+            "type": "array"
+          },
+          "recognition_id": {
+            "format": "uuid",
+            "title": "Recognition Id",
+            "type": "string"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisRequest"
+            },
+            "title": "Requests",
+            "type": "array"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/RecognizedSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recognition_id",
+          "rule",
+          "sources",
+          "pulse_pairs",
+          "requests"
+        ],
+        "title": "RecognitionResult",
+        "type": "object"
+      },
+      "RecognizedSource": {
+        "additionalProperties": false,
+        "properties": {
+          "condition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Id"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ltp",
+                  "ltd"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/RecognitionEvidence"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/RecognitionIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pulse_states",
+                  "iv",
+                  "retention",
+                  "c2c_detrended"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout"
+          },
+          "measurement_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Group"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "physical_identity": {
+            "enum": [
+              "unverified",
+              "user_confirmed"
+            ],
+            "title": "Physical Identity",
+            "type": "string"
+          },
+          "pulse": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PulseRecognition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "simulation_eligible": {
+            "const": false,
+            "title": "Simulation Eligible",
+            "type": "boolean"
+          },
+          "snapshot_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Snapshot Paths",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "needs_choice",
+              "invalid",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "file_id",
+          "sha256",
+          "name",
+          "kind",
+          "condition_id",
+          "direction",
+          "sheet",
+          "status",
+          "physical_identity",
+          "simulation_eligible",
+          "evidence",
+          "issues",
+          "warnings",
+          "layout",
+          "pulse",
+          "measurement_group",
+          "snapshot_paths"
+        ],
+        "title": "RecognizedSource",
         "type": "object"
       },
       "Retention": {
@@ -3833,6 +4593,122 @@
           }
         },
         "summary": "Cancel"
+      }
+    },
+    "/api/v1/measurements/recognize": {
+      "post": {
+        "operationId": "measurement_recognition_api_v1_measurements_recognize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Measurement Recognition"
+      }
+    },
+    "/api/v1/measurements/resolve-d2d": {
+      "post": {
+        "operationId": "measurement_d2d_resolution_api_v1_measurements_resolve_d2d_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/D2DRecognitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Measurement D2D Resolution"
       }
     },
     "/api/v1/profiles": {

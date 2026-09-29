@@ -46,6 +46,437 @@
       ],
       "title": "Artifact",
       "type": "object"
+    },
+    "PulsePair": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        },
+        "condition_id": {
+          "title": "Condition Id",
+          "type": "string"
+        },
+        "file_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "File Ids",
+          "type": "array"
+        },
+        "pair_key": {
+          "title": "Pair Key",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "needs_choice"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pair_key",
+        "condition_id",
+        "file_ids",
+        "status",
+        "basis"
+      ],
+      "title": "PulsePair",
+      "type": "object"
+    },
+    "PulseRecognition": {
+      "additionalProperties": false,
+      "properties": {
+        "pre_write_read_is_state": {
+          "const": false,
+          "title": "Pre Write Read Is State",
+          "type": "boolean"
+        },
+        "preceding_read_source_row": {
+          "title": "Preceding Read Source Row",
+          "type": "integer"
+        },
+        "preceding_read_time_s": {
+          "title": "Preceding Read Time S",
+          "type": "number"
+        },
+        "read_tolerance_v": {
+          "title": "Read Tolerance V",
+          "type": "number"
+        },
+        "recording_start_time_s": {
+          "title": "Recording Start Time S",
+          "type": "number"
+        },
+        "row_count": {
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "sample_offset_rows": {
+          "const": 2,
+          "title": "Sample Offset Rows",
+          "type": "integer"
+        },
+        "write_onset_source_row": {
+          "title": "Write Onset Source Row",
+          "type": "integer"
+        },
+        "write_onset_time_s": {
+          "title": "Write Onset Time S",
+          "type": "number"
+        },
+        "write_threshold_v": {
+          "title": "Write Threshold V",
+          "type": "number"
+        },
+        "write_transition_count": {
+          "title": "Write Transition Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "write_onset_time_s",
+        "write_onset_source_row",
+        "preceding_read_time_s",
+        "preceding_read_source_row",
+        "recording_start_time_s",
+        "row_count",
+        "write_transition_count",
+        "sample_offset_rows",
+        "read_tolerance_v",
+        "write_threshold_v",
+        "pre_write_read_is_state"
+      ],
+      "title": "PulseRecognition",
+      "type": "object"
+    },
+    "RecognitionEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "file_header",
+            "filename",
+            "snapshot_manifest",
+            "project_assumption",
+            "project_source",
+            "user_confirmed",
+            "waveform",
+            "unknown"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field",
+        "scope",
+        "rule",
+        "detail"
+      ],
+      "title": "RecognitionEvidence",
+      "type": "object"
+    },
+    "RecognitionIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "block": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Block"
+        },
+        "cell": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sheet"
+        },
+        "source_row": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Row"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "RecognitionIssue",
+      "type": "object"
+    },
+    "RecognitionProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "pulse_pairs": {
+          "items": {
+            "$ref": "#/$defs/PulsePair"
+          },
+          "title": "Pulse Pairs",
+          "type": "array"
+        },
+        "recognition_id": {
+          "format": "uuid",
+          "title": "Recognition Id",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/RecognizedSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "recognition_id",
+        "rule",
+        "sources",
+        "pulse_pairs"
+      ],
+      "title": "RecognitionProvenance",
+      "type": "object"
+    },
+    "RecognizedSource": {
+      "additionalProperties": false,
+      "properties": {
+        "condition_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Condition Id"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "ltp",
+                "ltd"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Direction"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/RecognitionEvidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "file_id": {
+          "format": "uuid",
+          "title": "File Id",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/RecognitionIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "pulse_states",
+                "iv",
+                "retention",
+                "c2c_detrended"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Kind"
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Layout"
+        },
+        "measurement_group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Measurement Group"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "physical_identity": {
+          "enum": [
+            "unverified",
+            "user_confirmed"
+          ],
+          "title": "Physical Identity",
+          "type": "string"
+        },
+        "pulse": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PulseRecognition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sheet"
+        },
+        "simulation_eligible": {
+          "const": false,
+          "title": "Simulation Eligible",
+          "type": "boolean"
+        },
+        "snapshot_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Snapshot Paths",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "needs_choice",
+            "invalid",
+            "unsupported"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "file_id",
+        "sha256",
+        "name",
+        "kind",
+        "condition_id",
+        "direction",
+        "sheet",
+        "status",
+        "physical_identity",
+        "simulation_eligible",
+        "evidence",
+        "issues",
+        "warnings",
+        "layout",
+        "pulse",
+        "measurement_group",
+        "snapshot_paths"
+      ],
+      "title": "RecognizedSource",
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -114,6 +545,17 @@
       ],
       "default": null,
       "title": "Kind"
+    },
+    "recognition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RecognitionProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "settings": {
       "anyOf": [

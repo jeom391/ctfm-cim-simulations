@@ -172,6 +172,19 @@
           "default": null,
           "title": "Source Label"
         },
+        "start_time_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Time S"
+        },
         "sweep_amplitude_v": {
           "anyOf": [
             {
@@ -289,6 +302,19 @@
       ],
       "title": "Kind",
       "type": "string"
+    },
+    "recognition_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recognition Id"
     },
     "settings": {
       "additionalProperties": true,

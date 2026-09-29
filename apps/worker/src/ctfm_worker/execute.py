@@ -16,6 +16,9 @@ def execute(job_id):
     progress=lambda stage,completed,total:store.progress(job_id,"parsing" if stage=="download" else stage,completed,total)
     if job["kind"]=="analysis":
         from ctfm.measurement import parse_table, analyze
+        from ctfm_api.contracts import AnalysisRequest
+        from ctfm_api.recognition import verify_recognized_request
+        recognition = verify_recognized_request(store, AnalysisRequest.model_validate(request)) if request.get("recognition_id") else None
         datasets=[]
         for index,meta in enumerate(request["inputs"]):
             record=store.get_entity("file",meta["file_id"])
@@ -71,6 +74,8 @@ def execute(job_id):
         skipped=requested-len(actual)
         result["summary"].update(requested=requested,completed=completed,failed=failed,skipped=skipped)
         result["status"]="succeeded" if completed==requested else "partial"
+    if job["kind"] == "analysis" and recognition:
+        result["recognition"] = recognition
     progress("exporting",0,1)
     export_result(result,output)
     (output/"worker-result.json").write_text(encode(result),encoding="utf-8")

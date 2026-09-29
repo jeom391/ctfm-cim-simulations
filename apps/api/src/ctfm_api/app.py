@@ -18,7 +18,7 @@ from ctfm_contracts.check_experiment_contract import ContractError, MAX_REQUESTE
 from ctfm_contracts.models import ExperimentRequest
 from ctfm_contracts.product_policy import validate_product_scope
 from ctfm.profiles import ProfileManifest
-from .contracts import AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
+from .contracts import D2DRecognitionRequest, RecognitionRequest, RecognitionResult, AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
 from .models import Capabilities, Capability, ErrorResponse, HardwareControls
 from .results import AnalysisResult, ExperimentResult, JobResult, JobList, FileUploadResult, FileList, FilePreview, AnalysisList, ExperimentList
 from .storage import Store, encode, sha256, now
@@ -177,8 +177,20 @@ def create_app(storage_root=None):
             return dict(read_iv_blocks(data, record["name"], sheet), file_id=str(identifier))
         return dict(read_retention_layout(data, record["name"], sheet or "Raw Data"), file_id=str(identifier))
 
+    @app.post("/api/v1/measurements/resolve-d2d", response_model=RecognitionResult)
+    def measurement_d2d_resolution(request: D2DRecognitionRequest, store: Store = Depends(storage)):
+        from .recognition import resolve_d2d
+        return resolve_d2d(store, request)
+
+    @app.post("/api/v1/measurements/recognize", response_model=RecognitionResult)
+    def measurement_recognition(request: RecognitionRequest, store: Store = Depends(storage)):
+        from .recognition import create_recognition
+        return create_recognition(store, request)
+
     @app.post("/api/v1/analyses", status_code=202, response_model=QueuedAnalysis)
     def analyze_request(request: AnalysisRequest, store: Store = Depends(storage)):
+        from .recognition import verify_recognized_request
+        verify_recognized_request(store, request)
         for item in request.inputs:
             store.get_entity("file", str(item.file_id))
         item, job = store.enqueue("analysis", request.model_dump(mode="json", exclude_none=True))

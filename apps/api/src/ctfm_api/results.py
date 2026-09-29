@@ -1,4 +1,5 @@
 """Shared response shapes. Additional scientific diagnostics retain their native keys."""
+from .contracts import RecognitionProvenance
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,6 +17,7 @@ class Artifact(ScientificResult):
     download_url: str
 
 class AnalysisResult(ScientificResult):
+    recognition: RecognitionProvenance | None = None
     analysis_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","failed","cancelled"]

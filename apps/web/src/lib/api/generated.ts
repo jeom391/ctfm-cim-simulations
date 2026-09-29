@@ -73,6 +73,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/comparisons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_comparisons_get"];
+        put?: never;
+        /** New */
+        post: operations["new_api_v1_comparisons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comparisons/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["get_api_v1_comparisons__identifier__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comparisons/{identifier}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone */
+        post: operations["clone_api_v1_comparisons__identifier__clone_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comparisons/{identifier}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard */
+        post: operations["discard_api_v1_comparisons__identifier__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comparisons/{identifier}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update */
+        put: operations["update_api_v1_comparisons__identifier__draft_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comparisons/{identifier}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run */
+        post: operations["run_api_v1_comparisons__identifier__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comparisons/{identifier}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save */
+        post: operations["save_api_v1_comparisons__identifier__save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/experiments": {
         parameters: {
             query?: never;
@@ -210,6 +330,40 @@ export interface paths {
         put?: never;
         /** Cancel */
         post: operations["cancel_api_v1_jobs__identifier__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/measurements/recognize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Measurement Recognition */
+        post: operations["measurement_recognition_api_v1_measurements_recognize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/measurements/resolve-d2d": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Measurement D2D Resolution */
+        post: operations["measurement_d2d_resolution_api_v1_measurements_resolve_d2d_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -392,6 +546,8 @@ export interface components {
             sheet?: string | null;
             /** Source Label */
             source_label?: string | null;
+            /** Start Time S */
+            start_time_s?: number | null;
             /** Sweep Amplitude V */
             sweep_amplitude_v?: number | null;
             /** Units */
@@ -417,6 +573,8 @@ export interface components {
              * @enum {string}
              */
             kind: "iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended";
+            /** Recognition Id */
+            recognition_id?: string | null;
             /** Settings */
             settings?: {
                 [key: string]: unknown;
@@ -444,6 +602,7 @@ export interface components {
             job_id: string;
             /** Kind */
             kind?: ("iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended") | null;
+            recognition?: components["schemas"]["RecognitionProvenance"] | null;
             /** Settings */
             settings?: {
                 [key: string]: unknown;
@@ -572,6 +731,201 @@ export interface components {
             /** Version */
             version?: string | null;
         };
+        /** ComparisonCard */
+        ComparisonCard: {
+            /** C2C Analysis Id */
+            c2c_analysis_id?: string | null;
+            /**
+             * C2C Approved Assumption
+             * @default false
+             */
+            c2c_approved_assumption: boolean;
+            /**
+             * Card Id
+             * Format: uuid
+             */
+            card_id: string;
+            /** Condition Id */
+            condition_id?: string | null;
+            /**
+             * Cross Condition Acknowledged
+             * @default false
+             */
+            cross_condition_acknowledged: boolean;
+            /** D2D Analysis Id */
+            d2d_analysis_id?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Manual C2C Cv Percent */
+            manual_c2c_cv_percent?: number | null;
+            profile_ref?: components["schemas"]["ComparisonProfileRef"] | null;
+            /** Retention Analysis Id */
+            retention_analysis_id?: string | null;
+            /** Selected State Ids */
+            selected_state_ids?: string[] | null;
+            /** State Analysis Id */
+            state_analysis_id?: string | null;
+        };
+        /** ComparisonCardResult */
+        ComparisonCardResult: {
+            /** C2C Analysis Id */
+            c2c_analysis_id?: string | null;
+            /**
+             * C2C Approved Assumption
+             * @default false
+             */
+            c2c_approved_assumption: boolean;
+            /** Candidate Ids */
+            candidate_ids?: string[];
+            /**
+             * Card Id
+             * Format: uuid
+             */
+            card_id: string;
+            /** Condition Id */
+            condition_id?: string | null;
+            /**
+             * Cross Condition Acknowledged
+             * @default false
+             */
+            cross_condition_acknowledged: boolean;
+            /** D2D Analysis Id */
+            d2d_analysis_id?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Experiment Id */
+            experiment_id?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            /** Manual C2C Cv Percent */
+            manual_c2c_cv_percent?: number | null;
+            /** Profile Hash */
+            profile_hash?: string | null;
+            profile_ref?: components["schemas"]["ComparisonProfileRef"] | null;
+            /** Reason */
+            reason?: string | null;
+            /** Retention Analysis Id */
+            retention_analysis_id?: string | null;
+            /** Runs */
+            runs?: {
+                [key: string]: unknown;
+            }[];
+            /** Selected State Ids */
+            selected_state_ids?: string[] | null;
+            /** State Analysis Id */
+            state_analysis_id?: string | null;
+            /**
+             * Status
+             * @default draft
+             * @enum {string}
+             */
+            status: "draft" | "blocked" | "queued" | "running" | "succeeded" | "partial" | "failed" | "cancelled";
+        };
+        /** ComparisonClone */
+        ComparisonClone: {
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+        };
+        /** ComparisonDraft */
+        ComparisonDraft: {
+            /** Cards */
+            cards?: components["schemas"]["ComparisonCard"][];
+            /**
+             * Common Settings
+             * @description ExperimentRequest fields except profile_refs. Incomplete settings may be persisted; run validates the authoritative contract.
+             */
+            common_settings?: {
+                [key: string]: unknown;
+            };
+        };
+        /** ComparisonList */
+        ComparisonList: {
+            /** Items */
+            items: components["schemas"]["ComparisonResult"][];
+        };
+        /** ComparisonProfileRef */
+        ComparisonProfileRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+        };
+        /** ComparisonResult */
+        ComparisonResult: {
+            /** Cards */
+            cards: components["schemas"]["ComparisonCardResult"][];
+            /** Clone Operation Id */
+            clone_operation_id?: string | null;
+            /** Common Settings */
+            common_settings: {
+                [key: string]: unknown;
+            };
+            /**
+             * Comparison Id
+             * Format: uuid
+             */
+            comparison_id: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Discard Requested
+             * @default false
+             */
+            discard_requested: boolean;
+            /** Experiment Id */
+            experiment_id?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            /**
+             * Lifecycle
+             * @enum {string}
+             */
+            lifecycle: "drafting" | "running" | "temporary" | "saved" | "discarded";
+            /** Name */
+            name?: string | null;
+            /** Origin Id */
+            origin_id?: string | null;
+            /** Outcome */
+            outcome?: ("succeeded" | "partial" | "failed" | "cancelled") | null;
+            /** Snapshot */
+            snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Updated At */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /** ComparisonRun */
+        ComparisonRun: {
+            /** Expected Version */
+            expected_version: number;
+        };
+        /** ComparisonSave */
+        ComparisonSave: {
+            /** Name */
+            name: string;
+        };
+        /** ComparisonUpdate */
+        ComparisonUpdate: {
+            /** Cards */
+            cards?: components["schemas"]["ComparisonCard"][];
+            /**
+             * Common Settings
+             * @description ExperimentRequest fields except profile_refs. Incomplete settings may be persisted; run validates the authoritative contract.
+             */
+            common_settings?: {
+                [key: string]: unknown;
+            };
+            /** Expected Version */
+            expected_version: number;
+        };
         /** D2D */
         D2D: {
             /** Analysis Id */
@@ -604,6 +958,13 @@ export interface components {
              * @enum {string}
              */
             status: "available" | "unavailable";
+        };
+        /** D2DRecognitionRequest */
+        D2DRecognitionRequest: {
+            /** Condition Id */
+            condition_id: string;
+            /** Selections */
+            selections: components["schemas"]["PhysicalDeviceSelection"][];
         };
         /** ErrorResponse */
         ErrorResponse: {
@@ -724,7 +1085,7 @@ export interface components {
             /** Runs */
             runs?: components["schemas"]["RunResult"][] | null;
             /** Schema Version */
-            schema_version?: ("1.2.0" | "1.3.0" | "1.4.0") | null;
+            schema_version?: ("1.1.0" | "1.2.0" | "1.3.0" | "1.4.0") | null;
             /**
              * Status
              * @enum {string}
@@ -981,6 +1342,28 @@ export interface components {
              */
             vds_v: number;
         };
+        /** PhysicalDeviceSelection */
+        PhysicalDeviceSelection: {
+            /** Block */
+            block: number;
+            /** Device Id */
+            device_id: string;
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Identity Evidence */
+            identity_evidence: string;
+            /** Segment */
+            segment: number;
+            /** Sheet */
+            sheet?: string | null;
+            /** Units */
+            units: {
+                [key: string]: string;
+            };
+        };
         /** Pool */
         Pool: {
             /** Available */
@@ -1000,6 +1383,8 @@ export interface components {
         };
         /** ProfileCreate */
         ProfileCreate: {
+            /** C2C Analysis Id */
+            c2c_analysis_id?: string | null;
             /** Condition Id */
             condition_id: string;
             /** D2D Analysis Id */
@@ -1018,6 +1403,10 @@ export interface components {
         };
         /** ProfileManifest */
         ProfileManifest: {
+            /** Analysis Links */
+            analysis_links?: {
+                [key: string]: unknown;
+            } | null;
             /** Assumptions */
             assumptions: components["schemas"]["Assumption"][];
             c2c: components["schemas"]["C2C"];
@@ -1080,10 +1469,65 @@ export interface components {
         ProfileRevision: {
             /** Base Revision */
             base_revision: number;
+            /** C2C Analysis Id */
+            c2c_analysis_id?: string | null;
+            /** D2D Analysis Id */
+            d2d_analysis_id?: string | null;
             /** Display Name */
             display_name?: string | null;
+            /** Retention Analysis Id */
+            retention_analysis_id?: string | null;
             /** Selected State Ids */
             selected_state_ids?: string[] | null;
+            /** State Analysis Id */
+            state_analysis_id?: string | null;
+        };
+        /** PulsePair */
+        PulsePair: {
+            /** Basis */
+            basis: string;
+            /** Condition Id */
+            condition_id: string;
+            /** File Ids */
+            file_ids: string[];
+            /** Pair Key */
+            pair_key: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "needs_choice";
+        };
+        /** PulseRecognition */
+        PulseRecognition: {
+            /**
+             * Pre Write Read Is State
+             * @constant
+             */
+            pre_write_read_is_state: false;
+            /** Preceding Read Source Row */
+            preceding_read_source_row: number;
+            /** Preceding Read Time S */
+            preceding_read_time_s: number;
+            /** Read Tolerance V */
+            read_tolerance_v: number;
+            /** Recording Start Time S */
+            recording_start_time_s: number;
+            /** Row Count */
+            row_count: number;
+            /**
+             * Sample Offset Rows
+             * @constant
+             */
+            sample_offset_rows: 2;
+            /** Write Onset Source Row */
+            write_onset_source_row: number;
+            /** Write Onset Time S */
+            write_onset_time_s: number;
+            /** Write Threshold V */
+            write_threshold_v: number;
+            /** Write Transition Count */
+            write_transition_count: number;
         };
         /** QueuedAnalysis */
         QueuedAnalysis: {
@@ -1110,6 +1554,159 @@ export interface components {
              * Format: uuid
              */
             job_id: string;
+        };
+        /** RecognitionEvidence */
+        RecognitionEvidence: {
+            /** Detail */
+            detail: string;
+            /** Field */
+            field: string;
+            /** Rule */
+            rule: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "file_header" | "filename" | "snapshot_manifest" | "project_assumption" | "project_source" | "user_confirmed" | "waveform" | "unknown";
+            /** Value */
+            value?: unknown;
+        };
+        /** RecognitionIssue */
+        RecognitionIssue: {
+            /** Block */
+            block?: number | null;
+            /** Cell */
+            cell?: string | null;
+            /** Code */
+            code: string;
+            /** Detail */
+            detail: string;
+            /** Sheet */
+            sheet?: string | null;
+            /** Source Row */
+            source_row?: number | null;
+        };
+        /** RecognitionProvenance */
+        RecognitionProvenance: {
+            /** Pulse Pairs */
+            pulse_pairs: components["schemas"]["PulsePair"][];
+            /**
+             * Recognition Id
+             * Format: uuid
+             */
+            recognition_id: string;
+            /** Rule */
+            rule: string;
+            /** Sources */
+            sources: components["schemas"]["RecognizedSource"][];
+        };
+        /** RecognitionRequest */
+        RecognitionRequest: {
+            /** File Ids */
+            file_ids: string[];
+            /** Resolutions */
+            resolutions?: components["schemas"]["RecognitionResolution"][];
+        };
+        /**
+         * RecognitionResolution
+         * @description Only uncertain facts; reason is recorded as user evidence, never file evidence.
+         */
+        RecognitionResolution: {
+            /** Column Mapping */
+            column_mapping?: {
+                [key: string]: string;
+            } | null;
+            /** Condition Id */
+            condition_id?: string | null;
+            /** Direction */
+            direction?: ("ltp" | "ltd") | null;
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Kind */
+            kind?: ("pulse_states" | "iv" | "retention" | "c2c_detrended") | null;
+            /** Measurement Group */
+            measurement_group?: string | null;
+            /** Read Vgs V */
+            read_vgs_v?: number | null;
+            /** Reason */
+            reason: string;
+            /** Sheet */
+            sheet?: string | null;
+            /** Source Label */
+            source_label?: string | null;
+            /** Units */
+            units?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** RecognitionResult */
+        RecognitionResult: {
+            /** Pulse Pairs */
+            pulse_pairs: components["schemas"]["PulsePair"][];
+            /**
+             * Recognition Id
+             * Format: uuid
+             */
+            recognition_id: string;
+            /** Requests */
+            requests: components["schemas"]["AnalysisRequest"][];
+            /** Rule */
+            rule: string;
+            /** Sources */
+            sources: components["schemas"]["RecognizedSource"][];
+        };
+        /** RecognizedSource */
+        RecognizedSource: {
+            /** Condition Id */
+            condition_id: string | null;
+            /** Direction */
+            direction: ("ltp" | "ltd") | null;
+            /** Evidence */
+            evidence: components["schemas"]["RecognitionEvidence"][];
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Issues */
+            issues: components["schemas"]["RecognitionIssue"][];
+            /** Kind */
+            kind: ("pulse_states" | "iv" | "retention" | "c2c_detrended") | null;
+            /** Layout */
+            layout: {
+                [key: string]: unknown;
+            } | null;
+            /** Measurement Group */
+            measurement_group: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Physical Identity
+             * @enum {string}
+             */
+            physical_identity: "unverified" | "user_confirmed";
+            pulse: components["schemas"]["PulseRecognition"] | null;
+            /** Sha256 */
+            sha256: string;
+            /** Sheet */
+            sheet: string | null;
+            /**
+             * Simulation Eligible
+             * @constant
+             */
+            simulation_eligible: false;
+            /** Snapshot Paths */
+            snapshot_paths: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "needs_choice" | "invalid" | "unsupported";
+            /** Warnings */
+            warnings: string[];
         };
         /** Retention */
         Retention: {
@@ -1478,6 +2075,416 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Capabilities"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listing_api_v1_comparisons_get: {
+        parameters: {
+            query?: {
+                scope?: "saved" | "temporary" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    new_api_v1_comparisons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComparisonDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_api_v1_comparisons__identifier__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    clone_api_v1_comparisons__identifier__clone_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComparisonClone"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    discard_api_v1_comparisons__identifier__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_api_v1_comparisons__identifier__draft_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComparisonUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    run_api_v1_comparisons__identifier__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComparisonRun"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_api_v1_comparisons__identifier__save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComparisonSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonResult"];
                 };
             };
             /** @description Not Found */
@@ -1971,6 +2978,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    measurement_recognition_api_v1_measurements_recognize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecognitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecognitionResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    measurement_d2d_resolution_api_v1_measurements_resolve_d2d_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["D2DRecognitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecognitionResult"];
                 };
             };
             /** @description Not Found */

@@ -393,7 +393,7 @@ def create_app(storage_root=None):
     web_dist = Path(__file__).resolve().parents[3] / "web/dist"
     if (web_dist / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="web-assets")
-    for route in ("/", "/measurements", "/simulator"):
+    for route in ("/", "/measurements", "/simulator", "/saved-results"):
         def web_page():
             if not (web_dist / "index.html").is_file():
                 raise HTTPException(503,"Build apps/web before opening the UI.")

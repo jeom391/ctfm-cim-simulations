@@ -20,3 +20,6 @@
 /packages/contracts/schemas/*.json text eol=lf
 /packages/contracts/openapi/*.json text eol=lf
 *.patch -text
+
+# Preserve the user-approved team snapshot exactly, including CSV line endings.
+/data/team-snapshot/**/files/** -text -diff

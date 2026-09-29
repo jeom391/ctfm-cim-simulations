@@ -102,6 +102,9 @@ def recognize_source(data, filename, file_id, snapshot_paths=(), resolution=None
         base = dict(file_id=file_id, condition_id=source['condition_id'] or 'unresolved',
                     device_id='measurement-source:' + digest, sheet=source['sheet'], vds_v=.1, read_vgs_v=0.)
         if source['kind'] == 'pulse_states':
+            if resolution.get('read_vgs_v') not in (None, 0.):
+                source['status'] = 'invalid'
+                issue(source, 'conflicting_pulse_read_bias', 'Pulse analysis requires read VGS=0 V; the supplied read_vgs_v conflicts with the fixed protocol')
             table = parse_table(data, filename, source['sheet'])
             metadata = _load_raw(data, filename, source['sheet'])[0]
             source['layout'] = dict(columns=table['columns'], metadata_rows=metadata[:table['source_rows'][0]-2] if table['source_rows'] else metadata)

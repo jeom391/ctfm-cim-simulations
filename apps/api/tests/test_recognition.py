@@ -209,3 +209,22 @@ def test_retention_resolution_cannot_mark_conflicting_source_bias_ready(client):
     plan=recognize(client,files,resolutions=[dict(file_id=files[0]['file_id'],read_vgs_v=0.,reason='Conflicting bias must not produce an executable request')])
     assert not plan['requests']
     assert plan['sources'][0]['status']=='invalid'
+
+@pytest.mark.parametrize('read_vgs_v', [None, 0., .5])
+def test_pulse_resolution_rejects_conflicting_bias_and_preserves_fixed_zero(client, read_vgs_v):
+    files=upload(client,[p for p in pulse_paths() if p.name in ('A1_LTP.csv','A1_LTD.csv')])
+    resolved_file=files[0]['file_id']
+    resolutions=[] if read_vgs_v is None else [dict(file_id=resolved_file,read_vgs_v=read_vgs_v,reason='Explicit read bias from operator')]
+    plan=recognize(client,files,resolutions=resolutions)
+    source=next(s for s in plan['sources'] if s['file_id']==resolved_file)
+    if read_vgs_v == .5:
+        assert not plan['requests']
+        assert source['status']=='invalid'
+        assert any(i['code']=='conflicting_pulse_read_bias' for i in source['issues'])
+        assert any(e['field']=='read_vgs_v' and e['value']==.5 and e['scope']=='user_confirmed' for e in source['evidence'])
+        assert all(p['status']!='ready' for p in plan['pulse_pairs'])
+    else:
+        assert source['status']=='ready'
+        assert len(plan['requests'])==1
+        assert all(i['read_vgs_v']==0. for i in plan['requests'][0]['inputs'])
+        assert client.post('/api/v1/analyses',json=plan['requests'][0]).status_code==202

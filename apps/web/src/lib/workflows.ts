@@ -7,9 +7,12 @@ export type Recognition = components['schemas']['RecognitionResult'];
 export type Resolution = components['schemas']['RecognitionResolution'];
 export type Proposal = components['schemas']['AnalysisRequest'];
 type PublishedProfile = Pick<components['schemas']['ProfileManifest'],'profile_id'|'revision'|'condition_id'|'pools'|'analysis_links'>;
+type RevisionIdentity = Pick<components['schemas']['ProfileManifest'],'profile_id'|'revision'|'profile_hash'>;
+export interface PendingRevision {profile:components['schemas']['ProfileManifest'];sourceKey:string}
+export interface ProfileReview {reviewer:string;note:string;reviewed:boolean}
 
 export interface CommonForm {adc:boolean;adcBits:number;d2d:boolean;c2c:boolean;retention:boolean;arrays:number;nReprogram:number;years:string;pools:string[];mappings:string[];engine:string;checkpoint:string;seed:number}
-export const defaultCommon:CommonForm={adc:false,adcBits:5,d2d:false,c2c:false,retention:false,arrays:1,nReprogram:1,years:'0',pools:['combined'],mappings:['fixed_reference'],engine:'torch_reference',checkpoint:'',seed:20260917};
+export const defaultCommon:CommonForm={adc:true,adcBits:5,d2d:false,c2c:false,retention:false,arrays:1,nReprogram:1,years:'0',pools:['combined'],mappings:['fixed_reference'],engine:'torch_reference',checkpoint:'',seed:20260917};
 
 export function commonSettings(form:CommonForm){
  const years=form.retention?form.years.split(',').map(s=>Number(s.trim())):[0];
@@ -25,7 +28,7 @@ export function commonSettings(form:CommonForm){
 
 export function restoreCommon(raw:Record<string,unknown>):CommonForm{
  const effects=(raw.effects||{}) as Record<string,boolean>,hardware=(raw.hardware||{}) as Record<string,unknown>,engines=(raw.engines||{}) as Record<string,unknown>;
- return {...defaultCommon,adc:effects.adc??false,d2d:effects.d2d??false,c2c:effects.c2c??false,retention:effects.retention??false,adcBits:typeof hardware.adc_bits==='number'?hardware.adc_bits:5,arrays:typeof raw.arrays==='number'?raw.arrays:1,nReprogram:typeof raw.n_reprogram==='number'?raw.n_reprogram:1,years:Array.isArray(raw.years)?raw.years.join(', '):'0',pools:Array.isArray(raw.pools)?raw.pools as string[]:['combined'],mappings:Array.isArray(raw.mappings)?raw.mappings as string[]:['fixed_reference'],engine:typeof engines.accuracy==='string'?engines.accuracy:'torch_reference',checkpoint:typeof raw.checkpoint_id==='string'?raw.checkpoint_id:'',seed:typeof raw.seed==='number'?raw.seed:20260917};
+ return {...defaultCommon,adc:effects.adc??defaultCommon.adc,d2d:effects.d2d??false,c2c:effects.c2c??false,retention:effects.retention??false,adcBits:typeof hardware.adc_bits==='number'?hardware.adc_bits:5,arrays:typeof raw.arrays==='number'?raw.arrays:1,nReprogram:typeof raw.n_reprogram==='number'?raw.n_reprogram:1,years:Array.isArray(raw.years)?raw.years.join(', '):'0',pools:Array.isArray(raw.pools)?raw.pools as string[]:['combined'],mappings:Array.isArray(raw.mappings)?raw.mappings as string[]:['fixed_reference'],engine:typeof engines.accuracy==='string'?engines.accuracy:'torch_reference',checkpoint:typeof raw.checkpoint_id==='string'?raw.checkpoint_id:'',seed:typeof raw.seed==='number'?raw.seed:20260917};
 }
 
 const cardKeys=['card_id','display_name','profile_ref','condition_id','state_analysis_id','selected_state_ids','d2d_analysis_id','retention_analysis_id','c2c_analysis_id','c2c_approved_assumption','cross_condition_acknowledged','manual_c2c_cv_percent'] as const;
@@ -45,6 +48,21 @@ export function profileRevisionPayload(card:Card,base:PublishedProfile):componen
  if(selected&& (selected.length!==previous.length||selected.some(id=>!previous.includes(id))))body.selected_state_ids=selected;
  return body;
 }
+export function compositionKey(card:Card,base:{id:string;revision:number}|null|undefined){return JSON.stringify({card_id:card.card_id,display_name:card.display_name,condition_id:card.condition_id||null,state_analysis_id:card.state_analysis_id||null,selected_state_ids:card.selected_state_ids||null,d2d_analysis_id:card.d2d_analysis_id||null,retention_analysis_id:card.retention_analysis_id||null,c2c_analysis_id:card.c2c_analysis_id||null,base:base||null});}
+export function reviewKey(cardId:string,profile:RevisionIdentity){return `${cardId}:${profile.profile_id}:${profile.revision}:${profile.profile_hash}`;}
+export function canPublishPending(card:Card,base:{id:string;revision:number}|null|undefined,pending:PendingRevision|undefined,reviews:Record<string,ProfileReview>){if(!pending||pending.sourceKey!==compositionKey(card,base))return false;const review=reviews[reviewKey(card.card_id,pending.profile)];return !!(review?.reviewed&&review.reviewer.trim()&&review.note.trim());}
 export function draftUpdate(expected_version:number,common_settings:Record<string,unknown>,cards:(Card|CardResult)[]){return {expected_version,common_settings,cards:cards.map(editableCard)};}
-export function recognizedChoices(requests:Proposal[],selected:Set<number>):Proposal[]{return requests.filter((_,i)=>selected.has(i));}
+export function createDraftSaver<T,R>(read:()=>{token:number;value:T}|null,save:(value:T)=>Promise<R>,onSaved:(result:R,token:number)=>void){
+ let pending:Promise<void>|null=null;
+ return {async flush(){
+  while(true){
+   if(pending){await pending;continue;}
+   const snapshot=read();if(!snapshot)return;
+   pending=save(snapshot.value).then(result=>onSaved(result,snapshot.token)).finally(()=>{pending=null;});
+   await pending;
+  }
+ }};
+}
+export function recognizedChoices(requests:Proposal[],selected:Set<number>,submitted:Set<number>=new Set()):Proposal[]{return requests.filter((p,i)=>!submitted.has(i)&&(p.kind!=='iv'||selected.has(i)));}
+export function eligibleStateIds(states:ReadonlyArray<{state_id?:unknown;conductance_s?:unknown}>):string[]{return states.map(row=>String(row.state_id||'')).filter((id,i)=>!!id&&Number(states[i].conductance_s)>0);}
 export function resolutionsFor(entries:Resolution[]):Resolution[]{return entries.map(({file_id,reason,...fields})=>{if(!reason.trim())throw new Error('선택 사유를 입력하세요.');return {file_id,reason:reason.trim(),...Object.fromEntries(Object.entries(fields).filter(([,v])=>v!==undefined&&v!==null&&v!==''))};});}

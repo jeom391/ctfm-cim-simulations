@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {commonSettings,draftUpdate,editableCard,profileRevisionPayload,publishedCard,recognizedChoices,resolutionsFor,restoreCommon} from '../src/lib/workflows.ts';
+import {canPublishPending,commonSettings,compositionKey,draftUpdate,editableCard,eligibleStateIds,profileRevisionPayload,publishedCard,recognizedChoices,resolutionsFor,restoreCommon,reviewKey} from '../src/lib/workflows.ts';
 
 test('comparison settings keep the fixed scope and independent effect counts',()=>{
  const settings=commonSettings({adc:true,adcBits:5,d2d:false,c2c:true,retention:false,arrays:8,nReprogram:3,years:'0, 10',pools:['combined'],mappings:['fixed_reference'],engine:'torch_reference',checkpoint:'',seed:0});
@@ -23,6 +23,12 @@ test('reopening a server draft restores effect controls without inventing absent
  assert.equal(form.d2d,false);assert.equal(form.arrays,1);
 });
 
+test('new comparisons enable 5-bit ADC while an explicit saved OFF remains OFF',()=>{
+ const fresh=restoreCommon({});
+ assert.equal(fresh.adc,true);assert.equal(fresh.adcBits,5);
+ assert.equal(restoreCommon({effects:{adc:false}}).adc,false);
+});
+
 test('selecting one published card keeps its own immutable analysis links and resets C2C approval',()=>{
  const base={card_id:'card-1',display_name:'A1 card',c2c_approved_assumption:true,cross_condition_acknowledged:true};
  const p={profile_id:'profile-1',revision:2,condition_id:'A1',pools:{combined:{state_ids:['s1','s2']}},analysis_links:{state:{analysis_id:'state-1'},d2d:{analysis_id:'d2d-1'},c2c:{analysis_id:'c2c-1'}}};
@@ -39,11 +45,39 @@ test('replacing C2C on one card revises only that link and retains base state an
  assert.deepEqual(profileRevisionPayload(card,base),{base_revision:2,display_name:'A1 revised',c2c_analysis_id:'c2c-new'});
 });
 
+test('review belongs to one card and immutable draft revision, and stale composition cannot publish',()=>{
+ const a={card_id:'a',display_name:'A1',condition_id:'A1',state_analysis_id:'s1',selected_state_ids:['x','y'],c2c_approved_assumption:false,cross_condition_acknowledged:false};
+ const b={...a,card_id:'b',display_name:'A3',condition_id:'A3',state_analysis_id:'s3'};
+ const pa={profile_id:'p1',revision:1,profile_hash:'hash-a'},pb={profile_id:'p3',revision:1,profile_hash:'hash-b'};
+ const pendingA={profile:pa,sourceKey:compositionKey(a,null)},pendingB={profile:pb,sourceKey:compositionKey(b,null)};
+ const reviews={[reviewKey(a.card_id,pa)]:{reviewer:'Alice',note:'A1 states checked',reviewed:true}};
+ assert.equal(canPublishPending(a,null,pendingA,reviews),true);
+ assert.equal(canPublishPending(b,null,pendingB,reviews),false);
+ assert.equal(canPublishPending({...a,selected_state_ids:['x','z']},null,pendingA,reviews),false);
+ assert.equal(canPublishPending(a,null,{profile:{...pa,revision:2},sourceKey:pendingA.sourceKey},reviews),false);
+});
+
+test('bulk state selection uses the same eligible observed rows as individual checkboxes',()=>{
+ const rows=[{state_id:'ltp',conductance_s:0.01},{state_id:'ltd',conductance_s:0.02},{state_id:'zero',conductance_s:0,exclusion_reason:'nonpositive_conductance'},{state_id:'negative',conductance_s:-1},{state_id:'',conductance_s:0.1}];
+ assert.deepEqual(eligibleStateIds(rows),['ltp','ltd']);
+});
+
 test('recognition leaves IV alternatives unselected and sends chosen proposals unchanged',()=>{
  const first={recognition_id:'r',kind:'iv',inputs:[{file_id:'f',selection:{type:'iv_block',block:0,segment:0}}],settings:{}};
  const second={recognition_id:'r',kind:'iv',inputs:[{file_id:'f',selection:{type:'iv_block',block:1,segment:2}}],settings:{}};
  assert.deepEqual(recognizedChoices([first,second],new Set([1])),[second]);
  assert.equal(recognizedChoices([first,second],new Set()).length,0);
+});
+
+test('clear pulse pairs need one enqueue action without five individual confirmations',()=>{
+ const pulse=Array.from({length:5},(_,i)=>({recognition_id:'plan',kind:'pulse_states',inputs:[{file_id:`ltp-${i}`},{file_id:`ltd-${i}`}],settings:{}}));
+ const c2c={recognition_id:'plan',kind:'c2c_detrended',inputs:[{file_id:'c2c-a3'}],settings:{}};
+ const retention={recognition_id:'plan',kind:'retention',inputs:[{file_id:'retention'}],settings:{}};
+ const iv={recognition_id:'plan',kind:'iv',inputs:[{file_id:'iv',selection:{type:'iv_block',block:4,segment:1}}],settings:{}};
+ const requests=[...pulse,c2c,retention,iv];
+ assert.deepEqual(recognizedChoices(requests,new Set()),[...pulse,c2c,retention]);
+ assert.deepEqual(recognizedChoices(requests,new Set([7])),requests);
+ assert.deepEqual(recognizedChoices(requests,new Set([7]),new Set([0,1,2,3,4,5,6])),[iv]);
 });
 
 test('resolution includes only operator-entered uncertain fields and requires evidence',()=>{

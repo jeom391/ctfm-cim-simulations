@@ -733,6 +733,7 @@ export interface components {
         };
         /** ComparisonCard */
         ComparisonCard: {
+            base_profile_ref?: components["schemas"]["ComparisonProfileRef"] | null;
             /** C2C Analysis Id */
             c2c_analysis_id?: string | null;
             /**
@@ -768,6 +769,7 @@ export interface components {
         };
         /** ComparisonCardResult */
         ComparisonCardResult: {
+            base_profile_ref?: components["schemas"]["ComparisonProfileRef"] | null;
             /** C2C Analysis Id */
             c2c_analysis_id?: string | null;
             /**

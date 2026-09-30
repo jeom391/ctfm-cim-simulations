@@ -157,6 +157,49 @@ def test_second_worker_cannot_acquire_same_storage(tmp_path):
         with pytest.raises(RuntimeError,match="Another worker"):
             with worker_lock(store):pass
 
+def test_run_once_survives_a_locked_claim_and_polls_again(tmp_path,monkeypatch):
+    """A transient 'database is locked' while claiming the next job (e.g. a slow /comparisons/run
+    request holding the writer lock) must not crash the worker process; run_once should report
+    no work done this cycle so the caller's normal poll loop just tries again."""
+    import sqlite3
+    store=Store(tmp_path)
+    def always_locked():
+        raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(store,"claim",always_locked)
+    assert run_once(store) is False
+    # the worker is still usable afterwards -- this was not a fatal condition
+    monkeypatch.undo()
+    item,job=store.enqueue("analysis",{"kind":"iv"})
+    assert store.claim()["id"]==job["id"]
+
+def test_run_once_reraises_the_original_failure_even_if_finish_is_also_locked(tmp_path,monkeypatch):
+    """If the job itself fails for a real reason while the DB happens to also be locked when
+    run_once tries to record that failure, the original failure must still surface (never hidden
+    behind the incidental lock), and run_once itself must not raise a second, different error."""
+    import pytest
+    import sqlite3
+    import ctfm_worker.runner as runner
+    store=Store(tmp_path)
+    item,job=store.enqueue("analysis",{"kind":"iv"})
+    def boom(*args,**kwargs):raise RuntimeError("subprocess could not start")
+    monkeypatch.setattr(runner.subprocess,"Popen",boom)
+    def locked_finish(*args,**kwargs):raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(store,"finish",locked_finish)
+    with pytest.raises(RuntimeError,match="subprocess could not start"):
+        run_once(store)
+
+def test_main_once_survives_a_locked_claim_without_crashing(tmp_path,monkeypatch):
+    """The --once entry point (what a supervisor actually runs) must return normally instead of
+    exiting with an unhandled exception when the database is transiently locked."""
+    import sqlite3,sys
+    import ctfm_worker.runner as runner
+    store=Store(tmp_path)
+    monkeypatch.setattr(runner,"Store",lambda *a,**k:store)
+    def boom(s):raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(runner,"run_once",boom)
+    monkeypatch.setattr(sys,"argv",["ctfm_worker","--once"])
+    runner.main()
+
 def test_spreadsheet_exports_keep_untrusted_strings_as_text(tmp_path):
     from ctfm_worker.exports import export_result
     from openpyxl import load_workbook

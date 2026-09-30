@@ -31,11 +31,12 @@ export function restoreCommon(raw:Record<string,unknown>):CommonForm{
  return {...defaultCommon,adc:effects.adc??defaultCommon.adc,d2d:effects.d2d??false,c2c:effects.c2c??false,retention:effects.retention??false,adcBits:typeof hardware.adc_bits==='number'?hardware.adc_bits:5,arrays:typeof raw.arrays==='number'?raw.arrays:1,nReprogram:typeof raw.n_reprogram==='number'?raw.n_reprogram:1,years:Array.isArray(raw.years)?raw.years.join(', '):'0',pools:Array.isArray(raw.pools)?raw.pools as string[]:['combined'],mappings:Array.isArray(raw.mappings)?raw.mappings as string[]:['fixed_reference'],engine:typeof engines.accuracy==='string'?engines.accuracy:'torch_reference',checkpoint:typeof raw.checkpoint_id==='string'?raw.checkpoint_id:'',seed:typeof raw.seed==='number'?raw.seed:20260917};
 }
 
-const cardKeys=['card_id','display_name','profile_ref','condition_id','state_analysis_id','selected_state_ids','d2d_analysis_id','retention_analysis_id','c2c_analysis_id','c2c_approved_assumption','cross_condition_acknowledged','manual_c2c_cv_percent'] as const;
+const cardKeys=['card_id','display_name','profile_ref','base_profile_ref','condition_id','state_analysis_id','selected_state_ids','d2d_analysis_id','retention_analysis_id','c2c_analysis_id','c2c_approved_assumption','cross_condition_acknowledged','manual_c2c_cv_percent'] as const;
 export function editableCard(card:CardResult|Card):Card {return Object.fromEntries(cardKeys.filter(k=>k in card).map(k=>[k,card[k]])) as unknown as Card;}
 export function publishedCard(card:Card,profile:PublishedProfile):Card{
  const links=profile.analysis_links as Record<string,{analysis_id?:string}>|null|undefined;
- return {...card,profile_ref:{id:profile.profile_id,revision:profile.revision},condition_id:profile.condition_id,state_analysis_id:links?.state?.analysis_id||null,selected_state_ids:profile.pools.combined?.state_ids||null,d2d_analysis_id:links?.d2d?.analysis_id||null,retention_analysis_id:links?.retention?.analysis_id||null,c2c_analysis_id:links?.c2c?.analysis_id||null,manual_c2c_cv_percent:null,c2c_approved_assumption:false,cross_condition_acknowledged:false};
+ const ref={id:profile.profile_id,revision:profile.revision};
+ return {...card,profile_ref:ref,base_profile_ref:ref,condition_id:profile.condition_id,state_analysis_id:links?.state?.analysis_id||null,selected_state_ids:profile.pools.combined?.state_ids||null,d2d_analysis_id:links?.d2d?.analysis_id||null,retention_analysis_id:links?.retention?.analysis_id||null,c2c_analysis_id:links?.c2c?.analysis_id||null,manual_c2c_cv_percent:null,c2c_approved_assumption:false,cross_condition_acknowledged:false};
 }
 export function profileRevisionPayload(card:Card,base:PublishedProfile):components['schemas']['ProfileRevision']{
  const links=base.analysis_links as Record<string,{analysis_id?:string}>|null|undefined;

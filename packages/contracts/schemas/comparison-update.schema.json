@@ -3,6 +3,17 @@
     "ComparisonCard": {
       "additionalProperties": false,
       "properties": {
+        "base_profile_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComparisonProfileRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "c2c_analysis_id": {
           "anyOf": [
             {

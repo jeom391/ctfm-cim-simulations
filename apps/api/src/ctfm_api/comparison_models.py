@@ -12,6 +12,10 @@ class ComparisonCard(Strict):
     card_id: UUID
     display_name: str = Field(min_length=1, max_length=200)
     profile_ref: ComparisonProfileRef | None = None
+    # The profile identity/revision to build the *next* revision from when the card's analysis
+    # links change (profile_ref itself is cleared then, since it names a now-stale published
+    # revision). Persisted so it survives a reload or clone, not just kept in browser memory.
+    base_profile_ref: ComparisonProfileRef | None = None
     condition_id: str | None = None
     state_analysis_id: UUID | None = None
     selected_state_ids: list[str] | None = None

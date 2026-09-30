@@ -4,10 +4,14 @@ import json
 import os
 from pathlib import Path
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
 from ctfm_api.storage import Store, sha256
+
+def _is_locked(exc):
+    return isinstance(exc, sqlite3.OperationalError) and "locked" in str(exc).lower()
 
 @contextmanager
 def worker_lock(store):
@@ -46,7 +50,12 @@ def terminate_owned_process(process):
         process.wait(timeout=5)
 
 def run_once(store):
-    job=store.claim()
+    try:
+        job=store.claim()
+    except sqlite3.OperationalError as exc:
+        if not _is_locked(exc):raise
+        print(f"worker: database busy while claiming the next job; will retry next poll: {exc}",file=sys.stderr,flush=True)
+        return False
     if job is None:return False
     output=store.job_dir(job["id"]);process=None
     comparison_id=store.get_entity(job["kind"],job["entity_id"]).get("comparison_id")
@@ -89,7 +98,12 @@ def run_once(store):
             store.finish(job["id"],state="failed",result=result,error=error)
     except BaseException:
         if process is not None:terminate_owned_process(process)
-        store.finish(job["id"],state="failed",error={"code":"worker_failed","message":"Worker could not complete the job."})
+        try:
+            store.finish(job["id"],state="failed",error={"code":"worker_failed","message":"Worker could not complete the job."})
+        except sqlite3.OperationalError as finish_exc:
+            if not _is_locked(finish_exc):raise
+            # The job stays "running" in the database; recover_interrupted() will fail it on the next worker start.
+            print(f"worker: database busy while recording failure for job {job['id']}; it will be recovered on next start: {finish_exc}",file=sys.stderr,flush=True)
         raise
     if comparison_id:
         from ctfm_api.comparisons import cleanup
@@ -108,7 +122,12 @@ def main():
         interrupted=store.recover_interrupted()
         if interrupted:print(f"Recorded {interrupted} interrupted jobs.",flush=True)
         while True:
-            worked=run_once(store)
+            try:
+                worked=run_once(store)
+            except sqlite3.OperationalError as exc:
+                if not _is_locked(exc):raise
+                print(f"worker: database busy; continuing after backoff: {exc}",file=sys.stderr,flush=True)
+                worked=False
             if args.once:return
             if not worked:time.sleep(args.poll_seconds)
 

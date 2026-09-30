@@ -132,67 +132,81 @@ def register_comparisons(app, storage, resolve_c2c, capabilities):
 
     @app.post('/api/v1/comparisons/{identifier}/run', response_model=ComparisonResult)
     def run(identifier: UUID,request: ComparisonRun,store=Depends(storage)):
+        # Phase 1 (read-only, no write lock): fetch the draft to validate and verify against.
         with store.connection() as db:
-            db.execute('BEGIN IMMEDIATE'); item=read(db,str(identifier))
-            if item['discard_requested']: raise HTTPException(409,'Comparison discard has already been requested')
-            if item['lifecycle'] in ('running','temporary','saved'): return item
-            if item['lifecycle']!='drafting' or item['version']!=request.expected_version:
-                raise HTTPException(409,'Draft version changed; reload before running')
-            # Validate common policy and original limits before filtering blocked cards.
-            common=deepcopy(item['common_settings'])
-            placeholders=[dict(id=c['card_id'],revision=1,**({'c2c':dict(source='manual_assumption',cv_percent=0)} if common.get('effects',{}).get('c2c') else {})) for c in item['cards']]
-            ExperimentRequest.model_validate(dict(common,profile_refs=placeholders or [dict(id=str(uuid4()),revision=1)]))
-            validate_product_scope(common)
-            engine=capabilities().engines[common['engines']['accuracy']]
-            if not engine.available: raise ValueError('Requested accuracy engine is unavailable: '+str(engine.reason))
-            if common['checkpoint_id']:
-                checkpoint=store.get_entity('checkpoint',common['checkpoint_id'])
-                if sha256(store.managed_path(checkpoint['relative_path']).read_bytes())!=checkpoint['sha256']:
-                    raise ValueError('Checkpoint hash mismatch')
-            refs=[]; manifests=[]; seen=set()
-            for card in item['cards']:
-                try:
-                    if not card.get('profile_ref'): raise ValueError('Choose and explicitly publish a profile revision before running')
-                    ref=deepcopy(card['profile_ref'])
-                    if ref['id'] in seen: raise ValueError('Only one revision per profile is allowed; explicitly clone the profile identity for side-by-side revisions')
-                    record=store.get_profile(ref['id'],ref['revision']); manifest=record['manifest']
-                    validate_profile(**record,published_required=True)
-                    links=manifest.get('analysis_links') or {}
-                    for effect in ('state','d2d','retention','c2c'):
-                        selected=card.get(effect+'_analysis_id')
-                        if selected and selected != (links.get(effect) or {}).get('analysis_id'):
-                            raise ValueError('Selected '+effect+' analysis differs from the published revision; compose and publish the replacement first')
-                    if card.get('selected_state_ids') is not None and set(card['selected_state_ids'])!={s['state_id'] for s in record['states'] if s['selected']}:
-                        raise ValueError('State selection differs from the published revision')
-                    for effect in ('d2d','retention'):
-                        if common['effects'][effect] and manifest[effect]['status']!='available': raise ValueError(effect+' measurement is unavailable; disable it or select reviewed data')
-                    if common['effects']['retention'] and manifest['retention']['program_fit']['a']+manifest['retention']['program_fit']['b']<=0:
-                        raise ValueError('Retention reference current must be positive')
-                    if common['effects']['c2c']:
-                        linked=links.get('c2c') or {}
-                        analysis_id=card.get('c2c_analysis_id') or linked.get('analysis_id')
-                        if analysis_id:
-                            if not card['c2c_approved_assumption']: raise ValueError('Measured C2C requires explicit approval for this comparison')
-                            if linked and analysis_link(store.get_entity('analysis',analysis_id))['scientific_sha256']!=linked['scientific_sha256']:
-                                raise ValueError('C2C analysis differs from the published profile link')
-                            ref['c2c']=dict(source='measured_detrended',analysis_id=analysis_id,approved_assumption=True,cross_condition_acknowledged=card['cross_condition_acknowledged'])
-                        elif card.get('manual_c2c_cv_percent') is not None:
-                            ref['c2c']=dict(source='manual_assumption',cv_percent=card['manual_c2c_cv_percent'])
-                        else: raise ValueError('C2C data is unavailable; disable it or select and approve an analysis')
-                    candidate=resolve_c2c(store,dict(common,profile_refs=[ref]))
-                    ref=candidate['profile_refs'][0]
-                    seen.add(ref['id']);refs.append(ref);manifests.append(deepcopy(manifest))
-                    card.update(status='queued',profile_hash=manifest['profile_hash'],reason=None)
-                except (ValueError,KeyError,SchemaValidationError) as exc:
-                    card.update(status='blocked',reason=str(exc))
-                except Exception as exc:
-                    # APIError carries a safe user-facing validation message.
-                    if not hasattr(exc,'code'): raise
-                    card.update(status='blocked',reason=exc.message)
-            timestamp=now()
-            item.update(snapshot=dict(common_settings=common,cards=deepcopy(item['cards']),profiles=manifests),updated_at=timestamp,version=item['version']+1)
+            item=read(db,str(identifier))
+        if item['discard_requested']: raise HTTPException(409,'Comparison discard has already been requested')
+        if item['lifecycle'] in ('running','temporary','saved'): return item
+        if item['lifecycle']!='drafting' or item['version']!=request.expected_version:
+            raise HTTPException(409,'Draft version changed; reload before running')
+        # Phase 2 (no write lock held): engine/checkpoint/profile/C2C verification. This can be
+        # slow (file hashing, schema validation of large profiles, first-time engine import) and must
+        # not hold the single SQLite writer lock, or it starves the worker's claim/progress/finish
+        # writes until they exceed their busy timeout and the worker crashes.
+        common=deepcopy(item['common_settings'])
+        placeholders=[dict(id=c['card_id'],revision=1,**({'c2c':dict(source='manual_assumption',cv_percent=0)} if common.get('effects',{}).get('c2c') else {})) for c in item['cards']]
+        ExperimentRequest.model_validate(dict(common,profile_refs=placeholders or [dict(id=str(uuid4()),revision=1)]))
+        validate_product_scope(common)
+        engine=capabilities().engines[common['engines']['accuracy']]
+        if not engine.available: raise ValueError('Requested accuracy engine is unavailable: '+str(engine.reason))
+        if common['checkpoint_id']:
+            checkpoint=store.get_entity('checkpoint',common['checkpoint_id'])
+            if sha256(store.managed_path(checkpoint['relative_path']).read_bytes())!=checkpoint['sha256']:
+                raise ValueError('Checkpoint hash mismatch')
+        refs=[]; manifests=[]; seen=set()
+        for card in item['cards']:
+            try:
+                if not card.get('profile_ref'): raise ValueError('Choose and explicitly publish a profile revision before running')
+                ref=deepcopy(card['profile_ref'])
+                if ref['id'] in seen: raise ValueError('Only one revision per profile is allowed; explicitly clone the profile identity for side-by-side revisions')
+                record=store.get_profile(ref['id'],ref['revision']); manifest=record['manifest']
+                validate_profile(**record,published_required=True)
+                links=manifest.get('analysis_links') or {}
+                for effect in ('state','d2d','retention','c2c'):
+                    selected=card.get(effect+'_analysis_id')
+                    if selected and selected != (links.get(effect) or {}).get('analysis_id'):
+                        raise ValueError('Selected '+effect+' analysis differs from the published revision; compose and publish the replacement first')
+                if card.get('selected_state_ids') is not None and set(card['selected_state_ids'])!={s['state_id'] for s in record['states'] if s['selected']}:
+                    raise ValueError('State selection differs from the published revision')
+                for effect in ('d2d','retention'):
+                    if common['effects'][effect] and manifest[effect]['status']!='available': raise ValueError(effect+' measurement is unavailable; disable it or select reviewed data')
+                if common['effects']['retention'] and manifest['retention']['program_fit']['a']+manifest['retention']['program_fit']['b']<=0:
+                    raise ValueError('Retention reference current must be positive')
+                if common['effects']['c2c']:
+                    linked=links.get('c2c') or {}
+                    analysis_id=card.get('c2c_analysis_id') or linked.get('analysis_id')
+                    if analysis_id:
+                        if not card['c2c_approved_assumption']: raise ValueError('Measured C2C requires explicit approval for this comparison')
+                        if linked and analysis_link(store.get_entity('analysis',analysis_id))['scientific_sha256']!=linked['scientific_sha256']:
+                            raise ValueError('C2C analysis differs from the published profile link')
+                        ref['c2c']=dict(source='measured_detrended',analysis_id=analysis_id,approved_assumption=True,cross_condition_acknowledged=card['cross_condition_acknowledged'])
+                    elif card.get('manual_c2c_cv_percent') is not None:
+                        ref['c2c']=dict(source='manual_assumption',cv_percent=card['manual_c2c_cv_percent'])
+                    else: raise ValueError('C2C data is unavailable; disable it or select and approve an analysis')
+                candidate=resolve_c2c(store,dict(common,profile_refs=[ref]))
+                ref=candidate['profile_refs'][0]
+                seen.add(ref['id']);refs.append(ref);manifests.append(deepcopy(manifest))
+                card.update(status='queued',profile_hash=manifest['profile_hash'],reason=None)
+            except (ValueError,KeyError,SchemaValidationError) as exc:
+                card.update(status='blocked',reason=str(exc))
+            except Exception as exc:
+                # APIError carries a safe user-facing validation message.
+                if not hasattr(exc,'code'): raise
+                card.update(status='blocked',reason=exc.message)
+        timestamp=now()
+        item.update(snapshot=dict(common_settings=common,cards=deepcopy(item['cards']),profiles=manifests),updated_at=timestamp,version=item['version']+1)
+        if refs:
+            config=ExperimentRequest.model_validate(dict(common,profile_refs=refs)).root
+        # Phase 3 (short write transaction): re-verify the draft is exactly the one just validated.
+        # Published profiles are immutable, so an unchanged version/lifecycle/discard_requested here
+        # guarantees every card and common_settings field verified in phase 2 is still current.
+        with store.connection() as db:
+            db.execute('BEGIN IMMEDIATE'); fresh=read(db,str(identifier))
+            if fresh['discard_requested']: raise HTTPException(409,'Comparison discard has already been requested')
+            if fresh['lifecycle'] in ('running','temporary','saved'): return fresh
+            if fresh['lifecycle']!='drafting' or fresh['version']!=request.expected_version:
+                raise HTTPException(409,'Draft changed while validating; reload and try again')
             if refs:
-                config=ExperimentRequest.model_validate(dict(common,profile_refs=refs)).root
                 count=db.execute("SELECT COUNT(*) FROM jobs WHERE state IN ('queued','running')").fetchone()[0]
                 if count>=100: raise ValueError('The queue is full (100 pending jobs)')
                 eid,jid=str(uuid4()),str(uuid4())

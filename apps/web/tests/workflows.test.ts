@@ -41,9 +41,27 @@ test('selecting one published card keeps its own immutable analysis links and re
  const p={profile_id:'profile-1',revision:2,condition_id:'A1',pools:{combined:{state_ids:['s1','s2']}},analysis_links:{state:{analysis_id:'state-1'},d2d:{analysis_id:'d2d-1'},c2c:{analysis_id:'c2c-1'}}};
  const card=publishedCard(base,p);
  assert.equal(card.profile_ref.id,'profile-1');assert.equal(card.profile_ref.revision,2);
+ assert.deepEqual(card.base_profile_ref,{id:'profile-1',revision:2});
  assert.deepEqual(card.selected_state_ids,['s1','s2']);assert.equal(card.d2d_analysis_id,'d2d-1');assert.equal(card.retention_analysis_id,null);assert.equal(card.c2c_analysis_id,'c2c-1');
  assert.equal(card.c2c_approved_assumption,false);assert.equal(card.cross_condition_acknowledged,false);
  assert.equal(base.c2c_approved_assumption,true);
+});
+
+test('base_profile_ref survives a reload/clone round trip and outlives profile_ref being cleared to revise the same profile',()=>{
+ // Reproduces the reported bug: refreshing the page (or cloning) used to reset the client-only
+ // "base to revise from" reference, so replacing one analysis on an already-published card fell
+ // back to POSTing a brand-new profile (revision 1) instead of the next revision of the same one.
+ const published={profile_id:'profile-1',revision:3,condition_id:'A1',pools:{combined:{state_ids:['s1','s2']}},analysis_links:{state:{analysis_id:'state-1'},c2c:{analysis_id:'c2c-1'}}};
+ const card=publishedCard({card_id:'card-1',display_name:'A1',c2c_approved_assumption:false,cross_condition_acknowledged:false},published);
+ // A page refresh or clone round-trips the card through the server (editableCard is exactly what
+ // persist()/draftUpdate send, and what a CardResult from GET/clone is narrowed back down to).
+ const reopened=editableCard({...card,status:'draft',reason:null,candidate_ids:[],runs:[]} as never);
+ assert.deepEqual(reopened.base_profile_ref,{id:'profile-1',revision:3});
+ // Now the user replaces the C2C analysis; the UI nulls profile_ref (it named a now-stale
+ // published revision) but must not touch base_profile_ref.
+ const revised={...reopened,profile_ref:null,c2c_analysis_id:'c2c-2'};
+ assert.deepEqual(revised.base_profile_ref,{id:'profile-1',revision:3});
+ assert.equal(compositionKey(revised,revised.base_profile_ref),compositionKey(revised,{id:'profile-1',revision:3}));
 });
 
 test('replacing C2C on one card revises only that link and retains base state and other effects',()=>{

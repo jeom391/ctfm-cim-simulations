@@ -752,6 +752,16 @@
       "ComparisonCard": {
         "additionalProperties": false,
         "properties": {
+          "base_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "c2c_analysis_id": {
             "anyOf": [
               {
@@ -879,6 +889,16 @@
       "ComparisonCardResult": {
         "additionalProperties": false,
         "properties": {
+          "base_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "c2c_analysis_id": {
             "anyOf": [
               {

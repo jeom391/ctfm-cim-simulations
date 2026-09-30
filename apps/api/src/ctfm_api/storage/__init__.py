@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import time
 from uuid import UUID, uuid4
 
 
@@ -28,8 +29,9 @@ def default_root():
 
 
 class Store:
-    def __init__(self, root=None):
+    def __init__(self, root=None, *, db_timeout=30):
         self.root = Path(root or default_root()).resolve()
+        self.db_timeout = db_timeout
         for directory in ("uploads", "artifacts", "db", "cache"):
             (self.root / directory).mkdir(parents=True, exist_ok=True)
         self.db_path = self.root / "db/ctfm.sqlite3"
@@ -53,13 +55,27 @@ class Store:
 
     @contextmanager
     def connection(self):
-        db = sqlite3.connect(self.db_path, timeout=30)
+        db = sqlite3.connect(self.db_path, timeout=self.db_timeout)
         db.row_factory = sqlite3.Row
         try:
             with db:
                 yield db
         finally:
             db.close()
+
+    def _retry_locked(self, attempt, *, attempts=3, base_delay=0.2):
+        """Retry a whole connection/transaction a bounded number of times when SQLite reports the
+        database as busy/locked past its own internal `timeout`. Each attempt opens a fresh
+        connection (see `connection()`), and a failed attempt never partially commits -- sqlite3
+        rolls the transaction back when the `with db:` block exits on exception -- so retrying is
+        safe and cannot duplicate a write."""
+        for remaining in range(attempts - 1, -1, -1):
+            try:
+                return attempt()
+            except sqlite3.OperationalError as exc:
+                if remaining == 0 or "locked" not in str(exc).lower():
+                    raise
+                time.sleep(base_delay * (2 ** (attempts - 1 - remaining)))
 
     def managed_path(self, relative):
         path = (self.root / relative).resolve()
@@ -71,10 +87,12 @@ class Store:
         return self.managed_path("artifacts/" + str(UUID(str(job_id))))
 
     def put_entity(self, kind, identifier, data, *, replace=False):
-        with self.connection() as db:
-            query = "INSERT OR REPLACE" if replace else "INSERT"
-            db.execute(f"{query} INTO entities(kind,id,data,created_at) VALUES(?,?,?,?)",
-                       (kind, identifier, encode(data), data.get("created_at", now())))
+        def attempt():
+            with self.connection() as db:
+                query = "INSERT OR REPLACE" if replace else "INSERT"
+                db.execute(f"{query} INTO entities(kind,id,data,created_at) VALUES(?,?,?,?)",
+                           (kind, identifier, encode(data), data.get("created_at", now())))
+        self._retry_locked(attempt)
 
     def get_entity(self, kind, identifier):
         with self.connection() as db:
@@ -122,72 +140,85 @@ class Store:
         return [self.get_job(row["id"]) for row in rows]
 
     def claim(self):
-        with self.connection() as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT * FROM jobs WHERE state='queued' AND cancel_requested=0 ORDER BY created_at,id LIMIT 1").fetchone()
-            if row is None:
-                return None
-            db.execute("UPDATE jobs SET state='running',started_at=?,stage='parsing' WHERE id=?", (now(), row["id"]))
-            item = json.loads(db.execute("SELECT data FROM entities WHERE kind=? AND id=?", (row["kind"], row["entity_id"])).fetchone()[0])
-            item["status"] = "running"
-            db.execute("UPDATE entities SET data=? WHERE kind=? AND id=?", (encode(item), row["kind"], row["entity_id"]))
-            identifier = row["id"]
-        return self.get_job(identifier)
+        def attempt():
+            with self.connection() as db:
+                db.execute("BEGIN IMMEDIATE")
+                row = db.execute("SELECT * FROM jobs WHERE state='queued' AND cancel_requested=0 ORDER BY created_at,id LIMIT 1").fetchone()
+                if row is None:
+                    return None
+                db.execute("UPDATE jobs SET state='running',started_at=?,stage='parsing' WHERE id=?", (now(), row["id"]))
+                item = json.loads(db.execute("SELECT data FROM entities WHERE kind=? AND id=?", (row["kind"], row["entity_id"])).fetchone()[0])
+                item["status"] = "running"
+                db.execute("UPDATE entities SET data=? WHERE kind=? AND id=?", (encode(item), row["kind"], row["entity_id"]))
+                return row["id"]
+        identifier = self._retry_locked(attempt)
+        return self.get_job(identifier) if identifier is not None else None
 
     def set_pid(self, job_id, pid):
-        with self.connection() as db:
-            db.execute("UPDATE jobs SET pid=? WHERE id=? AND state='running'", (pid, job_id))
+        def attempt():
+            with self.connection() as db:
+                db.execute("UPDATE jobs SET pid=? WHERE id=? AND state='running'", (pid, job_id))
+        self._retry_locked(attempt)
 
     def progress(self, job_id, stage, completed, total):
         if total < 0 or completed < 0 or completed > total:
             raise ValueError("Invalid progress")
-        with self.connection() as db:
-            db.execute("UPDATE jobs SET stage=?,completed=?,total=?,progress=? WHERE id=? AND state='running'",
-                       (stage, completed, total, completed / total if total else 0, job_id))
+        def attempt():
+            with self.connection() as db:
+                db.execute("UPDATE jobs SET stage=?,completed=?,total=?,progress=? WHERE id=? AND state='running'",
+                           (stage, completed, total, completed / total if total else 0, job_id))
+        self._retry_locked(attempt)
 
     def finish(self, job_id, *, state, result=None, error=None):
         if state not in ("succeeded", "failed", "cancelled"):
             raise ValueError("Invalid terminal state")
-        with self.connection() as db:
-            db.execute("BEGIN IMMEDIATE")
-            job = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
-            if job is None:
-                raise KeyError(job_id)
-            if job["state"] not in ("queued", "running"):
-                return False
-            if job["cancel_requested"]:
-                state = "cancelled"
-            db.execute("UPDATE jobs SET state=?,stage=?,finished_at=?,error=?,pid=NULL,progress=? WHERE id=?",
-                       (state, state, now(), encode(error) if error else None, 1 if state == "succeeded" else job["progress"], job_id))
-            item = json.loads(db.execute("SELECT data FROM entities WHERE kind=? AND id=?", (job["kind"], job["entity_id"])).fetchone()[0])
-            if job["cancel_requested"] and not item.get("comparison_id"):
-                result = None
-            if item.get("comparison_id") and not result:
-                partial=self.job_dir(job_id)/"comparison-partial.json"
-                if partial.is_file():
-                    try: result=json.loads(partial.read_text(encoding="utf-8"))
-                    except (OSError,ValueError): pass
-            if result:
-                item.update(result)
-            item["status"] = result.get("status", state) if result and state == "succeeded" else state
-            item["finished_at"] = now()
-            if error:
-                item["error"] = error
-            db.execute("UPDATE entities SET data=? WHERE kind=? AND id=?", (encode(item), job["kind"], job["entity_id"]))
-            if item.get("comparison_id"):
-                from ctfm_api.comparisons import reconcile
-                reconcile(db, item)
-        return True
+        def attempt():
+            with self.connection() as db:
+                db.execute("BEGIN IMMEDIATE")
+                job = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+                if job is None:
+                    raise KeyError(job_id)
+                if job["state"] not in ("queued", "running"):
+                    return False
+                job_state = state
+                if job["cancel_requested"]:
+                    job_state = "cancelled"
+                db.execute("UPDATE jobs SET state=?,stage=?,finished_at=?,error=?,pid=NULL,progress=? WHERE id=?",
+                           (job_state, job_state, now(), encode(error) if error else None, 1 if job_state == "succeeded" else job["progress"], job_id))
+                item = json.loads(db.execute("SELECT data FROM entities WHERE kind=? AND id=?", (job["kind"], job["entity_id"])).fetchone()[0])
+                item_result = result
+                if job["cancel_requested"] and not item.get("comparison_id"):
+                    item_result = None
+                if item.get("comparison_id") and not item_result:
+                    partial=self.job_dir(job_id)/"comparison-partial.json"
+                    if partial.is_file():
+                        try: item_result=json.loads(partial.read_text(encoding="utf-8"))
+                        except (OSError,ValueError): pass
+                if item_result:
+                    item.update(item_result)
+                item["status"] = item_result.get("status", job_state) if item_result and job_state == "succeeded" else job_state
+                item["finished_at"] = now()
+                if error:
+                    item["error"] = error
+                db.execute("UPDATE entities SET data=? WHERE kind=? AND id=?", (encode(item), job["kind"], job["entity_id"]))
+                if item.get("comparison_id"):
+                    from ctfm_api.comparisons import reconcile
+                    reconcile(db, item)
+                return True
+        return self._retry_locked(attempt)
 
     def cancel(self, job_id):
-        with self.connection() as db:
-            db.execute("BEGIN IMMEDIATE")
-            job = db.execute("SELECT state FROM jobs WHERE id=?", (job_id,)).fetchone()
-            if job is None:
-                raise KeyError(job_id)
-            if job["state"] in ("queued", "running"):
-                db.execute("UPDATE jobs SET cancel_requested=1 WHERE id=?", (job_id,))
-        if job["state"] == "queued":
+        def attempt():
+            with self.connection() as db:
+                db.execute("BEGIN IMMEDIATE")
+                job = db.execute("SELECT state FROM jobs WHERE id=?", (job_id,)).fetchone()
+                if job is None:
+                    raise KeyError(job_id)
+                if job["state"] in ("queued", "running"):
+                    db.execute("UPDATE jobs SET cancel_requested=1 WHERE id=?", (job_id,))
+                return job["state"]
+        state = self._retry_locked(attempt)
+        if state == "queued":
             self.finish(job_id, state="cancelled")
         return self.get_job(job_id)
 

@@ -298,6 +298,34 @@ async def test_concurrent_discard_of_queued_job_is_idempotent(tmp_path):
         assert (await c.get(f'/api/v1/comparisons/{cid}')).json()['lifecycle']=='discarded'
         assert store.list_jobs()==[]
 
+async def test_run_verification_does_not_hold_the_writer_lock_while_it_runs(tmp_path,monkeypatch):
+    """Reproduces the reported crash: /run used to hold BEGIN IMMEDIATE across its own slow
+    validation (engine check, checkpoint hash, per-card profile/C2C resolution). A worker trying
+    to claim an unrelated job at the same time would then starve past its own busy timeout and
+    the whole worker process died. validate_product_scope runs unconditionally early in phase 2
+    (before any card is touched), so slowing it down is enough to prove no write lock is held
+    while /run is still verifying -- claim() for a different job must return promptly."""
+    import asyncio,time
+    from ctfm_api import comparisons as comparisons_module
+    real_validate=comparisons_module.validate_product_scope
+    def slow_validate(cfg):
+        time.sleep(1.0)
+        return real_validate(cfg)
+    monkeypatch.setattr(comparisons_module,"validate_product_scope",slow_validate)
+    store=Store(tmp_path)
+    async with AsyncClient(transport=ASGITransport(app=create_app(tmp_path)),base_url='http://test') as c:
+        draft=(await c.post('/api/v1/comparisons',json={'common_settings':common(),'cards':[]})).json()
+        item,job=store.enqueue("analysis",{"kind":"iv"})
+        run_task=asyncio.create_task(c.post(f"/api/v1/comparisons/{draft['comparison_id']}/run",json={'expected_version':1}))
+        await asyncio.sleep(0.2)  # let /run reach its (now slow) phase-2 verification
+        started=time.monotonic()
+        claimed=store.claim()
+        elapsed=time.monotonic()-started
+        assert claimed is not None and claimed["id"]==job["id"]
+        assert elapsed<0.5,f"claim() blocked for {elapsed}s behind /run's verification; the writer lock leaked into it"
+        response=await run_task
+        assert response.status_code==200,response.text
+
 
 def test_cleanup_rejects_a_job_directory_resolving_into_shared_uploads(tmp_path,monkeypatch):
     from ctfm_api.comparisons import create,write,cleanup

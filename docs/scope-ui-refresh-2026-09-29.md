@@ -89,3 +89,24 @@ WSL의 기존 AIHWKit Python 환경에서 전체 Python 회귀는 478 passed, 12
 **회귀 테스트·계약 검사·웹 빌드**: 전체 Python 회귀(`packages/ctfm-core/tests apps/api/tests apps/worker/tests tests`, 짧은 basetemp) **489 passed, 12 skipped, 0 failed**. 이번 라운드가 건드린 3개 파일만 다시 좁혀 돌린 `tests/contract/test_experiment_request.py apps/api/tests/test_comparisons.py apps/worker/tests/test_worker.py`도 **115 passed**. 웹 테스트(`node --test`) **53 passed**(신규 Retention 테스트 포함), `tsc --noEmit && vite build` **41 modules**, exit 0. 자세한 명령과 수치는 `local_report/25_REPORT_final-closeout.md`에 있다.
 
 **남은 데이터 확인 사항 (소프트웨어 수정과 분리)**: A3 1,000-cycle C2C 재측정본의 측정 조건 확인, D2D 서로 다른 물리 소자 ID 확정은 여전히 미해결이며 이번 라운드도 이를 검증 완료로 바꾸지 않았다 — 이 문서와 코드의 "소프트웨어 수정 완료" 범위는 이 두 항목의 "실측 데이터 확인 대기"와 분리해서 읽어야 한다.
+
+## PR #7 최종 검토·실제 실행 검증 (2026-10-01, 커밋 e0fca0b 기준)
+
+**코드 검토**: 사용자가 지정한 8개 항목(pending-finish 복구 순서, 잠금 해제 후 재계산·유실 없는 저장, `finish()==False`일 때 확인 전 삭제 금지, 기존 취소 처리 유지, 새로고침·복제·분석 교체 후 revision 연결 유지, 64×64/PPA 제외/Retention 제외의 UI·백엔드 동시 유지, C2C·D2D 기본 OFF와 미확인 데이터 자동 승인 방지, 기존 저장 결과 계속 열림)을 `storage/__init__.py`, `runner.py`, `product_policy.py`, `workflows.ts`, `Comparison.tsx`, `comparisons.py`/`app.py`의 `c2c_approved_assumption` 대입 경로를 다시 읽어 하나씩 대조했다. **8개 항목 모두 이미 의도대로 구현돼 있었고, 결함을 발견하지 못했다 — 코드 수정 없음.** 회귀 테스트 의견을 만들기 위한 범위 확장도 하지 않았다.
+
+**실제 AIHWKit 환경 확보**: 이 머신에는 팀원이 이전에 사용한 AIHWKit 환경이 남아 있지 않았다(`/opt/ctfm-engines`, WSL 파일시스템 전체를 확인했으나 aihwkit/conda/venv 흔적 없음). `scripts/linux/setup_aihwkit.sh`가 기술한 절차(uv, Python 3.11, torch 2.12.0+cpu, `aihwkit==1.1.0` — 2.13+는 import는 되지만 텐서 shape 오검증이 있다는 스크립트 자체의 경고에 따라 정확히 이 조합을 사용)를 그대로 따르되, `/opt`는 sudo 비밀번호가 필요해 시스템 전체 경로 대신 `CTFM_ENGINE_ROOT=$HOME/ctfm-engines`로 **사용자 홈 아래 프로젝트 전용 venv**를 새로 만들었다(시스템 Python·전역 설정은 전혀 건드리지 않음). `packages/ctfm-core`/`packages/contracts`/`apps/api`/`apps/worker`를 `--no-deps` editable install로 추가해 torch 핀을 보존했다. `scripts/linux/probe_aihwkit.py` 실행 결과 `aihwkit_ideal.available=true, version=1.1.0`, 784×128/128×10 계층 모두 `allclose=True`(최대 오차 ~1e-6)로 파리티를 확인했다. 이 venv로 API+worker를 새로 띄우자 `/api/v1/capabilities`가 `aihwkit_ideal:{available:true, version:"1.1.0"}`을 보고했다.
+
+**실제 브라우저 전체 흐름 (A1/A3, 실제 aihwkit_ideal 엔진)**: 새 검증 환경(포트 8415)에서 A1/A3 실측 CSV 업로드·인식·분석 제출은 이전 라운드와 동일하게 curl 직접 호출로 수행했다(브라우저 `FileList` 주입은 400~700KB 파일 4개에 비현실적이라는 동일 판단 — **네이티브 파일 선택창을 통한 진짜 브라우저 업로드가 필요하면, 사람이 직접 `/measurements` 화면에서 `data/team-snapshot/2026-09-29/files/LTD,LTP/A1/{A1_LTP.csv,A1_LTD.csv}`와 `A3/{LTP_512_A3_228.csv,LTD_512_A3_228.csv}` 4개 파일을 선택해 업로드하면 된다**). 이후 전부 실제 브라우저로 수행: 새 비교 생성 → 카드 2개에 A1(`26df239a...`, 1,020 states)/A3(`dc6cc483...`, 1,020 states) 연결·전체 선택 → 검토자·기록·체크박스 작성 후 발행(A1 `89e57a97...`:r1, A3 `c1505158...`:r1) → 공통 엔진을 `aihwkit_ideal`로 전환, ADC 5 bit ON, C2C/D2D/Retention OFF로 1차 실행(job `202f6677...`, checkpoint `c54c7abf-3fb9-4dff-8811-b61f268225e1`, split_seed 20260917) → 결과 이름 `PR7-round4-A1-A3-aihwkit-ADC5bit`로 저장 → 그 결과를 복제해 **같은 checkpoint UUID를 명시 재사용**하고 ADC만 OFF로 바꿔 2차 실행(job `a5c4ee4e...`) → 이름 `PR7-round4-A1-A3-aihwkit-ADCoff`로 저장 → `/saved-results`에서 두 결과 모두 새로고침 후 다시 열어 동일 결과가 재현됨을 확인 → 저장 결과를 새 임시 비교로 한 번 더 복제한 뒤 "임시 비교 폐기"로 버려 두 저장 결과가 그대로 남아 있음을 확인했다.
+
+A1/A3 정확도 비교(둘 다 `aihwkit_ideal` 1.1.0, 같은 checkpoint·64×64·C2C/D2D/Retention OFF·PPA 미실행, MNIST 시험 10,000 표본):
+
+| 조건 | A1 M0 | A1 ADC 5bit(ALL) | A3 M0 | A3 ADC 5bit(ALL) |
+| --- | ---: | ---: | ---: | ---: |
+| ADC OFF | 96.43% | 96.43%(=M0, ADC 없음) | 96.47% | 96.47%(=M0, ADC 없음) |
+| ADC 5 bit | 96.43% | 95.89% | 96.47% | 94.48% |
+
+ADC를 켜면 두 조건 모두 정확도가 내려가는(A1 −0.54pp, A3 −1.99pp) 예상된 방향이었고 임의 보정은 하지 않았다. 이 수치는 2026-09-30 절에 기록된 AIHWKit 1.1.0 실행값(A1 95.89%, A3 94.48%)과 정확히 일치해, 같은 checkpoint·seed·엔진에서 재현 가능함을 별도 환경에서 다시 확인한 셈이다. 이 검증은 **프로그램 실행 확인**이며 C2C 재측정 데이터나 D2D 소자 ID의 연구적 승인을 의미하지 않는다.
+
+**회귀·계약·빌드**: 코드 수정이 없어 새 회귀를 추가하지 않았다. 커밋 e0fca0b 기준 기존 회귀(Python 489 passed/12 skipped, 웹 53 passed, 빌드 41 modules)가 그대로 유효하다.
+
+**미수행 항목**: 브라우저 네이티브 파일 선택창을 통한 A1/A3 업로드(위 안내 참고), A3 C2C 재측정 조건 검토, D2D 물리 소자 ID 확정 — 모두 소프트웨어가 아니라 데이터/사람 조작이 필요한 항목이다. 자세한 내용은 `local_report/26_REPORT_final-review-execution.md`.

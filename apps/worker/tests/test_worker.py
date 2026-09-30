@@ -200,6 +200,43 @@ def test_main_once_survives_a_locked_claim_without_crashing(tmp_path,monkeypatch
     monkeypatch.setattr(sys,"argv",["ctfm_worker","--once"])
     runner.main()
 
+def test_completed_job_outcome_survives_a_lock_that_outlives_the_retry_budget(tmp_path,monkeypatch):
+    """A job that actually finishes (subprocess succeeds) but whose finish() write hits a lock
+    past Store's own retry budget must not be lost, marked failed, or recomputed: the outcome is
+    deferred to disk, stays 'running' until then, and a later poll iteration -- once the lock has
+    cleared -- commits the SAME outcome without running the subprocess again."""
+    import sqlite3
+    from ctfm_worker.runner import _flush_pending_finishes
+    store=Store(tmp_path)
+    data=b"time,id,gate\n5,0.000001,0\n6,0.000001,0\n6.1,0.000001,0\n6.2,0.000001,-10\n6.3,0.000001,0\n7,0.000002,0\n7.1,0.000002,0\n7.2,0.000002,-10\n7.3,0.000002,0\n"
+    import uuid
+    fid=str(uuid.uuid4());relative="uploads/"+fid+".csv"
+    store.managed_path(relative).write_bytes(data)
+    store.put_entity("file",fid,dict(file_id=fid,name="synthetic.csv",sha256=sha256(data),relative_path=relative))
+    request=dict(kind="pulse_states",inputs=[dict(file_id=fid,column_mapping=dict(time_s="time",id_a="id",vgs_v="gate"),units=dict(time_s="s",id_a="A",vgs_v="V"),device_id="synthetic-only",condition_id="A1",direction="ltp",read_vgs_v=0,vds_v=.1)],settings={})
+    item,job=store.enqueue("analysis",request)
+    real_finish=store.finish;calls=[]
+    def flaky_finish(job_id,**kwargs):
+        calls.append(kwargs.get("state"))
+        if len(calls)==1:raise sqlite3.OperationalError("database is locked")
+        return real_finish(job_id,**kwargs)
+    monkeypatch.setattr(store,"finish",flaky_finish)
+    assert run_once(store) is True  # subprocess ran to completion; finish() deferred (locked)
+    stuck=store.get_job(job["id"])
+    assert stuck["state"]=="running",stuck  # not yet committed -- still recoverable, not failed
+    pending=list((store.root/"artifacts").glob("*/pending-finish.json"))
+    assert len(pending)==1
+    assert run_once(store) is False  # nothing new queued; a normal poll iteration flushes the deferred outcome
+    finished=store.get_job(job["id"])
+    assert finished["state"]=="succeeded",finished
+    assert not pending[0].exists()
+    result=store.get_entity("analysis",item["id"])
+    assert len(result["states"])==2  # the real, once-computed result -- not recomputed, not discarded
+    assert calls==["succeeded","succeeded"]  # attempted twice for the SAME outcome; never re-run, never re-decided
+    # a second call to the flush helper directly is a safe no-op once nothing is pending
+    _flush_pending_finishes(store)
+    assert store.get_job(job["id"])["state"]=="succeeded"
+
 def test_spreadsheet_exports_keep_untrusted_strings_as_text(tmp_path):
     from ctfm_worker.exports import export_result
     from openpyxl import load_workbook

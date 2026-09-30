@@ -20,7 +20,7 @@ test('comparison settings keep the fixed scope and independent effect counts',()
 
 test('draft serialization sends request-only card fields and current version',()=>{
  const card={card_id:'00000000-0000-4000-8000-000000000001',display_name:'A1',profile_ref:{id:'00000000-0000-4000-8000-000000000002',revision:2},state_analysis_id:'00000000-0000-4000-8000-000000000003',c2c_approved_assumption:true,cross_condition_acknowledged:true,status:'succeeded',reason:'old',runs:[{accuracy:0.9}]};
- assert.deepEqual(editableCard(card),{card_id:card.card_id,display_name:'A1',profile_ref:card.profile_ref,state_analysis_id:card.state_analysis_id,c2c_approved_assumption:true,cross_condition_acknowledged:true});
+ assert.deepEqual(editableCard(card),{card_id:card.card_id,display_name:'A1',profile_ref:card.profile_ref,base_profile_ref:card.profile_ref,state_analysis_id:card.state_analysis_id,c2c_approved_assumption:true,cross_condition_acknowledged:true});
  assert.deepEqual(draftUpdate(7,{schema_version:'1.4.0'},[card]),{expected_version:7,common_settings:{schema_version:'1.4.0'},cards:[editableCard(card)]});
 });
 
@@ -62,6 +62,21 @@ test('base_profile_ref survives a reload/clone round trip and outlives profile_r
  const revised={...reopened,profile_ref:null,c2c_analysis_id:'c2c-2'};
  assert.deepEqual(revised.base_profile_ref,{id:'profile-1',revision:3});
  assert.equal(compositionKey(revised,revised.base_profile_ref),compositionKey(revised,{id:'profile-1',revision:3}));
+});
+
+test('a pre-fix saved record with only profile_ref recovers base_profile_ref from it on reopen',()=>{
+ // A comparison saved before base_profile_ref existed has profile_ref but the key is simply
+ // absent (not null) -- exactly what a server response for an old record looks like.
+ const oldRecord={card_id:'card-1',display_name:'A1',profile_ref:{id:'profile-9',revision:4},condition_id:'A1',
+  state_analysis_id:'state-1',selected_state_ids:['s1'],c2c_analysis_id:'c2c-1',
+  c2c_approved_assumption:false,cross_condition_acknowledged:false,status:'succeeded',reason:null,runs:[]};
+ assert.equal('base_profile_ref' in oldRecord,false);
+ const reopened=editableCard(oldRecord as never);
+ assert.deepEqual(reopened.base_profile_ref,{id:'profile-9',revision:4});
+ // Replacing an analysis link nulls profile_ref (it names a revision that no longer matches the
+ // card); the recovered base must survive that so compose() still targets the same profile ID.
+ const revised={...reopened,profile_ref:null,c2c_analysis_id:'c2c-2'};
+ assert.deepEqual(revised.base_profile_ref,{id:'profile-9',revision:4});
 });
 
 test('replacing C2C on one card revises only that link and retains base state and other effects',()=>{

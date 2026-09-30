@@ -32,7 +32,14 @@ export function restoreCommon(raw:Record<string,unknown>):CommonForm{
 }
 
 const cardKeys=['card_id','display_name','profile_ref','base_profile_ref','condition_id','state_analysis_id','selected_state_ids','d2d_analysis_id','retention_analysis_id','c2c_analysis_id','c2c_approved_assumption','cross_condition_acknowledged','manual_c2c_cv_percent'] as const;
-export function editableCard(card:CardResult|Card):Card {return Object.fromEntries(cardKeys.filter(k=>k in card).map(k=>[k,card[k]])) as unknown as Card;}
+export function editableCard(card:CardResult|Card):Card {
+ const next=Object.fromEntries(cardKeys.filter(k=>k in card).map(k=>[k,card[k]])) as unknown as Card;
+ // A record saved before base_profile_ref existed has only profile_ref; recover the same value as
+ // the revise-from base rather than leaving it unset (which would send the next composition to a
+ // brand-new profile instead of the next revision of this one).
+ if(!next.base_profile_ref&&next.profile_ref)next.base_profile_ref=next.profile_ref;
+ return next;
+}
 export function publishedCard(card:Card,profile:PublishedProfile):Card{
  const links=profile.analysis_links as Record<string,{analysis_id?:string}>|null|undefined;
  const ref={id:profile.profile_id,revision:profile.revision};

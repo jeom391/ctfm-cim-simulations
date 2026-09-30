@@ -13,6 +13,49 @@ from ctfm_api.storage import Store, sha256
 def _is_locked(exc):
     return isinstance(exc, sqlite3.OperationalError) and "locked" in str(exc).lower()
 
+class _FinishDeferred(Exception):
+    """The job's terminal outcome was computed and written to disk, but the database is still
+    locked past its retry budget. Not a job failure: a later poll iteration (this run or after a
+    restart) flushes the same outcome from disk -- the calculation is never repeated."""
+
+def _finish_or_defer(store, job_id, *, state, result=None, error=None):
+    try:
+        store.finish(job_id, state=state, result=result, error=error)
+    except sqlite3.OperationalError as exc:
+        if not _is_locked(exc):raise
+        pending=store.job_dir(job_id)/"pending-finish.json"
+        pending.write_text(json.dumps(dict(state=state,result=result,error=error),ensure_ascii=False),encoding="utf-8")
+        print(f"worker: database busy recording job {job_id}'s outcome ({state}); deferred to {pending.name}, will retry next poll",file=sys.stderr,flush=True)
+        raise _FinishDeferred(job_id) from exc
+
+def _flush_pending_finishes(store):
+    """Retry any outcome deferred by _finish_or_defer once the lock has had a chance to clear.
+    Called on every poll iteration (and once at startup before recover_interrupted), so a job
+    stuck 'running' only because its finish() write was locked gets closed out as soon as
+    possible -- never by recomputing it, and never by discarding a successful result."""
+    root=store.root/"artifacts"
+    if not root.is_dir():return
+    for pending in sorted(root.glob("*/pending-finish.json")):
+        job_id=pending.parent.name
+        try:
+            payload=json.loads(pending.read_text(encoding="utf-8"))
+            job=store.get_job(job_id)
+        except (OSError,ValueError,KeyError):
+            pending.unlink(missing_ok=True);continue
+        try:
+            comparison_id=store.get_entity(job["kind"],job["entity_id"]).get("comparison_id")
+        except KeyError:
+            comparison_id=None
+        try:
+            store.finish(job_id,state=payload["state"],result=payload.get("result"),error=payload.get("error"))
+        except sqlite3.OperationalError as exc:
+            if not _is_locked(exc):raise
+            continue
+        pending.unlink(missing_ok=True)
+        if comparison_id:
+            from ctfm_api.comparisons import cleanup
+            cleanup(store,comparison_id)
+
 @contextmanager
 def worker_lock(store):
     path=store.root/"db/worker.lock"
@@ -50,6 +93,7 @@ def terminate_owned_process(process):
         process.wait(timeout=5)
 
 def run_once(store):
+    _flush_pending_finishes(store)
     try:
         job=store.claim()
     except sqlite3.OperationalError as exc:
@@ -72,7 +116,7 @@ def run_once(store):
                 time.sleep(.2)
         cancelled=store.get_job(job["id"])["cancel_requested"]
         if cancelled and not comparison_id:
-            store.finish(job["id"],state="cancelled");return True
+            _finish_or_defer(store,job["id"],state="cancelled");return True
         result_path=output/"worker-result.json"
         result=json.loads(result_path.read_text(encoding="utf-8")) if result_path.is_file() else {}
         if not result and comparison_id:
@@ -89,21 +133,22 @@ def run_once(store):
             if not path.is_relative_to(output) or not path.is_file():raise ValueError("Invalid generated checkpoint path")
             store.put_entity("checkpoint",result["checkpoint_id"],dict(checkpoint_id=result["checkpoint_id"],relative_path=path.relative_to(store.root).as_posix(),sha256=sha256(path.read_bytes()),model_id="mnist_mlp_v1"))
         if cancelled:
-            store.finish(job["id"],state="cancelled",result=result)
+            _finish_or_defer(store,job["id"],state="cancelled",result=result)
         elif process.returncode==0 and result_path.is_file():
-            store.finish(job["id"],state="succeeded",result=result)
+            _finish_or_defer(store,job["id"],state="succeeded",result=result)
         else:
             error_path=output/"worker-error.json"
             error=json.loads(error_path.read_text(encoding="utf-8")) if error_path.is_file() else {"code":"worker_failed","message":"Calculation subprocess exited without a result."}
-            store.finish(job["id"],state="failed",result=result,error=error)
+            _finish_or_defer(store,job["id"],state="failed",result=result,error=error)
+    except _FinishDeferred:
+        # The outcome (including a success) is safely on disk; a later poll will commit it.
+        return True
     except BaseException:
         if process is not None:terminate_owned_process(process)
         try:
-            store.finish(job["id"],state="failed",error={"code":"worker_failed","message":"Worker could not complete the job."})
-        except sqlite3.OperationalError as finish_exc:
-            if not _is_locked(finish_exc):raise
-            # The job stays "running" in the database; recover_interrupted() will fail it on the next worker start.
-            print(f"worker: database busy while recording failure for job {job['id']}; it will be recovered on next start: {finish_exc}",file=sys.stderr,flush=True)
+            _finish_or_defer(store,job["id"],state="failed",error={"code":"worker_failed","message":"Worker could not complete the job."})
+        except _FinishDeferred:
+            pass
         raise
     if comparison_id:
         from ctfm_api.comparisons import cleanup
@@ -119,6 +164,7 @@ def main():
     if args.poll_seconds<.1:parser.error("poll interval must be at least 0.1 seconds")
     store=Store()
     with worker_lock(store):
+        _flush_pending_finishes(store)
         interrupted=store.recover_interrupted()
         if interrupted:print(f"Recorded {interrupted} interrupted jobs.",flush=True)
         while True:

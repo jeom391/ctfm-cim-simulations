@@ -277,12 +277,22 @@ class Store:
     def recover_interrupted(self):
         with self.connection() as db:
             rows = db.execute("SELECT id FROM jobs WHERE state='running'").fetchall()
+        recovered = 0
         for row in rows:
-            job=self.get_job(row["id"])
+            job_id = row["id"]
+            # A pending-finish.json means a prior worker already computed this job's real outcome
+            # and only failed to commit it (a lock, not a crash mid-calculation). That outcome is
+            # authoritative and must win: leave the job 'running' so ctfm_worker.runner's own
+            # _flush_pending_finishes -- called before this method and on every poll iteration --
+            # commits it, instead of this method overwriting a success as "interrupted"/failed.
+            if (self.job_dir(job_id) / "pending-finish.json").is_file():
+                continue
+            job=self.get_job(job_id)
             item=self.get_entity(job["kind"],job["entity_id"])
-            result=self._recover_comparison_outputs(row["id"]) if item.get("comparison_id") else None
-            self.finish(row["id"], state="failed", result=result, error={"code": "interrupted", "message": "Worker stopped before completing this job."})
-        return len(rows)
+            result=self._recover_comparison_outputs(job_id) if item.get("comparison_id") else None
+            self.finish(job_id, state="failed", result=result, error={"code": "interrupted", "message": "Worker stopped before completing this job."})
+            recovered += 1
+        return recovered
 
     def save_profile(self, manifest, states, *, replace_draft=False):
         identifier, revision = str(UUID(manifest["profile_id"])), manifest["revision"]

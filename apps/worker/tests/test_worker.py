@@ -237,6 +237,65 @@ def test_completed_job_outcome_survives_a_lock_that_outlives_the_retry_budget(tm
     _flush_pending_finishes(store)
     assert store.get_job(job["id"])["state"]=="succeeded"
 
+def test_pending_finish_survives_a_restart_whose_first_flush_is_also_locked(tmp_path,monkeypatch):
+    """Reproduces the restart race: a job's outcome was deferred to pending-finish.json by a prior
+    worker process. On restart the startup sequence is flush-then-recover_interrupted(); if that
+    first flush attempt is ALSO locked, recover_interrupted() must not sweep the still-'running'
+    job into 'failed' -- a pending outcome is authoritative, not an interruption. Once the lock
+    genuinely clears, a later flush must still recover the real, once-computed result."""
+    import sqlite3
+    from ctfm_worker.runner import _flush_pending_finishes
+    store=Store(tmp_path)
+    data=b"time,id,gate\n5,0.000001,0\n6,0.000001,0\n6.1,0.000001,0\n6.2,0.000001,-10\n6.3,0.000001,0\n7,0.000002,0\n7.1,0.000002,0\n7.2,0.000002,-10\n7.3,0.000002,0\n"
+    import uuid
+    fid=str(uuid.uuid4());relative="uploads/"+fid+".csv"
+    store.managed_path(relative).write_bytes(data)
+    store.put_entity("file",fid,dict(file_id=fid,name="synthetic.csv",sha256=sha256(data),relative_path=relative))
+    request=dict(kind="pulse_states",inputs=[dict(file_id=fid,column_mapping=dict(time_s="time",id_a="id",vgs_v="gate"),units=dict(time_s="s",id_a="A",vgs_v="V"),device_id="synthetic-only",condition_id="A1",direction="ltp",read_vgs_v=0,vds_v=.1)],settings={})
+    item,job=store.enqueue("analysis",request)
+    real_finish=store.finish;calls=[]
+    def flaky_finish(job_id,**kwargs):
+        calls.append(kwargs.get("state"))
+        if len(calls)<=2:raise sqlite3.OperationalError("database is locked")
+        return real_finish(job_id,**kwargs)
+    monkeypatch.setattr(store,"finish",flaky_finish)
+    assert run_once(store) is True  # subprocess completes; finish() (call 1) deferred to disk
+    assert store.get_job(job["id"])["state"]=="running"
+    pending=list((store.root/"artifacts").glob("*/pending-finish.json"))
+    assert len(pending)==1
+    # Simulate a worker restart: main()'s own startup order is flush, then recover_interrupted().
+    _flush_pending_finishes(store)  # call 2: also locked; still deferred
+    assert store.get_job(job["id"])["state"]=="running"
+    assert pending[0].exists()
+    recovered=store.recover_interrupted()
+    assert recovered==0  # must NOT have been swept into "interrupted"
+    assert store.get_job(job["id"])["state"]=="running"
+    # The lock finally clears (call 3).
+    _flush_pending_finishes(store)
+    finished=store.get_job(job["id"])
+    assert finished["state"]=="succeeded",finished
+    assert not pending[0].exists()
+    result=store.get_entity("analysis",item["id"])
+    assert len(result["states"])==2  # the real, once-computed result -- never recomputed
+    assert calls==["succeeded","succeeded","succeeded"]  # same decision every attempt
+
+def test_flush_pending_finish_never_discards_an_outcome_that_was_not_actually_applied(tmp_path,monkeypatch):
+    """If finish() returns False (job already terminal) for a reason OTHER than this exact pending
+    outcome having already been committed, the pending file must be kept, not silently deleted."""
+    import sqlite3
+    from ctfm_worker.runner import _flush_pending_finishes
+    store=Store(tmp_path)
+    item,job=store.enqueue("analysis",{"kind":"iv"})
+    store.claim()
+    output=store.job_dir(job["id"]);output.mkdir(parents=True)
+    (output/"pending-finish.json").write_text('{"state":"succeeded","result":{"ok":true}}',encoding="utf-8")
+    # The job was cancelled by a racing request before the deferred outcome could be flushed.
+    store.cancel(job["id"]);store.finish(job["id"],state="cancelled")
+    assert store.get_job(job["id"])["state"]=="cancelled"
+    _flush_pending_finishes(store)
+    assert (output/"pending-finish.json").exists()  # kept: 'succeeded' was never actually applied
+    assert store.get_job(job["id"])["state"]=="cancelled"  # the real, already-committed outcome stands
+
 def test_spreadsheet_exports_keep_untrusted_strings_as_text(tmp_path):
     from ctfm_worker.exports import export_result
     from openpyxl import load_workbook

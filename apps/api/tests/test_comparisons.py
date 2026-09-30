@@ -259,13 +259,14 @@ async def test_comparison_run_rejects_out_of_scope_common_settings_without_jobs(
     store=Store(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=create_app(tmp_path)),base_url='http://test') as c:
         card=await published_card(c,store)
-        for mutate in ('tile','ppa','order'):
+        for mutate in ('tile','ppa','order','retention'):
             cfg=common()
             cfg['schema_version']='1.4.0'
             cfg['effects']['adc']=True
             cfg['hardware'].update(adc_bits=5,adc_order='adc_then_subtract',range_policy='validation_max_abs')
             if mutate=='tile':cfg['hardware']['tile_size']=128
             elif mutate=='ppa':cfg['engines']['ppa']='assumed_proxy'
+            elif mutate=='retention':cfg['effects']['retention']=True
             else:cfg['hardware']['adc_order']='subtract_then_adc'
             draft=(await c.post('/api/v1/comparisons',json={'common_settings':cfg,'cards':[card]})).json()
             r=await c.post('/api/v1/comparisons/'+draft['comparison_id']+'/run',json={'expected_version':1})

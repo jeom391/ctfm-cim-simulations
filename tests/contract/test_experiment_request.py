@@ -77,6 +77,20 @@ def test_product_scope_rejects_preset_and_adc_off_order_directly(field, value):
     assert request == original
 
 
+def test_product_scope_rejects_retention_selection_for_new_executions():
+    """Retention non-ideality selection/application is out of scope for new executions (measurement
+    analysis and its extrapolation elsewhere are untouched); the request value is never rewritten,
+    only refused."""
+    request = fixture()
+    request["effects"]["retention"] = True
+    original = copy.deepcopy(request)
+    with pytest.raises(ValueError) as error:
+        validate_product_scope(request)
+    assert error.value.code == "outside_product_scope"
+    assert error.value.field == "effects.retention"
+    assert request == original
+
+
 @pytest.mark.parametrize("path,value", [
     (("arrays",), 30), (("arrays",), True), (("seed",), "123"),
     (("seed",), True), (("seed",), -1), (("n_reprogram",), True),

@@ -10,12 +10,26 @@ test('comparison completion refreshes experiment details after running state end
 });
 
 test('comparison settings keep the fixed scope and independent effect counts',()=>{
- const settings=commonSettings({adc:true,adcBits:5,d2d:false,c2c:true,retention:false,arrays:8,nReprogram:3,years:'0, 10',pools:['combined'],mappings:['fixed_reference'],engine:'torch_reference',checkpoint:'',seed:0});
+ const settings=commonSettings({adc:true,adcBits:5,d2d:false,c2c:true,arrays:8,nReprogram:3,pools:['combined'],mappings:['fixed_reference'],engine:'torch_reference',checkpoint:'',seed:0});
  assert.deepEqual(settings.hardware,{tile_size:64,adc_bits:5,adc_order:'adc_then_subtract',range_policy:'validation_max_abs',preset_id:null});
  assert.deepEqual(settings.effects,{adc:true,d2d:false,c2c:true,retention:false});
  assert.equal(settings.arrays,1);assert.equal(settings.n_reprogram,3);assert.deepEqual(settings.years,[0]);
  assert.deepEqual(settings.engines,{accuracy:'torch_reference',ppa:'off'});assert.equal(settings.seed,0);
  assert.equal('profile_refs' in settings,false);
+});
+
+test('retention non-ideality is always off for this new simulation, even for a legacy draft that had it on',()=>{
+ // Not a UI-only removal: a draft saved before this scope change (or any other caller) may still
+ // carry effects.retention:true / a years list. restoreCommon() drops both fields entirely, and
+ // commonSettings() hardcodes retention:false, years:[0] regardless of what is passed in -- so a
+ // reopened legacy draft self-heals on its next autosave instead of silently resubmitting it (the
+ // server rejects it either way; see product_policy.py's own rejection test).
+ const legacy=restoreCommon({effects:{adc:true,c2c:false,d2d:false,retention:true},hardware:{tile_size:64,adc_bits:5,adc_order:null},years:[0,10],seed:1,engines:{accuracy:'torch_reference',ppa:'off'}});
+ assert.equal('retention' in legacy,false);
+ assert.equal('years' in legacy,false);
+ const settings=commonSettings(legacy);
+ assert.equal(settings.effects.retention,false);
+ assert.deepEqual(settings.years,[0]);
 });
 
 test('draft serialization sends request-only card fields and current version',()=>{

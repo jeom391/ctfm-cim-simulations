@@ -18,3 +18,6 @@ def validate_product_scope(request):
     if request["engines"]["ppa"] != "off":
         raise ContractError("PPA is outside the current product scope.",
                             "engines.ppa", "outside_product_scope")
+    if request["effects"]["retention"]:
+        raise ContractError("Retention non-ideality selection is outside the current product scope for new executions.",
+                            "effects.retention", "outside_product_scope")

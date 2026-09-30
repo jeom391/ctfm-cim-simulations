@@ -47,10 +47,19 @@ def _flush_pending_finishes(store):
         except KeyError:
             comparison_id=None
         try:
-            store.finish(job_id,state=payload["state"],result=payload.get("result"),error=payload.get("error"))
+            applied=store.finish(job_id,state=payload["state"],result=payload.get("result"),error=payload.get("error"))
         except sqlite3.OperationalError as exc:
             if not _is_locked(exc):raise
             continue
+        if not applied:
+            # finish() no-ops (returns False) once a job is already terminal. That can be this
+            # exact outcome already committed on an earlier flush that crashed before unlinking
+            # (safe to discard now), or cancellation/some other path claiming the job first (never
+            # discard then -- the recorded state is authoritative and must not be overwritten here).
+            current=store.get_job(job_id)["state"]
+            if current!=payload["state"]:
+                print(f"worker: pending outcome for job {job_id} ({payload['state']}) was not applied; job is already '{current}'. Leaving {pending.name} for review.",file=sys.stderr,flush=True)
+                continue
         pending.unlink(missing_ok=True)
         if comparison_id:
             from ctfm_api.comparisons import cleanup

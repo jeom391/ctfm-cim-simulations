@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from ctfm_contracts.check_experiment_contract import validate_request
 from ctfm_contracts.models import ExperimentRequest
+from ctfm_contracts.product_policy import validate_product_scope
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS = ROOT / "packages/contracts"
@@ -59,6 +60,21 @@ def test_the_adc_order_is_not_applicable_when_the_converter_is_off():
     request["hardware"]["adc_order"] = "subtract_then_adc"
     with pytest.raises(ValidationError):
         ExperimentRequest.model_validate(request)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("preset_id", "neurosim-stock-sram-22nm"),
+    ("adc_order", "adc_then_subtract"),
+])
+def test_product_scope_rejects_preset_and_adc_off_order_directly(field, value):
+    request = fixture()
+    request["hardware"][field] = value
+    original = copy.deepcopy(request)
+    with pytest.raises(ValueError) as error:
+        validate_product_scope(request)
+    assert error.value.code == "outside_product_scope"
+    assert error.value.field == f"hardware.{field}"
+    assert request == original
 
 
 @pytest.mark.parametrize("path,value", [

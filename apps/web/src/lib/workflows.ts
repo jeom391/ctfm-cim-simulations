@@ -65,4 +65,5 @@ export function createDraftSaver<T,R>(read:()=>{token:number;value:T}|null,save:
 }
 export function recognizedChoices(requests:Proposal[],selected:Set<number>,submitted:Set<number>=new Set()):Proposal[]{return requests.filter((p,i)=>!submitted.has(i)&&(p.kind!=='iv'||selected.has(i)));}
 export function eligibleStateIds(states:ReadonlyArray<{state_id?:unknown;conductance_s?:unknown}>):string[]{return states.map(row=>String(row.state_id||'')).filter((id,i)=>!!id&&Number(states[i].conductance_s)>0);}
+export function experimentNeedsReload(before:string,after:string){return before==='running'&&after!=='running';}
 export function resolutionsFor(entries:Resolution[]):Resolution[]{return entries.map(({file_id,reason,...fields})=>{if(!reason.trim())throw new Error('선택 사유를 입력하세요.');return {file_id,reason:reason.trim(),...Object.fromEntries(Object.entries(fields).filter(([,v])=>v!==undefined&&v!==null&&v!==''))};});}

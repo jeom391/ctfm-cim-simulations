@@ -1,6 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {canPublishPending,commonSettings,compositionKey,draftUpdate,editableCard,eligibleStateIds,profileRevisionPayload,publishedCard,recognizedChoices,resolutionsFor,restoreCommon,reviewKey} from '../src/lib/workflows.ts';
+import {canPublishPending,commonSettings,compositionKey,draftUpdate,editableCard,eligibleStateIds,experimentNeedsReload,profileRevisionPayload,publishedCard,recognizedChoices,resolutionsFor,restoreCommon,reviewKey} from '../src/lib/workflows.ts';
+
+test('comparison completion refreshes experiment details after running state ends',()=>{
+ assert.equal(experimentNeedsReload('running','temporary'),true);
+ assert.equal(experimentNeedsReload('running','saved'),true);
+ assert.equal(experimentNeedsReload('running','running'),false);
+ assert.equal(experimentNeedsReload('temporary','saved'),false);
+});
 
 test('comparison settings keep the fixed scope and independent effect counts',()=>{
  const settings=commonSettings({adc:true,adcBits:5,d2d:false,c2c:true,retention:false,arrays:8,nReprogram:3,years:'0, 10',pools:['combined'],mappings:['fixed_reference'],engine:'torch_reference',checkpoint:'',seed:0});

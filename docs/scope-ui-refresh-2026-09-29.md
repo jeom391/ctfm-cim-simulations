@@ -41,3 +41,9 @@
 ## 검사와 증거
 
 WSL의 기존 AIHWKit Python 환경에서 전체 Python 회귀는 478 passed, 12 skipped, 5 warnings, 13 subtests passed였다. 변경된 NeuroSim fixture·계약 테스트 121개도 별도로 통과했다. 웹 테스트 48개와 TypeScript/Vite 빌드 41 모듈, OpenAPI·JSON Schema snapshot 및 실험 계약 검사가 통과했다. 기존 개인 경로의 측정 파일을 요구하는 12개 skip은 통과로 세지 않는다. 브라우저의 실험 상세가 완료 전 응답에 머물러 공통 D0/D1과 다운로드가 늦게 보이던 경로는 실행 중→종료 상태 전환 시 다시 읽도록 수정하고 위 복제 실행에서 확인했다. 상세 명령·경고·로컬 증거 경로는 이 작업공간의 `local_report/18_REPORT_scope-ui-refresh.md`에 기록했다.
+
+## 최종 인식 화면 보완
+
+새 업로드가 현재 배치를 교체하면 이전 파일별 선택과 사유를 지우며, 재인식 요청도 현재 배치의 파일 ID만 직렬화한다. 같은 배치를 다시 인식할 때 입력한 선택은 유지된다. 스냅샷 해시가 없는 Retention 원본에서 `retention_source_required`가 발생하면 Erase/Program 각각의 시간·전류 단위를 네 개의 독립 선택으로 받는다. 원본 라벨, 읽기 VGS, 선택 사유와 함께 서버에 전달하며 단위는 추정하지 않는다.
+
+이 두 경로의 웹 회귀를 추가한 뒤 웹 테스트는 **50 passed**, TypeScript/Vite 빌드는 **41 modules**, exit 0이었다. 별도 합성 파일 네 개의 펄스 CSV와 Retention XLSX를 기존 인식기로 확인했으며 처음에는 `needs_choice`, 명시적 선택 뒤에는 모두 `ready`였다. 이는 소프트웨어용 합성 검증 자료이며 새 실측 증거가 아니다. 위의 전체 Python 478개 및 MNIST 실행 수치는 이전 범위 검증 결과로 유지한다. P3 진단 목록 분량 문제는 이번 수정 범위에서 제외했다.

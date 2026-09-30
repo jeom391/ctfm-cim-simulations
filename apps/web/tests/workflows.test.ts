@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {canPublishPending,commonSettings,compositionKey,draftUpdate,editableCard,eligibleStateIds,experimentNeedsReload,profileRevisionPayload,publishedCard,recognizedChoices,resolutionsFor,restoreCommon,reviewKey} from '../src/lib/workflows.ts';
+import {activeResolutions,canPublishPending,commonSettings,compositionKey,draftUpdate,editableCard,eligibleStateIds,experimentNeedsReload,profileRevisionPayload,publishedCard,recognizedChoices,resolutionsFor,restoreCommon,reviewKey} from '../src/lib/workflows.ts';
 
 test('comparison completion refreshes experiment details after running state ends',()=>{
  assert.equal(experimentNeedsReload('running','temporary'),true);
@@ -90,4 +90,21 @@ test('clear pulse pairs need one enqueue action without five individual confirma
 test('resolution includes only operator-entered uncertain fields and requires evidence',()=>{
  assert.deepEqual(resolutionsFor([{file_id:'f',reason:'Operator log',condition_id:'A3',units:{vgs_v:'V'}}]),[{file_id:'f',reason:'Operator log',condition_id:'A3',units:{vgs_v:'V'}}]);
  assert.throws(()=>resolutionsFor([{file_id:'f',reason:' ',condition_id:'A3'}]));
+});
+
+test('a replacement upload serializes only its active batch, ignoring old choices and unfinished reasons',()=>{
+ const first={'first-ltp':{reason:'first acquisition',measurement_group:'first'},'first-ltd':{reason:'',measurement_group:'first'}};
+ assert.deepEqual(activeResolutions(['first-ltp'],first),[{file_id:'first-ltp',reason:'first acquisition',measurement_group:'first'}]);
+ const second={...first,'second-ltp':{reason:'second acquisition',measurement_group:'second'},'second-ltd':{reason:'second acquisition',measurement_group:'second'}};
+ assert.deepEqual(activeResolutions(['second-ltp','second-ltd'],second),[
+  {file_id:'second-ltp',reason:'second acquisition',measurement_group:'second'},
+  {file_id:'second-ltd',reason:'second acquisition',measurement_group:'second'},
+ ]);
+});
+
+test('re-recognizing the same Retention batch keeps all four independent units and source facts',()=>{
+ const entered={'retention-new':{reason:'operator checked sheet',source_label:'R1',read_vgs_v:0,units:{erase_time_s:'ms',erase_id_a:'uA',program_time_s:'s',program_id_a:'nA'}}};
+ const expected=[{file_id:'retention-new',reason:'operator checked sheet',source_label:'R1',read_vgs_v:0,units:{erase_time_s:'ms',erase_id_a:'uA',program_time_s:'s',program_id_a:'nA'}}];
+ assert.deepEqual(activeResolutions(['retention-new'],entered),expected);
+ assert.deepEqual(activeResolutions(['retention-new'],entered),expected);
 });

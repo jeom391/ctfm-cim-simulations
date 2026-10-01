@@ -117,7 +117,7 @@ ADC를 켜면 두 조건 모두 정확도가 내려가는(A1 −0.54pp, A3 −1.
 
 D2D도 C2C처럼 측정 분석 연결 없이 프로필별 수동 CV(%)를 직접 입력해 적용할 수 있게 됐다(`profile_refs[].d2d`, 기존 수동 C2C 경로와 동일한 구조). 기존에 측정 D2D 분석이 연결된 과거 프로필의 동작은 변경되지 않았다.
 
-실제 브라우저(네이티브 파일 선택창, API 대체 없음)로 A1/A3 LTP/LTD 파일을 올려 조건·1,020개 상태 자동 인식, 수동 C2C/D2D CV가 실제 실행 요청에 그대로 반영됨(provenance `source:"manual_assumption"`), ADC ON(5bit)/OFF 페어 실행, 저장 후 새로고침 재조회, 복제 후 조건 교체까지 확인했다. 한 가지 확인된 특성: 같은 seed로 별도 학습한 두 checkpoint는 분할·정확도(소수점 4자리)까지 동일하지만 파일 SHA256은 서로 다르다(CPU 다중 스레드 학습의 부동소수점 비결정성) — "동일 checkpoint 사용"은 현재 결과 단위로 보장되며, 파일 단위 완전 재사용은 후속 과제다. 자세한 내용은 `local_report/29_REPORT_simulator-input-simplification.md`.
+실제 브라우저(네이티브 파일 선택창, API 대체 없음)로 A1/A3 LTP/LTD 파일을 올려 조건·1,020개 상태 자동 인식, 수동 C2C/D2D CV가 실제 실행 요청에 그대로 반영됨(provenance `source:"manual_assumption"`), ADC ON(5bit)/OFF 페어 실행, 저장 후 새로고침 재조회, 복제 후 조건 교체까지 확인했다. **같은 비교 안의 A1/A3, 그리고 클론 후 ADC ON/OFF로 따로 돌린 두 실행 모두 모델 가중치가 텐서 단위로 완전히 동일함을 `torch.equal()`로 직접 확인했다**(최대 절대 오차 0.0, `state_dict`만 다시 직렬화한 SHA256도 일치) — 저장된 `checkpoint.pt` 파일 전체의 SHA256만 매번 다른데, 이는 파일에 같이 박히는 랜덤 `checkpoint_id`(uuid) 때문일 뿐 가중치 차이가 아니다. "동일 checkpoint 사용" 요구는 이미 충족돼 있다. 남는 것은 순수 저장 최적화(같은 조건이면 새로 학습·저장하지 않고 기존 checkpoint 엔티티를 재사용하는 캐시) 뿐이며 정확성 문제가 아니다. 자세한 내용은 `local_report/29_REPORT_simulator-input-simplification.md`, 검증 원본은 `local_report/31-evidence/checkpoint-weight-comparison.txt`.
 
 ## 결과 화면 정리 (2026-10-01)
 

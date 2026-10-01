@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {api,ApiError,type Experiment,type Profile,type Row} from '../../lib/api';
-import {commonSettings,createDraftSaver,defaultCommon,editableCard,experimentNeedsReload,restoreCommon,type Card,type Comparison,type CommonForm} from '../../lib/workflows';
+import {commonSettings,createDraftSaver,defaultCommon,editableCard,experimentNeedsReload,isLegacyRetentionRecord,restoreCommon,type Card,type Comparison,type CommonForm} from '../../lib/workflows';
 import {DataTable,Downloads,ErrorNotice,Field,Heading,JobProgress,JsonDetails,Notices,Panel,PlotArtifacts,Status,useResource,PpaPanel,show} from '../../shared';
 
 const pct=(v:unknown)=>typeof v==='number'?`${(v*100).toFixed(2)}%`:'—';
@@ -10,7 +10,6 @@ const pp=(v:unknown)=>typeof v==='number'?`${v.toFixed(3)} %p`:'—';
 // screen's extra columns/plot were ever for) renders this way so those saved results stay fully
 // inspectable, distinguished from -- never merged into -- the new simplified screen below.
 const rowOf=(run:Row,card?:Card)=>({카드:card?.display_name||'공통',후보:run.candidate_id??null,유형:run.kind??null,풀:run.pool??null,매핑:run.mapping??null,배열:run.array_index??null,재기록:run.reprogram_index??null,연수:run.years??null,상태:run.status??null,사유:run.reason??null,정확도:pct(run.accuracy),'D0 손실':pp(run.loss_vs_digital_pp),'M0 손실':pp(run.loss_vs_mapped_pp),'Retention 손실':pp(run.retention_loss_pp)});
-const isLegacyRetentionRecord=(record:Comparison)=>{const settings=(record.common_settings||{}) as {effects?:{retention?:boolean};years?:number[]};return !!settings.effects?.retention||(settings.years?.length||1)>1;};
 
 interface CardUpload {ltp:File|null;ltd:File|null;busy:boolean;error:string|null;info:{condition_id:string;n_states:number;g_min_s:number|null;g_max_s:number|null}|null}
 const emptyUpload=():CardUpload=>({ltp:null,ltd:null,busy:false,error:null,info:null});

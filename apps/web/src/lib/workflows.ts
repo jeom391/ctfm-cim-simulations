@@ -7,6 +7,15 @@ export type Recognition = components['schemas']['RecognitionResult'];
 export type Resolution = components['schemas']['RecognitionResolution'];
 export type Proposal = components['schemas']['AnalysisRequest'];
 
+// A saved comparison that ever used Retention (effects.retention, or a years list longer than the
+// fixed [0] every new comparison sends) renders via the old full table + plot.png instead of the
+// new simplified screen -- distinguished, never deleted. Pure/exported so this branch decision is
+// unit-testable without a live historical record.
+export function isLegacyRetentionRecord(record:{common_settings?:Record<string,unknown>}):boolean{
+ const settings=(record.common_settings||{}) as {effects?:{retention?:boolean};years?:number[]};
+ return !!settings.effects?.retention||(settings.years?.length||1)>1;
+}
+
 // Retention non-ideality selection/application is out of scope for this new simulation (measurement
 // analysis and its extrapolation queries elsewhere are unaffected): there is deliberately no form
 // field for it, and commonSettings() always emits effects.retention:false, years:[0] so a legacy

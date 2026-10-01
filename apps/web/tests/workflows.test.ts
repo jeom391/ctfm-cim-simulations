@@ -1,6 +1,16 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {activeResolutions,commonSettings,draftUpdate,editableCard,eligibleStateIds,experimentNeedsReload,recognizedChoices,resolutionsFor,restoreCommon} from '../src/lib/workflows.ts';
+import {activeResolutions,commonSettings,draftUpdate,editableCard,eligibleStateIds,experimentNeedsReload,isLegacyRetentionRecord,recognizedChoices,resolutionsFor,restoreCommon} from '../src/lib/workflows.ts';
+
+test('a record that ever used Retention renders via the legacy full table, a new one via the simplified screen',()=>{
+ // Developer-side check for the compatibility branch itself (no historical Retention record exists
+ // in the current verification storage to open live -- this pins the decision logic instead).
+ assert.equal(isLegacyRetentionRecord({common_settings:{effects:{retention:true},years:[0]}}),true);
+ assert.equal(isLegacyRetentionRecord({common_settings:{effects:{retention:false},years:[0,10]}}),true);
+ assert.equal(isLegacyRetentionRecord({common_settings:{effects:{retention:false},years:[0]}}),false);
+ assert.equal(isLegacyRetentionRecord({common_settings:{effects:{adc:true,c2c:true,d2d:true}}}),false);
+ assert.equal(isLegacyRetentionRecord({}),false);
+});
 
 test('comparison completion refreshes experiment details after running state ends',()=>{
  assert.equal(experimentNeedsReload('running','temporary'),true);

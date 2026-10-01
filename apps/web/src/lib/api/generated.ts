@@ -405,6 +405,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/quick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Profile Create Quick
+         * @description Single-step profile creation for the simplified flow: upload LTP+LTD, auto-recognize the
+         *     pair, auto-run the pulse_states analysis, auto-select every valid (positive-conductance)
+         *     state and immediately publish -- no separate review/publish UI. Reuses the exact recognition
+         *     (create_recognition) and profile (build_profile/publish_profile) machinery the multi-step
+         *     flow already used. The analysis itself runs in-process (the same parse_table+analyze() call
+         *     apps/worker/src/ctfm_worker/execute.py makes for a pulse_states job) rather than through the
+         *     async job queue: pulse-state extraction is fast pure-Python/numpy work with no training, so a
+         *     synchronous call gives the single upload click immediate feedback without depending on a
+         *     separate worker process being alive and free to pick the job up right now.
+         */
+        post: operations["profile_create_quick_api_v1_profiles_quick_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles/{identifier}/revisions": {
         parameters: {
             query?: never;
@@ -663,6 +691,15 @@ export interface components {
             /** Source Ref */
             source_ref: string | null;
         };
+        /** Body_profile_create_quick_api_v1_profiles_quick_post */
+        Body_profile_create_quick_api_v1_profiles_quick_post: {
+            /** Display Name */
+            display_name: string;
+            /** Ltd File */
+            ltd_file: string;
+            /** Ltp File */
+            ltp_file: string;
+        };
         /** Body_profile_import_api_v1_profiles_import_post */
         Body_profile_import_api_v1_profiles_import_post: {
             /** File */
@@ -759,6 +796,8 @@ export interface components {
             display_name: string;
             /** Manual C2C Cv Percent */
             manual_c2c_cv_percent?: number | null;
+            /** Manual D2D Cv Percent */
+            manual_d2d_cv_percent?: number | null;
             profile_ref?: components["schemas"]["ComparisonProfileRef"] | null;
             /** Retention Analysis Id */
             retention_analysis_id?: string | null;
@@ -801,6 +840,8 @@ export interface components {
             job_id?: string | null;
             /** Manual C2C Cv Percent */
             manual_c2c_cv_percent?: number | null;
+            /** Manual D2D Cv Percent */
+            manual_d2d_cv_percent?: number | null;
             /** Profile Hash */
             profile_hash?: string | null;
             profile_ref?: components["schemas"]["ComparisonProfileRef"] | null;
@@ -1040,6 +1081,12 @@ export interface components {
                     provenance?: Record<string, never>;
                     /** @constant */
                     source: "measured_detrended";
+                };
+                /** @description Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio, reused for D2D). Optional -- absent means fall back to the profile's own measured D2D (if any). */
+                d2d?: {
+                    cv_percent: number;
+                    /** @constant */
+                    source: "manual_assumption";
                 };
                 /** Format: uuid */
                 id: string;
@@ -3223,6 +3270,57 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": components["schemas"]["Body_profile_import_api_v1_profiles_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileManifest"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    profile_create_quick_api_v1_profiles_quick_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_profile_create_quick_api_v1_profiles_quick_post"];
             };
         };
         responses: {

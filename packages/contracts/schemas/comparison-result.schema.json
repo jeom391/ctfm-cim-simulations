@@ -119,6 +119,19 @@
           "default": null,
           "title": "Manual C2C Cv Percent"
         },
+        "manual_d2d_cv_percent": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual D2D Cv Percent"
+        },
         "profile_hash": {
           "anyOf": [
             {

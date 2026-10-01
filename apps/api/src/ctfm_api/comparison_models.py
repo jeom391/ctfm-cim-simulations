@@ -25,6 +25,7 @@ class ComparisonCard(Strict):
     c2c_approved_assumption: bool = False
     cross_condition_acknowledged: bool = False
     manual_c2c_cv_percent: float | None = Field(default=None, ge=0)
+    manual_d2d_cv_percent: float | None = Field(default=None, ge=0)
 
 class ComparisonDraft(Strict):
     common_settings: dict = Field(default_factory=dict, description="ExperimentRequest fields except profile_refs. Incomplete settings may be persisted; run validates the authoritative contract.")

@@ -197,6 +197,35 @@ def test_recognized_request_runs_worker_with_server_provenance_and_original_rows
     assert all(s['source_row']!=1001 for s in result['states'])
     assert any(r['source_row']==1001 for r in result['tables']['raw'])
 
+def test_profiles_quick_uploads_a_ltp_ltd_pair_and_auto_publishes_every_valid_state(client):
+    """The simplified upload flow: one multipart POST with both files, no analysis-page visit, no
+    separate review/publish step. Must reproduce the exact 1020-state figure every other round of
+    manual recognize+analyze+publish on this same A1 pair already established."""
+    ltp=next(p for p in pulse_paths() if p.name=='A1_LTP.csv')
+    ltd=next(p for p in pulse_paths() if p.name=='A1_LTD.csv')
+    response=client.post('/api/v1/profiles/quick', files={'ltp_file':(ltp.name,ltp.read_bytes()),'ltd_file':(ltd.name,ltd.read_bytes())}, data={'display_name':'A1 quick'})
+    assert response.status_code==201, response.text
+    profile=response.json()
+    assert profile['status']=='published'
+    assert profile['condition_id']=='A1'
+    assert profile['display_name']=='A1 quick'
+    assert profile['pools']['combined']['state_ids'].__len__()==1020
+    assert profile['review']['reviewer']=='system'
+    # No analysis entity is created for this flow -- it never shows up for a user to pick on the
+    # measurements page, matching "no analysis-record selection/review step" for the simulator.
+    assert client.get('/api/v1/analyses').json()['items']==[]
+
+def test_profiles_quick_rejects_an_unpaired_upload_with_a_clear_reason(client):
+    """Two copies of the same file can never become an LTP/LTD pair (duplicate-source guard); the
+    error must name the problem instead of silently producing a broken or empty profile."""
+    ltp=next(p for p in pulse_paths() if p.name=='A1_LTP.csv')
+    data=ltp.read_bytes()
+    response=client.post('/api/v1/profiles/quick', files={'ltp_file':('a.csv',data),'ltd_file':('b.csv',data)}, data={'display_name':'Broken'})
+    assert response.status_code==422, response.text
+    error=response.json()['error']
+    assert error['code']=='pulse_pair_not_recognized'
+    assert error['details']['problems']
+
 def test_resolution_with_extra_unit_role_does_not_abort_other_files(client):
     files=upload(client,[next(p for p in pulse_paths() if p.name=='A1_LTP.csv'), *sorted(SNAPSHOT.glob('files/Retention/**/*.xlsx'))[:1]])
     plan=recognize(client,files,resolutions=[dict(file_id=files[0]['file_id'],units={'time_s':'s','id_a':'A','vgs_v':'V','invented':'A'},reason='Invalid channel key')])

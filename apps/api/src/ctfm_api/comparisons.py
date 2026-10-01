@@ -168,10 +168,16 @@ def register_comparisons(app, storage, resolve_c2c, capabilities):
                         raise ValueError('Selected '+effect+' analysis differs from the published revision; compose and publish the replacement first')
                 if card.get('selected_state_ids') is not None and set(card['selected_state_ids'])!={s['state_id'] for s in record['states'] if s['selected']}:
                     raise ValueError('State selection differs from the published revision')
-                for effect in ('d2d','retention'):
-                    if common['effects'][effect] and manifest[effect]['status']!='available': raise ValueError(effect+' measurement is unavailable; disable it or select reviewed data')
+                if common['effects']['retention'] and manifest['retention']['status']!='available': raise ValueError('retention measurement is unavailable; disable it or select reviewed data')
                 if common['effects']['retention'] and manifest['retention']['program_fit']['a']+manifest['retention']['program_fit']['b']<=0:
                     raise ValueError('Retention reference current must be positive')
+                if common['effects']['d2d']:
+                    # A manual per-profile CV (simplified upload flow) takes precedence; otherwise
+                    # fall back to the profile's own measured D2D, exactly as before this existed.
+                    if card.get('manual_d2d_cv_percent') is not None:
+                        ref['d2d']=dict(source='manual_assumption',cv_percent=card['manual_d2d_cv_percent'])
+                    elif manifest['d2d']['status']!='available':
+                        raise ValueError('D2D data is unavailable; disable it or enter a manual relative CV(%) for this profile')
                 if common['effects']['c2c']:
                     linked=links.get('c2c') or {}
                     analysis_id=card.get('c2c_analysis_id') or linked.get('analysis_id')

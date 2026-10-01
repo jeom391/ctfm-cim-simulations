@@ -561,6 +561,31 @@
         "title": "Assumption",
         "type": "object"
       },
+      "Body_profile_create_quick_api_v1_profiles_quick_post": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "ltd_file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Ltd File",
+            "type": "string"
+          },
+          "ltp_file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Ltp File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ltp_file",
+          "ltd_file",
+          "display_name"
+        ],
+        "title": "Body_profile_create_quick_api_v1_profiles_quick_post",
+        "type": "object"
+      },
       "Body_profile_import_api_v1_profiles_import_post": {
         "properties": {
           "file": {
@@ -830,6 +855,18 @@
             ],
             "title": "Manual C2C Cv Percent"
           },
+          "manual_d2d_cv_percent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual D2D Cv Percent"
+          },
           "profile_ref": {
             "anyOf": [
               {
@@ -997,6 +1034,18 @@
               }
             ],
             "title": "Manual C2C Cv Percent"
+          },
+          "manual_d2d_cv_percent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual D2D Cv Percent"
           },
           "profile_hash": {
             "anyOf": [
@@ -2023,6 +2072,24 @@
                       "type": "object"
                     }
                   ]
+                },
+                "d2d": {
+                  "additionalProperties": false,
+                  "description": "Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio, reused for D2D). Optional -- absent means fall back to the profile's own measured D2D (if any).",
+                  "properties": {
+                    "cv_percent": {
+                      "minimum": 0.0,
+                      "type": "number"
+                    },
+                    "source": {
+                      "const": "manual_assumption"
+                    }
+                  },
+                  "required": [
+                    "cv_percent",
+                    "source"
+                  ],
+                  "type": "object"
                 },
                 "id": {
                   "format": "uuid",
@@ -6118,6 +6185,65 @@
           }
         },
         "summary": "Profile Import"
+      }
+    },
+    "/api/v1/profiles/quick": {
+      "post": {
+        "description": "Single-step profile creation for the simplified flow: upload LTP+LTD, auto-recognize the\npair, auto-run the pulse_states analysis, auto-select every valid (positive-conductance)\nstate and immediately publish -- no separate review/publish UI. Reuses the exact recognition\n(create_recognition) and profile (build_profile/publish_profile) machinery the multi-step\nflow already used. The analysis itself runs in-process (the same parse_table+analyze() call\napps/worker/src/ctfm_worker/execute.py makes for a pulse_states job) rather than through the\nasync job queue: pulse-state extraction is fast pure-Python/numpy work with no training, so a\nsynchronous call gives the single upload click immediate feedback without depending on a\nseparate worker process being alive and free to pick the job up right now.",
+        "operationId": "profile_create_quick_api_v1_profiles_quick_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_profile_create_quick_api_v1_profiles_quick_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileManifest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Profile Create Quick"
       }
     },
     "/api/v1/profiles/{identifier}/revisions": {

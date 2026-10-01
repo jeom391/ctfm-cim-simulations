@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, Request, UploadFile, File, Depends, Query
+from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -221,6 +221,65 @@ def create_app(storage_root=None):
             c2c_analysis=completed_analysis(store, request.c2c_analysis_id))
         store.save_profile(**result)
         return JSONResponse(result["manifest"], status_code=201)
+
+    @app.post("/api/v1/profiles/quick", status_code=201, response_model=ProfileManifest, response_model_exclude_unset=True)
+    async def profile_create_quick(ltp_file: UploadFile = File(...), ltd_file: UploadFile = File(...),
+                                    display_name: str = Form(...), store: Store = Depends(storage)):
+        """Single-step profile creation for the simplified flow: upload LTP+LTD, auto-recognize the
+        pair, auto-run the pulse_states analysis, auto-select every valid (positive-conductance)
+        state and immediately publish -- no separate review/publish UI. Reuses the exact recognition
+        (create_recognition) and profile (build_profile/publish_profile) machinery the multi-step
+        flow already used. The analysis itself runs in-process (the same parse_table+analyze() call
+        apps/worker/src/ctfm_worker/execute.py makes for a pulse_states job) rather than through the
+        async job queue: pulse-state extraction is fast pure-Python/numpy work with no training, so a
+        synchronous call gives the single upload click immediate feedback without depending on a
+        separate worker process being alive and free to pick the job up right now."""
+        from .recognition import create_recognition
+        from ctfm.measurement import parse_table, analyze
+        from ctfm.profiles import build_profile, publish_profile
+        prepared = []
+        for upload in (ltp_file, ltd_file):
+            try:
+                data = await upload.read(MAX_FILE_BYTES + 1)
+                name, media_type = validate_upload(data, upload.filename)
+                prepared.append((data, name, media_type))
+            finally:
+                await upload.close()
+        file_ids = []
+        for data, name, media_type in prepared:
+            identifier = str(uuid4())
+            relative = "uploads/" + identifier + Path(name).suffix.lower()
+            store.managed_path(relative).write_bytes(data)
+            record = dict(file_id=identifier, name=name, sha256=sha256(data), size_bytes=len(data), media_type=media_type, relative_path=relative, created_at=now())
+            store.put_entity("file", identifier, record)
+            file_ids.append(identifier)
+        plan = create_recognition(store, RecognitionRequest(file_ids=[UUID(f) for f in file_ids]))
+        pulse_requests = [r for r in plan["requests"] if r["kind"] == "pulse_states"]
+        if len(pulse_requests) != 1:
+            problems = [dict(file=s["name"], status=s["status"], issues=s.get("issues", [])) for s in plan["sources"] if s["status"] != "ready"]
+            raise APIError(422, "pulse_pair_not_recognized",
+                           "두 파일을 하나의 LTP/LTD 쌍으로 인식하지 못했습니다. 방향이 중복되거나 조건이 다른지, 측정 그룹이 일치하는지 확인하세요.",
+                           "files", {"problems": problems})
+        proposal = pulse_requests[0]
+        datasets = []
+        for meta in proposal["inputs"]:
+            record = store.get_entity("file", meta["file_id"])
+            data = store.managed_path(record["relative_path"]).read_bytes()
+            parsed = parse_table(data, record["name"], meta.get("sheet"))
+            datasets.append(dict(meta, rows=parsed["rows"], source_rows=parsed["source_rows"], filename=record["name"], sha256=record["sha256"]))
+        try:
+            analysis = analyze("pulse_states", datasets, proposal["settings"])
+        except ValueError as exc:
+            raise APIError(422, "analysis_failed", str(exc), None, {})
+        selected_state_ids = [s["state_id"] for s in analysis["states"] if s["selected"]]
+        if len(selected_state_ids) < 2:
+            raise APIError(422, "insufficient_states", "유효한 상태(양의 전도도)가 2개 미만입니다.", None, {"n": len(selected_state_ids)})
+        result = build_profile(analysis["condition_id"], analysis, selected_state_ids, display_name=display_name)
+        store.save_profile(**result)
+        published = publish_profile(**store.get_profile(result["manifest"]["profile_id"], result["manifest"]["revision"]),
+                                     reviewer="system", review_note="Auto-published by the simplified single-step profile upload flow; every recognized valid state was used automatically, with no separate manual review step.")
+        store.save_profile(published, result["states"], replace_draft=True)
+        return JSONResponse(published, status_code=201)
 
     @app.get("/api/v1/profiles")
     def profiles(status: Literal["draft","published"] | None = None, store: Store = Depends(storage)):

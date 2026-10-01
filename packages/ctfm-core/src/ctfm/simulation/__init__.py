@@ -108,8 +108,17 @@ def _validate(config,profiles,*,validate_profiles=True):
         m=profile['manifest'];validate_profile(m,profile['states'],published_required=True)
         if (m['profile_id'],m['revision']) not in refs:raise ValueError('Resolved profile does not match requested revision')
         if effects['d2d']:
-            d=m['d2d'];cv=d.get('cv')
-            if d.get('status')!='available' or cv is None or not _math.isfinite(cv) or cv<0:raise ValueError('D2D requires available measured CV')
+            # A request-time manual CV (simplified upload flow) overrides the profile's own
+            # measured D2D when present; absent, this falls back to the profile's manifest
+            # exactly as before manual D2D existed.
+            ref=ref_by_key[(m['profile_id'],m['revision'])];d2d_ref=ref.get('d2d')
+            if d2d_ref is not None:
+                if d2d_ref.get('source')!='manual_assumption':raise ValueError('D2D profile reference must use source=manual_assumption')
+                cv=d2d_ref.get('cv_percent')
+                if isinstance(cv,bool) or not isinstance(cv,(int,float)) or not _math.isfinite(cv) or cv<0:raise ValueError('D2D requires a finite nonnegative relative CV percent')
+            else:
+                d=m['d2d'];cv=d.get('cv')
+                if d.get('status')!='available' or cv is None or not _math.isfinite(cv) or cv<0:raise ValueError('D2D requires available measured CV')
         if effects.get('c2c'):
             # Manual assumption, never inherited: every referenced profile revision
             # must state its own cv_percent explicitly (docs/completion-plan P2).
@@ -230,6 +239,16 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
             ref=next(r for r in config['profile_refs'] if r['id']==manifest['profile_id'] and r['revision']==manifest['revision'])
             c2c_cv_percent=ref['c2c']['cv_percent'];c2c_ratio=c2c_relative_cv_percent_to_ratio(c2c_cv_percent)
             c2c_source=ref['c2c']['source'];c2c_provenance=ref['c2c'].get('provenance')
+        d2d_cv_percent=d2d_ratio=None;d2d_source=None
+        if effects.get('d2d') and not profile_error:
+            # Same per-profile-revision resolution as C2C above: a manual request-time CV
+            # overrides the profile's own measured D2D when present (simplified upload flow).
+            ref=next(r for r in config['profile_refs'] if r['id']==manifest['profile_id'] and r['revision']==manifest['revision'])
+            d2d_ref=ref.get('d2d')
+            if d2d_ref is not None:
+                d2d_cv_percent=d2d_ref['cv_percent'];d2d_ratio=c2c_relative_cv_percent_to_ratio(d2d_cv_percent);d2d_source='manual_assumption'
+            else:
+                d2d_ratio=manifest['d2d']['cv'];d2d_cv_percent=d2d_ratio*100;d2d_source=manifest['d2d'].get('source_kind')
         for pool in POOL_ORDER:
             if pool not in config['pools']:continue
             pool_info=manifest.get('pools',{}).get(pool,{})
@@ -277,7 +296,8 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                         if ppa_source is not None and ppa_source['identity'] is identity:ppa_source['bounds']=bounds
                     candidate_records.append(dict(**identity,mapping_artifact=mapping_filename,mapping_errors=mapping_meta,
                         hardware={**hardware,'calibration_filename':calibration_filename,'calibration_sha256':calibration_hash,'bounds':bounds},
-                        c2c=dict(cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source=c2c_source,**({'analysis_id':c2c_provenance['analysis_id'],'provenance':c2c_provenance} if c2c_source=='measured_detrended' else {})) if effects.get('c2c') else None))
+                        c2c=dict(cv_percent=c2c_cv_percent,cv_ratio=c2c_ratio,source=c2c_source,**({'analysis_id':c2c_provenance['analysis_id'],'provenance':c2c_provenance} if c2c_source=='measured_detrended' else {})) if effects.get('c2c') else None,
+                        d2d=dict(cv_percent=d2d_cv_percent,cv_ratio=d2d_ratio,source=d2d_source) if effects.get('d2d') else None))
                     # year -> {array_index: [accuracy per reprogram]}; a record never
                     # counts as its own independent array (docs/spec review).
                     samples={str(y):{} for y in sorted(config['years'])}
@@ -287,7 +307,7 @@ def run_experiment(config,profiles,output_dir,*,cache_dir,checkpoint_path=None,p
                             name=layer['name'];gs=[]
                             for polarity,key in [('plus','g_plus'),('minus','g_minus')]:
                                 if effects['d2d']:
-                                    factor,seed_info=d2d_factors(mapped[key].shape,manifest['d2d']['cv'],config['seed'],manifest['profile_hash'],array_index,name,polarity)
+                                    factor,seed_info=d2d_factors(mapped[key].shape,d2d_ratio,config['seed'],manifest['profile_hash'],array_index,name,polarity)
                                     seed_records.append(seed_info)
                                 else:factor=np.ones_like(mapped[key])
                                 g=mapped[key]*factor;gs.append(g)

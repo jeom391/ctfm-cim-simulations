@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {activeResolutions,canPublishPending,commonSettings,compositionKey,draftUpdate,editableCard,eligibleStateIds,experimentNeedsReload,profileRevisionPayload,publishedCard,recognizedChoices,resolutionsFor,restoreCommon,reviewKey} from '../src/lib/workflows.ts';
+import {activeResolutions,commonSettings,draftUpdate,editableCard,eligibleStateIds,experimentNeedsReload,recognizedChoices,resolutionsFor,restoreCommon} from '../src/lib/workflows.ts';
 
 test('comparison completion refreshes experiment details after running state ends',()=>{
  assert.equal(experimentNeedsReload('running','temporary'),true);
@@ -9,12 +9,17 @@ test('comparison completion refreshes experiment details after running state end
  assert.equal(experimentNeedsReload('temporary','saved'),false);
 });
 
-test('comparison settings keep the fixed scope and independent effect counts',()=>{
- const settings=commonSettings({adc:true,adcBits:5,d2d:false,c2c:true,arrays:8,nReprogram:3,pools:['combined'],mappings:['fixed_reference'],engine:'torch_reference',checkpoint:'',seed:0});
+test('comparison settings keep the fixed scope, independent effect counts, and fixed engine/pools/mappings/seed',()=>{
+ // Pools, mappings, accuracy engine and seed are no longer user choices (simplified flow): they are
+ // always this one validated combination, and the engine is always aihwkit_ideal -- never a silent
+ // torch_reference substitute. Only ADC/D2D/C2C on-off and their repeat counts come from the form.
+ const settings=commonSettings({adc:true,adcBits:5,d2d:false,c2c:true,arrays:8,nReprogram:3});
  assert.deepEqual(settings.hardware,{tile_size:64,adc_bits:5,adc_order:'adc_then_subtract',range_policy:'validation_max_abs',preset_id:null});
  assert.deepEqual(settings.effects,{adc:true,d2d:false,c2c:true,retention:false});
  assert.equal(settings.arrays,1);assert.equal(settings.n_reprogram,3);assert.deepEqual(settings.years,[0]);
- assert.deepEqual(settings.engines,{accuracy:'torch_reference',ppa:'off'});assert.equal(settings.seed,0);
+ assert.deepEqual(settings.pools,['combined']);assert.deepEqual(settings.mappings,['fixed_reference']);
+ assert.deepEqual(settings.engines,{accuracy:'aihwkit_ideal',ppa:'off'});assert.equal(settings.checkpoint_id,null);
+ assert.equal(typeof settings.seed,'number');
  assert.equal('profile_refs' in settings,false);
 });
 
@@ -32,6 +37,13 @@ test('retention non-ideality is always off for this new simulation, even for a l
  assert.deepEqual(settings.years,[0]);
 });
 
+test('manual D2D CV round-trips through editableCard like the existing manual C2C CV',()=>{
+ const card={card_id:'card-1',display_name:'A1',profile_ref:{id:'profile-1',revision:1},manual_c2c_cv_percent:5,manual_d2d_cv_percent:3,c2c_approved_assumption:false,cross_condition_acknowledged:false,status:'draft',reason:null,runs:[]};
+ const reopened=editableCard(card as never);
+ assert.equal(reopened.manual_c2c_cv_percent,5);
+ assert.equal(reopened.manual_d2d_cv_percent,3);
+});
+
 test('draft serialization sends request-only card fields and current version',()=>{
  const card={card_id:'00000000-0000-4000-8000-000000000001',display_name:'A1',profile_ref:{id:'00000000-0000-4000-8000-000000000002',revision:2},state_analysis_id:'00000000-0000-4000-8000-000000000003',c2c_approved_assumption:true,cross_condition_acknowledged:true,status:'succeeded',reason:'old',runs:[{accuracy:0.9}]};
  assert.deepEqual(editableCard(card),{card_id:card.card_id,display_name:'A1',profile_ref:card.profile_ref,base_profile_ref:card.profile_ref,state_analysis_id:card.state_analysis_id,c2c_approved_assumption:true,cross_condition_acknowledged:true});
@@ -40,8 +52,9 @@ test('draft serialization sends request-only card fields and current version',()
 
 test('reopening a server draft restores effect controls without inventing absent measurements',()=>{
  const form=restoreCommon({effects:{adc:true,c2c:true,d2d:false,retention:false},hardware:{tile_size:64,adc_bits:7,adc_order:'adc_then_subtract'},n_reprogram:4,arrays:1,years:[0],seed:0,engines:{accuracy:'aihwkit_ideal',ppa:'off'}});
- assert.equal(form.adcBits,7);assert.equal(form.c2c,true);assert.equal(form.nReprogram,4);assert.equal(form.seed,0);
+ assert.equal(form.adcBits,7);assert.equal(form.c2c,true);assert.equal(form.nReprogram,4);
  assert.equal(form.d2d,false);assert.equal(form.arrays,1);
+ assert.equal('seed' in form,false);assert.equal('engine' in form,false);assert.equal('checkpoint' in form,false);assert.equal('pools' in form,false);assert.equal('mappings' in form,false);
 });
 
 test('new comparisons enable 5-bit ADC while an explicit saved OFF remains OFF',()=>{
@@ -50,32 +63,18 @@ test('new comparisons enable 5-bit ADC while an explicit saved OFF remains OFF',
  assert.equal(restoreCommon({effects:{adc:false}}).adc,false);
 });
 
-test('selecting one published card keeps its own immutable analysis links and resets C2C approval',()=>{
- const base={card_id:'card-1',display_name:'A1 card',c2c_approved_assumption:true,cross_condition_acknowledged:true};
- const p={profile_id:'profile-1',revision:2,condition_id:'A1',pools:{combined:{state_ids:['s1','s2']}},analysis_links:{state:{analysis_id:'state-1'},d2d:{analysis_id:'d2d-1'},c2c:{analysis_id:'c2c-1'}}};
- const card=publishedCard(base,p);
- assert.equal(card.profile_ref.id,'profile-1');assert.equal(card.profile_ref.revision,2);
- assert.deepEqual(card.base_profile_ref,{id:'profile-1',revision:2});
- assert.deepEqual(card.selected_state_ids,['s1','s2']);assert.equal(card.d2d_analysis_id,'d2d-1');assert.equal(card.retention_analysis_id,null);assert.equal(card.c2c_analysis_id,'c2c-1');
- assert.equal(card.c2c_approved_assumption,false);assert.equal(card.cross_condition_acknowledged,false);
- assert.equal(base.c2c_approved_assumption,true);
-});
-
-test('base_profile_ref survives a reload/clone round trip and outlives profile_ref being cleared to revise the same profile',()=>{
- // Reproduces the reported bug: refreshing the page (or cloning) used to reset the client-only
- // "base to revise from" reference, so replacing one analysis on an already-published card fell
- // back to POSTing a brand-new profile (revision 1) instead of the next revision of the same one.
- const published={profile_id:'profile-1',revision:3,condition_id:'A1',pools:{combined:{state_ids:['s1','s2']}},analysis_links:{state:{analysis_id:'state-1'},c2c:{analysis_id:'c2c-1'}}};
- const card=publishedCard({card_id:'card-1',display_name:'A1',c2c_approved_assumption:false,cross_condition_acknowledged:false},published);
- // A page refresh or clone round-trips the card through the server (editableCard is exactly what
- // persist()/draftUpdate send, and what a CardResult from GET/clone is narrowed back down to).
- const reopened=editableCard({...card,status:'draft',reason:null,candidate_ids:[],runs:[]} as never);
+test('base_profile_ref survives a reload/clone round trip for a record that already set it directly',()=>{
+ // Reproduces the originally reported bug: refreshing the page (or cloning) used to reset the
+ // client-only "base to revise from" reference. editableCard() is exactly what persist()/draftUpdate
+ // send, and what a CardResult from GET/clone is narrowed back down to, so round-tripping a card
+ // through it must preserve an explicitly-set base_profile_ref even once profile_ref is cleared.
+ // (The simplified upload flow itself never sets base_profile_ref -- every upload is a brand-new
+ // profile identity -- but an older saved comparison may still carry one, and must keep working.)
+ const card={card_id:'card-1',display_name:'A1',profile_ref:{id:'profile-1',revision:3},base_profile_ref:{id:'profile-1',revision:3},c2c_approved_assumption:false,cross_condition_acknowledged:false,status:'draft',reason:null,candidate_ids:[],runs:[]};
+ const reopened=editableCard(card as never);
  assert.deepEqual(reopened.base_profile_ref,{id:'profile-1',revision:3});
- // Now the user replaces the C2C analysis; the UI nulls profile_ref (it named a now-stale
- // published revision) but must not touch base_profile_ref.
- const revised={...reopened,profile_ref:null,c2c_analysis_id:'c2c-2'};
+ const revised={...reopened,profile_ref:null};
  assert.deepEqual(revised.base_profile_ref,{id:'profile-1',revision:3});
- assert.equal(compositionKey(revised,revised.base_profile_ref),compositionKey(revised,{id:'profile-1',revision:3}));
 });
 
 test('a pre-fix saved record with only profile_ref recovers base_profile_ref from it on reopen',()=>{
@@ -91,24 +90,6 @@ test('a pre-fix saved record with only profile_ref recovers base_profile_ref fro
  // card); the recovered base must survive that so compose() still targets the same profile ID.
  const revised={...reopened,profile_ref:null,c2c_analysis_id:'c2c-2'};
  assert.deepEqual(revised.base_profile_ref,{id:'profile-9',revision:4});
-});
-
-test('replacing C2C on one card revises only that link and retains base state and other effects',()=>{
- const base={profile_id:'profile-1',revision:2,condition_id:'A1',pools:{combined:{state_ids:['s1','s2']}},analysis_links:{state:{analysis_id:'state-1'},d2d:{analysis_id:'d2d-1'}}};
- const card={card_id:'card-1',display_name:'A1 revised',state_analysis_id:'state-1',selected_state_ids:['s1','s2'],d2d_analysis_id:'d2d-1',retention_analysis_id:null,c2c_analysis_id:'c2c-new',c2c_approved_assumption:false,cross_condition_acknowledged:false};
- assert.deepEqual(profileRevisionPayload(card,base),{base_revision:2,display_name:'A1 revised',c2c_analysis_id:'c2c-new'});
-});
-
-test('review belongs to one card and immutable draft revision, and stale composition cannot publish',()=>{
- const a={card_id:'a',display_name:'A1',condition_id:'A1',state_analysis_id:'s1',selected_state_ids:['x','y'],c2c_approved_assumption:false,cross_condition_acknowledged:false};
- const b={...a,card_id:'b',display_name:'A3',condition_id:'A3',state_analysis_id:'s3'};
- const pa={profile_id:'p1',revision:1,profile_hash:'hash-a'},pb={profile_id:'p3',revision:1,profile_hash:'hash-b'};
- const pendingA={profile:pa,sourceKey:compositionKey(a,null)},pendingB={profile:pb,sourceKey:compositionKey(b,null)};
- const reviews={[reviewKey(a.card_id,pa)]:{reviewer:'Alice',note:'A1 states checked',reviewed:true}};
- assert.equal(canPublishPending(a,null,pendingA,reviews),true);
- assert.equal(canPublishPending(b,null,pendingB,reviews),false);
- assert.equal(canPublishPending({...a,selected_state_ids:['x','z']},null,pendingA,reviews),false);
- assert.equal(canPublishPending(a,null,{profile:{...pa,revision:2},sourceKey:pendingA.sourceKey},reviews),false);
 });
 
 test('bulk state selection uses the same eligible observed rows as individual checkboxes',()=>{

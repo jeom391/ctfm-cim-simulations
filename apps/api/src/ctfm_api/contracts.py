@@ -41,8 +41,10 @@ class AnalysisInput(Strict):
 
 class AnalysisRequest(Strict):
     recognition_id: UUID | None = None
-    kind: Literal["iv", "d2d", "retention", "pulse_states", "c2c_detrended"]
-    inputs: list[AnalysisInput] = Field(min_length=1, max_length=40)
+    kind: Literal["iv", "d2d", "retention", "pulse_states", "c2c_detrended", "c2c_sweep"]
+    # A D2D file pair (team snapshot 2026-10-02) has 15-16 amplitude blocks x 2 branches x
+    # 2 devices = up to 64 inputs; 100 matches the recognition request limit.
+    inputs: list[AnalysisInput] = Field(min_length=1, max_length=100)
     settings: dict = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -52,8 +54,8 @@ class AnalysisRequest(Strict):
         keys = {"iv": {"vgs_v", "id_a"}, "d2d": {"vgs_v", "id_a"},
                 "pulse_states": {"time_s", "id_a", "vgs_v"},
                 "retention": {"time_s", "program_id_a", "erase_id_a"},
-                "c2c_detrended": set()}[self.kind]
-        if self.kind == "c2c_detrended" and len(self.inputs) != 1:
+                "c2c_detrended": set(), "c2c_sweep": set()}[self.kind]
+        if self.kind in ("c2c_detrended", "c2c_sweep") and len(self.inputs) != 1:
             raise ValueError("Measured C2C analyzes exactly one workbook")
         for item in self.inputs:
             if item.start_time_s is not None and self.kind != "pulse_states":
@@ -64,6 +66,10 @@ class AnalysisRequest(Strict):
                 raise ValueError("Device and condition IDs must be explicit")
             if item.measurement_conditions is not None and self.kind != "c2c_detrended":
                 raise ValueError("measurement_conditions belongs to measured C2C analyses only")
+            if self.kind == "c2c_sweep":
+                if item.column_mapping or item.units or item.selection is not None or item.row_start or item.row_end:
+                    raise ValueError("Sweep C2C recognizes its columns by header; do not send a column mapping, selection or row range")
+                continue
             if self.kind == "c2c_detrended":
                 if item.column_mapping or item.units or item.selection is not None:
                     raise ValueError("Measured C2C recognizes its columns by header; do not send a column mapping or selection")
@@ -159,7 +165,7 @@ class RecognitionResolution(Strict):
     """Only uncertain facts; reason is recorded as user evidence, never file evidence."""
     file_id: UUID
     reason: str = Field(min_length=1, max_length=2000)
-    kind: Literal['pulse_states', 'iv', 'retention', 'c2c_detrended'] | None = None
+    kind: Literal['pulse_states', 'iv', 'retention', 'c2c_detrended', 'c2c_sweep'] | None = None
     condition_id: str | None = Field(default=None, min_length=1, max_length=200)
     direction: Literal['ltp', 'ltd'] | None = None
     sheet: str | None = None
@@ -205,7 +211,7 @@ class RecognizedSource(Strict):
     file_id: UUID
     sha256: str
     name: str
-    kind: Literal['pulse_states', 'iv', 'retention', 'c2c_detrended'] | None
+    kind: Literal['pulse_states', 'iv', 'retention', 'c2c_detrended', 'c2c_sweep'] | None
     condition_id: str | None
     direction: Literal['ltp', 'ltd'] | None
     sheet: str | None
@@ -247,4 +253,17 @@ class PhysicalDeviceSelection(Strict):
 
 class D2DRecognitionRequest(Strict):
     condition_id: str = Field(min_length=1, max_length=200)
-    selections: list[PhysicalDeviceSelection] = Field(min_length=2, max_length=40)
+    selections: list[PhysicalDeviceSelection] = Field(min_length=2, max_length=100)
+
+
+class D2DPairDevice(Strict):
+    file_id: UUID
+    device_id: str = Field(min_length=1, max_length=200)
+    identity_evidence: str = Field(min_length=1, max_length=2000)
+    sheet: str | None = None
+
+class D2DPairRequest(Strict):
+    """Two files designated as two physical devices; the server matches every common condition."""
+    condition_id: str = Field(min_length=1, max_length=200)
+    devices: list[D2DPairDevice] = Field(min_length=2, max_length=2)
+    units: dict[str, str] = Field(default_factory=lambda: {"vgs_v": "V", "id_a": "A"})

@@ -4,13 +4,13 @@ from collections import defaultdict
 from pathlib import Path
 from uuid import uuid4
 
-from ctfm.measurement.recognition import RULE, recognize_source, issue
+from ctfm.measurement.recognition import RULE, SNAPSHOT_DATE, recognize_source, issue
 from .contracts import AnalysisRequest, RecognitionResult
 from .storage import sha256
 
 
 def snapshot_index():
-    path = Path(__file__).resolve().parents[4] / 'data/team-snapshot/2026-09-29/manifest.json'
+    path = Path(__file__).resolve().parents[4] / f'data/team-snapshot/{SNAPSHOT_DATE}/manifest.json'
     index = defaultdict(list)
     if path.is_file():
         for entry in json.loads(path.read_text(encoding='utf-8-sig'))['files']:
@@ -107,31 +107,40 @@ def verify_recognized_request(store, request):
 
 
 
-def resolve_d2d(store, request):
-    """User identifies two devices; server verifies source, condition, block and branch."""
+def resolve_d2d(store, request, exclusions=None):
+    """User identifies two devices; server verifies source, condition, block and branch.
+
+    ``exclusions`` (pair flow) lists matched-condition gaps found before analysis, kept as
+    per-source issues so the analysis result carries them through ``recognition``."""
     from ctfm.measurement import analyze
     from ctfm.measurement.layouts import read_iv_blocks, iv_dataset
     from ctfm.measurement.recognition import evidence
     devices = {s.device_id.strip() for s in request.selections}
     if len(devices) != 2 or any(not d or d.startswith('measurement-source:') for d in devices):
         raise ValueError('D2D requires exactly two explicitly confirmed physical device IDs')
-    index, sources, inputs, datasets, ownership = snapshot_index(), {}, [], [], {}
+    index, sources, inputs, datasets, ownership, files = snapshot_index(), {}, [], [], {}, {}
     for selection in request.selections:
         identifier = str(selection.file_id)
         if not selection.identity_evidence.strip():
             raise ValueError('Physical device identity evidence is required')
-        record, data = source_bytes(store, identifier)
+        if identifier not in files:
+            record, data = source_bytes(store, identifier)
+            files[identifier] = (record, data, read_iv_blocks(data, record['name'], selection.sheet))
+        record, data, layout = files[identifier]
         digest = record['sha256']
         if digest in ownership and ownership[digest] != selection.device_id:
             raise ValueError('One physical source cannot be assigned to two distinct devices')
         ownership[digest] = selection.device_id
-        source = recognize_source(data, record['name'], identifier, index.get(digest, []),
-                                  dict(file_id=identifier, condition_id=request.condition_id, kind='iv', sheet=selection.sheet,
-                                       units=selection.units, reason=selection.identity_evidence))
-        source.pop('proposals')
-        if any(i['code'] not in ('invalid_iv_block','unsupported_iv_amplitude') for i in source['issues']):
-            raise ValueError('D2D source has unresolved/conflicting evidence: ' + str(source['issues']))
-        layout = read_iv_blocks(data, record['name'], selection.sheet)
+        if identifier not in sources:
+            source = recognize_source(data, record['name'], identifier, index.get(digest, []),
+                                      dict(file_id=identifier, condition_id=request.condition_id, kind='iv', sheet=selection.sheet,
+                                           units=selection.units, reason=selection.identity_evidence))
+            source.pop('proposals')
+            if any(i['code'] not in ('invalid_iv_block','unsupported_iv_amplitude') for i in source['issues']):
+                raise ValueError('D2D source has unresolved/conflicting evidence: ' + str(source['issues']))
+            source['physical_identity'], source['status'] = 'user_confirmed', 'ready'
+            evidence(source, 'physical_identity', selection.device_id, 'user_confirmed', selection.identity_evidence)
+            sources[identifier] = source
         if selection.block >= len(layout['blocks']):
             raise ValueError('D2D block does not exist')
         block = layout['blocks'][selection.block]
@@ -147,9 +156,8 @@ def resolve_d2d(store, request):
         datasets.append(iv_dataset(data, record['name'], block=selection.block, segment=selection.segment, branch=branch,
             sweep_amplitude_v=amplitude, device_id=selection.device_id, condition_id=request.condition_id,
             file_id=identifier, sha256=digest, sheet=layout['sheet'], units=selection.units))
-        source['physical_identity'], source['status'] = 'user_confirmed', 'ready'
-        evidence(source, 'physical_identity', selection.device_id, 'user_confirmed', selection.identity_evidence)
-        sources[identifier] = source
+    for item in exclusions or []:
+        issue(sources[item['file_id']], 'd2d_condition_excluded', item['detail'], block=item.get('block'))
     matched = {(i['sweep_amplitude_v'],i['branch']) for i in inputs}
     if any({i['device_id'] for i in inputs if (i['sweep_amplitude_v'],i['branch'])==key} != devices for key in matched):
         raise ValueError('D2D needs matched amplitude/branch for both physical devices')
@@ -160,3 +168,58 @@ def resolve_d2d(store, request):
     payload['requests'] = [proposal.model_dump(mode='json', exclude_none=True)]
     store.put_entity('recognition', recognition_id, payload)
     return payload
+
+
+def pair_conditions(layouts):
+    """Every (amplitude, branch) both files measure exactly once -> {key: [(block, segment) per file]}.
+
+    Erase is the increasing sweep; Program is the decreasing sweep that follows it (the full +A -> -A
+    branch). An initial 0 -> -A half sweep is not a Program branch and is never mixed in. A file with
+    a repeated amplitude block cannot be matched without guessing, so that amplitude is excluded."""
+    found, exclusions = [], []
+    for position, layout in enumerate(layouts):
+        per, seen = {}, {}
+        for block in layout['blocks']:
+            if block['status'] != 'ok':
+                continue
+            seen.setdefault(block['proposed_amplitude_v'], []).append(block['index'])
+            segments = block['segments']
+            erase = [s for s in segments if s['direction'] == 'increasing']
+            program = [s for k, s in enumerate(segments) if s['direction'] == 'decreasing' and k and segments[k-1]['direction'] == 'increasing']
+            for branch, chosen in (('erase', erase), ('program', program)):
+                if len(chosen) == 1:
+                    per[(block['proposed_amplitude_v'], branch)] = (block['index'], chosen[0]['index'])
+                else:
+                    exclusions.append(dict(position=position, block=block['index'], detail=f"{block['proposed_amplitude_v']:g} V {branch}: 블록 {block['index']}에 후보 구간이 {len(chosen)}개라 대응시키지 않음"))
+        for amplitude, blocks in seen.items():
+            if len(blocks) > 1:
+                for branch in ('erase', 'program'):
+                    per.pop((amplitude, branch), None)
+                exclusions.append(dict(position=position, block=blocks[0], detail=f'{amplitude:g} V 블록이 {len(blocks)}개 {blocks} 있어 하나를 임의로 고르지 않고 이 진폭을 제외'))
+        found.append(per)
+    keys = sorted(set(found[0]) & set(found[1]))
+    for position, per in enumerate(found):
+        for key in sorted(set(per) - set(keys)):
+            exclusions.append(dict(position=position, block=per[key][0], detail=f'{key[0]:g} V {key[1]}: 다른 파일에 하나로 대응되는 조건이 없음'))
+    return {key: [found[0][key], found[1][key]] for key in keys}, exclusions
+
+
+def resolve_d2d_pair(store, request):
+    """Two designated files (one per physical device): the server matches every common condition."""
+    from ctfm.measurement.layouts import read_iv_blocks
+    from .contracts import D2DRecognitionRequest
+    if len({str(d.file_id) for d in request.devices}) != 2:
+        raise ValueError('Choose two different files')
+    layouts = []
+    for device in request.devices:
+        record, data = source_bytes(store, str(device.file_id))
+        layouts.append(read_iv_blocks(data, record['name'], device.sheet))
+    keys, exclusions = pair_conditions(layouts)
+    if not keys:
+        raise ValueError('The two files share no uniquely matched amplitude/branch condition')
+    selections = [dict(file_id=device.file_id, device_id=device.device_id, identity_evidence=device.identity_evidence,
+                       sheet=layouts[n]['sheet'], block=pair[n][0], segment=pair[n][1], units=request.units)
+                  for pair in keys.values() for n, device in enumerate(request.devices)]
+    for item in exclusions:
+        item['file_id'] = str(request.devices[item.pop('position')].file_id)
+    return resolve_d2d(store, D2DRecognitionRequest(condition_id=request.condition_id, selections=selections), exclusions)

@@ -24,6 +24,23 @@
           "title": "Media Type",
           "type": "string"
         },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "user",
+                "internal"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "user = result table/graph for download; internal = reproduction/diagnostic file. Absent on artifacts registered before roles existed.",
+          "title": "Role"
+        },
         "sha256": {
           "pattern": "^[0-9a-f]{64}$",
           "title": "Sha256",

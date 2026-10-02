@@ -6,6 +6,8 @@ from . import RETENTION_SOURCES, _load_raw, _prepare, analyze, parse_table
 from .layouts import read_iv_blocks, read_retention_layout, retention_dataset, RETENTION_ROLES
 
 RULE = 'measurement-recognition/1.0'
+# Latest team snapshot (handoff 06). LTP/LTD and Retention bytes are identical to 2026-09-29.
+SNAPSHOT_DATE = '2026-10-02'
 PULSE_MAPPING = dict(time_s='Time', id_a='MeasResult1_value', vgs_v='MeasResult2_value')
 PULSE_UNITS = dict(time_s='s', id_a='A', vgs_v='V')
 
@@ -82,6 +84,8 @@ def recognize_source(data, filename, file_id, snapshot_paths=(), resolution=None
         source['sheet'] = sheet
         if 'Origin_data' in sheets:
             source['kind'], source['sheet'] = 'c2c_detrended', 'Origin_data'
+        elif 'Id_sweeps' in sheets:
+            source['kind'], source['sheet'] = 'c2c_sweep', 'Id_sweeps'
         elif 'Raw Data' in sheets:
             source['kind'], source['sheet'] = 'retention', 'Raw Data'
         elif raw and [str(v).strip() for v in raw[0][:3]] == ['Vg','Id','Ig']:
@@ -113,7 +117,7 @@ def recognize_source(data, filename, file_id, snapshot_paths=(), resolution=None
                 mapping, units = mapping or PULSE_MAPPING.copy(), units or PULSE_UNITS.copy()
                 evidence(source, 'units', units, 'user_confirmed' if resolution.get('units') else 'project_assumption', 'Approved instrument mapping: time=s, result1=absolute A, result2=V')
                 evidence(source, 'column_mapping', mapping, 'user_confirmed' if resolution.get('column_mapping') else 'project_assumption', 'Instrument mapping, not terminal names asserted by headers')
-                source['measurement_group'] = 'snapshot:2026-09-29:' + str(PurePosixPath(sorted(snapshot_paths)[0]).parent)
+                source['measurement_group'] = f'snapshot:{SNAPSHOT_DATE}:' + str(PurePosixPath(sorted(snapshot_paths)[0]).parent)
                 evidence(source, 'measurement_group', source['measurement_group'], 'snapshot_manifest', 'Byte-identical curated source and acquisition folder')
             if resolution.get('measurement_group'):
                 source['measurement_group'] = 'user:' + resolution['measurement_group']
@@ -179,6 +183,22 @@ def recognize_source(data, filename, file_id, snapshot_paths=(), resolution=None
                 analyze('retention', [dataset], {})
                 source['layout'].update(source_rows=dataset['source_rows'], skipped_blank_rows=dataset['skipped_blank_rows'])
                 source['proposals'] = [dict(kind='retention', inputs=[item], settings={})]
+        elif source['kind'] == 'c2c_sweep':
+            from .c2c_sweep import analyze_c2c_sweep
+            try:
+                result = analyze_c2c_sweep(data, filename, condition_id=base['condition_id'], device_id=base['device_id'])
+                source['layout'] = dict(provenance=result['provenance'])
+                # A bad cell blocks only its own read point (reported in the result), not the other two.
+                for p in result['summaries']['points']:
+                    for bad in p.get('issues', []):
+                        source['warnings'].append(f"{p['label']} Id_sweeps!{bad['cell']}: original value {bad['value']!r}; this point is not computed")
+                source['warnings'].append('Overall and detrended C2C are both reported; the representative segment is a later user choice')
+                source['proposals'] = [dict(kind='c2c_sweep', inputs=[dict(file_id=file_id, sheet='Id_sweeps', condition_id=base['condition_id'], device_id=base['device_id'])], settings={})]
+            except ValueError as exc:
+                source['status'] = 'invalid'
+                for detail in getattr(exc, 'issues', [dict(code='invalid_c2c_layout', detail=str(exc))]):
+                    issue(source, detail['code'], detail['detail'], sheet='Id_sweeps')
+            evidence(source, 'measurement_conditions', None, 'unknown', 'VDS and write procedure are not stated in the workbook')
         elif source['kind'] == 'c2c_detrended':
             from .c2c import analyze_c2c_file, C2CAnalysisError
             try:

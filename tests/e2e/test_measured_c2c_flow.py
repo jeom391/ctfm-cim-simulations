@@ -152,7 +152,9 @@ async def test_measured_c2c_analysis_then_server_resolved_experiment(tmp_path):
         assert analysis['provenance']['sheet'] == 'Origin_data' and analysis['provenance']['sha256'] == stored_hash
         assert analysis['measurement_conditions']['vds_v']['confirmed'] is False
         assert analysis['measurement_conditions']['program_voltage_v'] == dict(value=10.0, confirmed=True)
-        assert {a['filename'] for a in analysis['artifacts']} >= {'plot.png', 'cycles.csv', 'summary.json', 'tables.xlsx'}
+        assert {a['filename'] for a in analysis['artifacts']} >= {'cycles.csv', 'summary.json', 'tables.xlsx'}
+        # Only the result table and graph are user downloads; everything else stays internal.
+        assert {a['filename'] for a in analysis['artifacts'] if a['role'] == 'user'} == {'A1_C2C-PE_결과.csv', 'A1_C2C-PE_그래프.png'}
         assert store.get_entity('file', file_id)['sha256'] == stored_hash  # source untouched
 
         profile_id = await published_profile(client, store, 'A1')

@@ -287,7 +287,7 @@
       "items": {
         "$ref": "#/$defs/AnalysisInput"
       },
-      "maxItems": 40,
+      "maxItems": 100,
       "minItems": 1,
       "title": "Inputs",
       "type": "array"
@@ -298,7 +298,8 @@
         "d2d",
         "retention",
         "pulse_states",
-        "c2c_detrended"
+        "c2c_detrended",
+        "c2c_sweep"
       ],
       "title": "Kind",
       "type": "string"

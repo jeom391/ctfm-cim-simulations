@@ -75,3 +75,38 @@ export function resolutionsFor(entries:Resolution[]):Resolution[]{return entries
 export function activeResolutions(fileIds:string[],entries:Record<string,Partial<Resolution>>):Resolution[]{
  return resolutionsFor(fileIds.filter(id=>Object.keys(entries[id]||{}).some(k=>k!=='reason')).map(file_id=>({file_id,...entries[file_id]}) as Resolution));
 }
+
+// Which C2C figure a saved run's per-card CV came from (handoff 06 §2.2): overall variation or the
+// linearly detrended relative residual SD from the measurement page, or a plain assumption.
+export type C2cBasis = 'overall'|'detrended'|'assumed';
+export const c2cBasisLabels:Record<C2cBasis,string>={overall:'전체 변동',detrended:'추세 제거 후 변동',assumed:'직접 가정'};
+
+export interface CardUploadState {ltp:File|null;ltd:File|null;busy:boolean;error:string|null}
+// Run blockers per card, in the card's own words. With an effect OFF its CV is never required;
+// with it ON only that effect's CV is checked, and 0 is a valid entered value (null = not entered).
+export function cardProblems(cards:Card[],form:CommonForm,uploads:Record<string,Partial<CardUploadState>>={}):Record<string,string[]>{
+ const problems:Record<string,string[]>={};
+ for(const card of cards){
+  const list:string[]=[];
+  if(!card.display_name.trim())list.push('소자 이름을 입력하세요.');
+  if(uploads[card.card_id]?.busy)list.push('LTM 파일을 처리하는 중입니다.');
+  else if(!card.profile_ref)list.push('LTP와 LTD 파일을 올리세요.');
+  if(form.c2c&&(card.manual_c2c_cv_percent==null))list.push('C2C가 켜져 있어 C2C CV(%)가 필요합니다.');
+  if(form.d2d&&(card.manual_d2d_cv_percent==null))list.push('D2D가 켜져 있어 D2D CV(%)가 필요합니다.');
+  if(list.length)problems[card.card_id]=list;
+ }
+ return problems;
+}
+
+// Two chosen files = two physical devices. The label names the file, never a guessed device number.
+export function d2dPairDevices(files:{file_id:string;name:string;snapshot_paths?:string[]}[]){
+ return files.map((f,i)=>({file_id:f.file_id,device_id:`소자 ${i+1} (${f.name})`,
+  identity_evidence:f.snapshot_paths?.find(p=>p.startsWith('D2D/'))?`소자팀 지정 D2D 파일 쌍 (팀 스냅샷 ${f.snapshot_paths.find(p=>p.startsWith('D2D/'))})`:'사용자가 서로 다른 물리 소자의 파일로 지정'}));
+}
+
+// Client-side CSV of exactly the rows shown on screen (UTF-8 BOM for Excel; formula-like text quoted).
+export function toCsv(rows:Record<string,unknown>[]):string{
+ const keys=Array.from(new Set(rows.flatMap(r=>Object.keys(r))));
+ const cell=(v:unknown)=>{let s=v==null?'':String(v);if(/^[=+\-@]/.test(s)&&typeof v==='string')s="'"+s;return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+ return '\uFEFF'+[keys.map(cell).join(','),...rows.map(r=>keys.map(k=>cell(r[k])).join(','))].join('\r\n')+'\r\n';
+}

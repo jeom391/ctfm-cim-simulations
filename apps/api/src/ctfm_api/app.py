@@ -18,7 +18,7 @@ from ctfm_contracts.check_experiment_contract import ContractError, MAX_REQUESTE
 from ctfm_contracts.models import ExperimentRequest
 from ctfm_contracts.product_policy import validate_product_scope
 from ctfm.profiles import ProfileManifest
-from .contracts import D2DRecognitionRequest, RecognitionRequest, RecognitionResult, AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
+from .contracts import D2DPairRequest, D2DRecognitionRequest, RecognitionRequest, RecognitionResult, AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
 from .models import Capabilities, Capability, ErrorResponse, HardwareControls
 from .results import AnalysisResult, ExperimentResult, JobResult, JobList, FileUploadResult, FileList, FilePreview, AnalysisList, ExperimentList
 from .storage import Store, encode, sha256, now
@@ -65,7 +65,7 @@ def capabilities():
                                     for name in ("torch_reference", "aihwkit_ideal") if engines[name]["available"]
                                     for t in (64,) for b in range(3,9)
                                     for o in ("adc_then_subtract",)] if torch_available else []),
-        limits={"max_profiles": properties["profile_refs"]["maxItems"], "max_arrays": properties["arrays"]["maximum"],
+        limits={"max_profiles": MAX_REQUESTED_RUNS, "max_arrays": properties["arrays"]["maximum"],
                 "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"],
                 "max_n_reprogram": properties["n_reprogram"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
         supported_file_formats=["csv","xlsx"],
@@ -181,6 +181,11 @@ def create_app(storage_root=None):
     def measurement_d2d_resolution(request: D2DRecognitionRequest, store: Store = Depends(storage)):
         from .recognition import resolve_d2d
         return resolve_d2d(store, request)
+
+    @app.post("/api/v1/measurements/resolve-d2d-pair", response_model=RecognitionResult)
+    def measurement_d2d_pair(request: D2DPairRequest, store: Store = Depends(storage)):
+        from .recognition import resolve_d2d_pair
+        return resolve_d2d_pair(store, request)
 
     @app.post("/api/v1/measurements/recognize", response_model=RecognitionResult)
     def measurement_recognition(request: RecognitionRequest, store: Store = Depends(storage)):

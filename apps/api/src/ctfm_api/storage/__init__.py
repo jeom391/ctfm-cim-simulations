@@ -344,7 +344,10 @@ class Store:
         import mimetypes
         identifier = str(uuid4())
         data = path.read_bytes()
-        artifact = {"id": identifier, "kind": kind, "filename": path.name,
+        # Only what exports.py deliberately writes under user/ is offered as a download; checkpoints,
+        # arrays, diagnostics and any file added later stay internal (kept for reproduction/recovery).
+        role = "user" if path.parent.name == "user" else "internal"
+        artifact = {"id": identifier, "kind": kind, "role": role, "filename": path.name,
                     "media_type": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
                     "sha256": sha256(data), "size_bytes": len(data),
                     "download_url": f"/api/v1/artifacts/{identifier}/download",

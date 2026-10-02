@@ -281,7 +281,7 @@
             "items": {
               "$ref": "#/components/schemas/AnalysisInput"
             },
-            "maxItems": 40,
+            "maxItems": 100,
             "minItems": 1,
             "title": "Inputs",
             "type": "array"
@@ -292,7 +292,8 @@
               "d2d",
               "retention",
               "pulse_states",
-              "c2c_detrended"
+              "c2c_detrended",
+              "c2c_sweep"
             ],
             "title": "Kind",
             "type": "string"
@@ -376,7 +377,8 @@
                   "d2d",
                   "retention",
                   "pulse_states",
-                  "c2c_detrended"
+                  "c2c_detrended",
+                  "c2c_sweep"
                 ],
                 "type": "string"
               },
@@ -496,6 +498,22 @@
           "media_type": {
             "title": "Media Type",
             "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "internal"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "user = result table/graph for download; internal = reproduction/diagnostic file. Absent on artifacts registered before roles existed.",
+            "title": "Role"
           },
           "sha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -1170,7 +1188,7 @@
             "items": {
               "$ref": "#/components/schemas/ComparisonCard"
             },
-            "maxItems": 5,
+            "maxItems": 2000,
             "title": "Cards",
             "type": "array"
           },
@@ -1225,6 +1243,22 @@
       "ComparisonResult": {
         "additionalProperties": false,
         "properties": {
+          "c2c_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "overall",
+                  "detrended",
+                  "assumed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Basis"
+          },
           "cards": {
             "items": {
               "$ref": "#/components/schemas/ComparisonCardResult"
@@ -1389,6 +1423,22 @@
       "ComparisonSave": {
         "additionalProperties": false,
         "properties": {
+          "c2c_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "overall",
+                  "detrended",
+                  "assumed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Basis"
+          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -1409,7 +1459,7 @@
             "items": {
               "$ref": "#/components/schemas/ComparisonCard"
             },
-            "maxItems": 5,
+            "maxItems": 2000,
             "title": "Cards",
             "type": "array"
           },
@@ -1516,6 +1566,80 @@
         "title": "D2D",
         "type": "object"
       },
+      "D2DPairDevice": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Device Id",
+            "type": "string"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "identity_evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Identity Evidence",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          }
+        },
+        "required": [
+          "file_id",
+          "device_id",
+          "identity_evidence"
+        ],
+        "title": "D2DPairDevice",
+        "type": "object"
+      },
+      "D2DPairRequest": {
+        "additionalProperties": false,
+        "description": "Two files designated as two physical devices; the server matches every common condition.",
+        "properties": {
+          "condition_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Condition Id",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/D2DPairDevice"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Devices",
+            "type": "array"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "condition_id",
+          "devices"
+        ],
+        "title": "D2DPairRequest",
+        "type": "object"
+      },
       "D2DRecognitionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1529,7 +1653,7 @@
             "items": {
               "$ref": "#/components/schemas/PhysicalDeviceSelection"
             },
-            "maxItems": 40,
+            "maxItems": 100,
             "minItems": 2,
             "title": "Selections",
             "type": "array"
@@ -2106,7 +2230,6 @@
               ],
               "type": "object"
             },
-            "maxItems": 5,
             "minItems": 1,
             "type": "array",
             "uniqueItems": true
@@ -3706,7 +3829,8 @@
                   "pulse_states",
                   "iv",
                   "retention",
-                  "c2c_detrended"
+                  "c2c_detrended",
+                  "c2c_sweep"
                 ],
                 "type": "string"
               },
@@ -3889,7 +4013,8 @@
                   "pulse_states",
                   "iv",
                   "retention",
-                  "c2c_detrended"
+                  "c2c_detrended",
+                  "c2c_sweep"
                 ],
                 "type": "string"
               },
@@ -6003,6 +6128,64 @@
           }
         },
         "summary": "Measurement D2D Resolution"
+      }
+    },
+    "/api/v1/measurements/resolve-d2d-pair": {
+      "post": {
+        "operationId": "measurement_d2d_pair_api_v1_measurements_resolve_d2d_pair_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/D2DPairRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Measurement D2D Pair"
       }
     },
     "/api/v1/profiles": {

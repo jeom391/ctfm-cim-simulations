@@ -100,7 +100,8 @@ def _validate(config,profiles,*,validate_profiles=True):
         if hardware.get('adc_bits') not in range(3,9) or hardware.get('range_policy')!='validation_max_abs':raise ValueError('Unsupported ADC configuration')
         if hardware.get('adc_order') not in ADC_ORDERS:raise ValueError('ADC requires an explicit order: '+', '.join(ADC_ORDERS))
     elif any(hardware.get(k) is not None for k in ('adc_bits','range_policy','adc_order')):raise ValueError('ADC off requires null converter fields; the order does not apply')
-    if not 1<=len(profiles)<=5 or len(profiles)!=len(config['profile_refs']):raise ValueError('Profile reference count mismatch')
+    # Profile count is bounded by the 2000-run budget below, not by a fixed number.
+    if not profiles or len(profiles)!=len(config['profile_refs']):raise ValueError('Profile reference count mismatch')
     refs={(r['id'],r['revision']) for r in config['profile_refs']}
     if len({r['id'] for r in config['profile_refs']})!=len(config['profile_refs']):raise ValueError('Duplicate profile revisions')
     ref_by_key={(r['id'],r['revision']):r for r in config['profile_refs']}

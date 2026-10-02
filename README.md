@@ -1,4 +1,6 @@
-> 현재 구현·검증 범위: [2026-09-29 범위·화면 갱신](docs/scope-ui-refresh-2026-09-29.md). 원래 요구사항은 [인수인계](handoff/04_next-implementation-2026-09-29.md)에 있습니다.
+> **최종 상태 (2026-10-02):** [최종 구현·검증 완료 보고](docs/final-completion-2026-10-02.md) · 요구사항 [handoff 06](handoff/06_final-implementation-2026-10-02.md). 시뮬레이터 실행: `bash scripts/linux/serve.sh start` (WSL/Linux, AIHWKit).
+>
+> 이전 구현·검증 범위: [2026-09-29 범위·화면 갱신](docs/scope-ui-refresh-2026-09-29.md). 원래 요구사항은 [인수인계](handoff/04_next-implementation-2026-09-29.md)에 있습니다.
 
 # CTFM-CIM Simulations
 

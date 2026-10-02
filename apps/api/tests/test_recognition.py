@@ -9,7 +9,9 @@ from ctfm_api.app import create_app
 from ctfm.measurement import analyze, parse_table
 
 ROOT = Path(__file__).resolve().parents[3]
-SNAPSHOT = ROOT / 'data/team-snapshot/2026-09-29'
+SNAPSHOT = ROOT / 'data/team-snapshot/2026-10-02'
+# The Program/Erase C2C workbooks exist only in the earlier snapshot.
+LEGACY_C2C = ROOT / 'data/team-snapshot/2026-09-29'
 
 @pytest.fixture
 def client(tmp_path):
@@ -110,7 +112,7 @@ def test_iv_inventory_and_retention_source_biases_are_not_first_block_fallback(c
     assert all(r['inputs'][0]['sheet']=='Raw Data' for r in plan['requests'])
 
 def test_c2c_reports_bad_rows_without_confirming_conditions(client):
-    plan=recognize(client, upload(client,sorted(SNAPSHOT.glob('files/C2C/*.xlsx'))))
+    plan=recognize(client, upload(client,sorted(LEGACY_C2C.glob('files/C2C/*.xlsx'))))
     by_condition={s['condition_id']:s for s in plan['sources']}
     assert [by_condition[c]['status'] for c in ('A1','A3','A5')] == ['ready']*3
     for c in ('A2','A4'):

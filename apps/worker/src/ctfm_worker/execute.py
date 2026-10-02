@@ -24,6 +24,12 @@ def execute(job_id):
             record=store.get_entity("file",meta["file_id"])
             data=store.managed_path(record["relative_path"]).read_bytes()
             if sha256(data)!=record["sha256"]:raise ValueError("Source hash mismatch")
+            if request["kind"]=="c2c_sweep":
+                from ctfm.measurement.c2c_sweep import analyze_c2c_sweep
+                result=analyze_c2c_sweep(data,record["name"],condition_id=meta["condition_id"],device_id=meta["device_id"])
+                result["analysis_id"]=item["id"]
+                progress("parsing",1,1)
+                break
             if request["kind"]=="c2c_detrended":
                 from ctfm.measurement.c2c import analyze_c2c_file, to_analysis_record
                 raw=analyze_c2c_file(data,record["name"],sheet=meta.get("sheet"),device_id=meta["device_id"],condition_id=meta["condition_id"],
@@ -48,7 +54,7 @@ def execute(job_id):
             rows,source_rows=zip(*pairs)
             datasets.append(dict(meta,rows=list(rows),source_rows=list(source_rows),filename=record["name"],sha256=record["sha256"]))
             progress("parsing",index+1,len(request["inputs"]))
-        if request["kind"]!="c2c_detrended":
+        if request["kind"] not in ("c2c_detrended","c2c_sweep"):
             result=analyze(request["kind"],datasets,request["settings"])
             result["analysis_id"]=item["id"]
     else:

@@ -231,9 +231,11 @@ def register_comparisons(app, storage, resolve_c2c, capabilities):
         if not name: raise ValueError('A nonempty name is required')
         with store.connection() as db:
             db.execute('BEGIN IMMEDIATE');item=read(db,str(identifier))
-            if item['lifecycle']=='saved' and item['name']==name:return item
+            if item['lifecycle']=='saved' and item['name']==name and item.get('c2c_basis')==request.c2c_basis:return item
             if item['lifecycle']!='temporary' or item['discard_requested']:raise HTTPException(409,'Only a terminal temporary comparison can be saved')
-            item.update(lifecycle='saved',name=name,updated_at=now());write(db,item);return item
+            if request.c2c_basis and not item['common_settings'].get('effects',{}).get('c2c'):
+                raise ValueError('c2c_basis applies only to a comparison run with C2C on')
+            item.update(lifecycle='saved',name=name,c2c_basis=request.c2c_basis,updated_at=now());write(db,item);return item
 
     @app.post('/api/v1/comparisons/{identifier}/clone',response_model=ComparisonResult)
     def clone(identifier: UUID,request: ComparisonClone,store=Depends(storage)):

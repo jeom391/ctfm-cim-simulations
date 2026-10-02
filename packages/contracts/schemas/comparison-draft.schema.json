@@ -188,7 +188,7 @@
       "items": {
         "$ref": "#/$defs/ComparisonCard"
       },
-      "maxItems": 5,
+      "maxItems": 2000,
       "title": "Cards",
       "type": "array"
     },

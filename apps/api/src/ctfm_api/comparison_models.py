@@ -2,6 +2,7 @@
 from typing import Literal
 from uuid import UUID
 from pydantic import Field, model_validator
+from ctfm_contracts.check_experiment_contract import MAX_REQUESTED_RUNS
 from .contracts import Strict
 
 class ComparisonProfileRef(Strict):
@@ -29,7 +30,9 @@ class ComparisonCard(Strict):
 
 class ComparisonDraft(Strict):
     common_settings: dict = Field(default_factory=dict, description="ExperimentRequest fields except profile_refs. Incomplete settings may be persisted; run validates the authoritative contract.")
-    cards: list[ComparisonCard] = Field(default_factory=list, max_length=5)
+    # No fixed card count: every card needs at least one inference run, so the shared run
+    # budget (MAX_REQUESTED_RUNS) is the real bound; the job queue limit is unchanged.
+    cards: list[ComparisonCard] = Field(default_factory=list, max_length=MAX_REQUESTED_RUNS)
 
     @model_validator(mode="after")
     def unique_cards(self):
@@ -45,8 +48,13 @@ class ComparisonUpdate(ComparisonDraft):
 class ComparisonRun(Strict):
     expected_version: int = Field(ge=1, strict=True)
 
+C2CBasis = Literal["overall", "detrended", "assumed"]
+
 class ComparisonSave(Strict):
     name: str = Field(min_length=1, max_length=200)
+    # Which C2C figure the per-card CV inputs came from: overall variation, the linearly
+    # detrended relative residual SD, or a plain assumption. Required by the UI when C2C is on.
+    c2c_basis: C2CBasis | None = None
 
 class ComparisonClone(Strict):
     operation_id: UUID
@@ -76,6 +84,7 @@ class ComparisonResult(Strict):
     outcome: Literal["succeeded", "partial", "failed", "cancelled"] | None = None
     snapshot: dict | None = None
     discard_requested: bool = False
+    c2c_basis: C2CBasis | None = None
 
 class ComparisonList(Strict):
     items: list[ComparisonResult]

@@ -370,6 +370,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/measurements/resolve-d2d-pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Measurement D2D Pair */
+        post: operations["measurement_d2d_pair_api_v1_measurements_resolve_d2d_pair_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles": {
         parameters: {
             query?: never;
@@ -600,7 +617,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended";
+            kind: "iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended" | "c2c_sweep";
             /** Recognition Id */
             recognition_id?: string | null;
             /** Settings */
@@ -629,7 +646,7 @@ export interface components {
              */
             job_id: string;
             /** Kind */
-            kind?: ("iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended") | null;
+            kind?: ("iv" | "d2d" | "retention" | "pulse_states" | "c2c_detrended" | "c2c_sweep") | null;
             recognition?: components["schemas"]["RecognitionProvenance"] | null;
             /** Settings */
             settings?: {
@@ -670,6 +687,11 @@ export interface components {
             kind: string;
             /** Media Type */
             media_type: string;
+            /**
+             * Role
+             * @description user = result table/graph for download; internal = reproduction/diagnostic file. Absent on artifacts registered before roles existed.
+             */
+            role?: ("user" | "internal") | null;
             /** Sha256 */
             sha256: string;
             /** Size Bytes */
@@ -901,6 +923,8 @@ export interface components {
         };
         /** ComparisonResult */
         ComparisonResult: {
+            /** C2C Basis */
+            c2c_basis?: ("overall" | "detrended" | "assumed") | null;
             /** Cards */
             cards: components["schemas"]["ComparisonCardResult"][];
             /** Clone Operation Id */
@@ -952,6 +976,8 @@ export interface components {
         };
         /** ComparisonSave */
         ComparisonSave: {
+            /** C2C Basis */
+            c2c_basis?: ("overall" | "detrended" | "assumed") | null;
             /** Name */
             name: string;
         };
@@ -1001,6 +1027,34 @@ export interface components {
              * @enum {string}
              */
             status: "available" | "unavailable";
+        };
+        /** D2DPairDevice */
+        D2DPairDevice: {
+            /** Device Id */
+            device_id: string;
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Identity Evidence */
+            identity_evidence: string;
+            /** Sheet */
+            sheet?: string | null;
+        };
+        /**
+         * D2DPairRequest
+         * @description Two files designated as two physical devices; the server matches every common condition.
+         */
+        D2DPairRequest: {
+            /** Condition Id */
+            condition_id: string;
+            /** Devices */
+            devices: components["schemas"]["D2DPairDevice"][];
+            /** Units */
+            units?: {
+                [key: string]: string;
+            };
         };
         /** D2DRecognitionRequest */
         D2DRecognitionRequest: {
@@ -1675,7 +1729,7 @@ export interface components {
              */
             file_id: string;
             /** Kind */
-            kind?: ("pulse_states" | "iv" | "retention" | "c2c_detrended") | null;
+            kind?: ("pulse_states" | "iv" | "retention" | "c2c_detrended" | "c2c_sweep") | null;
             /** Measurement Group */
             measurement_group?: string | null;
             /** Read Vgs V */
@@ -1723,7 +1777,7 @@ export interface components {
             /** Issues */
             issues: components["schemas"]["RecognitionIssue"][];
             /** Kind */
-            kind: ("pulse_states" | "iv" | "retention" | "c2c_detrended") | null;
+            kind: ("pulse_states" | "iv" | "retention" | "c2c_detrended" | "c2c_sweep") | null;
             /** Layout */
             layout: {
                 [key: string]: unknown;
@@ -3119,6 +3173,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["D2DRecognitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecognitionResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    measurement_d2d_pair_api_v1_measurements_resolve_d2d_pair_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["D2DPairRequest"];
             };
         };
         responses: {

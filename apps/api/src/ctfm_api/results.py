@@ -10,6 +10,7 @@ class ScientificResult(BaseModel):
 class Artifact(ScientificResult):
     id: UUID
     kind: str
+    role: Literal["user","internal"] | None=Field(default=None,description="user = result table/graph for download; internal = reproduction/diagnostic file. Absent on artifacts registered before roles existed.")
     filename: str
     media_type: str
     sha256: str=Field(pattern=r"^[0-9a-f]{64}$")
@@ -21,7 +22,7 @@ class AnalysisResult(ScientificResult):
     analysis_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","failed","cancelled"]
-    kind: Literal["iv","d2d","retention","pulse_states","c2c_detrended"] | None=None
+    kind: Literal["iv","d2d","retention","pulse_states","c2c_detrended","c2c_sweep"] | None=None
     condition_id: str | None=None
     settings: dict | None=None
     summaries: dict | None=None

@@ -264,6 +264,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "c2c_basis": {
+      "anyOf": [
+        {
+          "enum": [
+            "overall",
+            "detrended",
+            "assumed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "C2C Basis"
+    },
     "cards": {
       "items": {
         "$ref": "#/$defs/ComparisonCardResult"

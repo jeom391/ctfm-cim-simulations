@@ -1,29 +1,28 @@
-/* CTFM research workspace.
-   Designed as a lab instrument, not a product page: warm paper ground, hairline
-   rules instead of stacked card borders, near-square corners, and colour
-   reserved for state. Numbers use tabular figures everywhere so columns align. */
+/* CTFM-CIM workspace (handoff 06 concept): white and pale-blue ground, navy navigation,
+   one blue accent for actions and the "applied" series. Colour is otherwise reserved for state.
+   Numbers use tabular figures everywhere so columns align. */
 
 :root {
-  /* Warm neutrals. A cold blue-grey ground with white cards on top is the
-     default template look; paper reads like a bench notebook instead. */
-  --paper: #f4f2ee;
-  --surface: #fffefb;
-  --sunk: #eceae4;
-  --ink: #1c1e22;
-  --ink-soft: #3d4148;
-  --muted: #6e6a63;
-  --rule: #ddd8d0;
-  --rule-soft: #e9e5de;
+  --paper: #f3f7fc;
+  --surface: #ffffff;
+  --sunk: #eaf1fa;
+  --ink: #142033;
+  --ink-soft: #33415a;
+  --muted: #66738a;
+  --rule: #d6e0ec;
+  --rule-soft: #e6edf6;
+  --nav: #13284a;
 
-  /* One accent, matching the project documents. Everything else is state. */
-  --accent: #8a3a1e;
-  --accent-soft: #f3e7e1;
-  --link: #6b4f9e;
+  --accent: #1f6fe5;
+  --accent-soft: #e8f1fe;
+  --bar-soft: #9dbbe6;
+  --link: #1859c4;
+  --ok: #1d8a4e;
+  --danger: #c0352b;
 
-  /* Three radii on purpose: surface, control, tag. Not one value everywhere. */
-  --r-surface: 2px;
-  --r-control: 3px;
-  --r-tag: 2px;
+  --r-surface: 10px;
+  --r-control: 6px;
+  --r-tag: 4px;
 
   --sans: Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Malgun Gothic",
     "Noto Sans KR", system-ui, sans-serif;
@@ -50,26 +49,26 @@ button, input, select, textarea { font: inherit }
 
 button, .button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid #c9c3b9; background: var(--surface); border-radius: var(--r-control);
+  border: 1px solid var(--rule); background: var(--surface); border-radius: var(--r-control);
   padding: 7px 13px; color: var(--ink-soft); font-weight: 600; letter-spacing: -.1px;
   cursor: pointer; text-decoration: none; min-height: 36px;
 }
 button:hover, .button:hover { background: var(--sunk); text-decoration: none }
 button:disabled { opacity: .45; cursor: not-allowed }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff }
-button.primary:hover { background: #73301a }
+button.primary:hover { background: #185bc0 }
 button.subtle { border-color: transparent; background: transparent; color: var(--muted) }
 button.danger { color: #9d3520; margin-left: 16px }
 
 input:not([type=checkbox]):not([type=file]), select, textarea {
-  width: 100%; border: 1px solid #c9c3b9; border-radius: var(--r-control);
+  width: 100%; border: 1px solid #c3d0e0; border-radius: var(--r-control);
   background: var(--surface); padding: 8px 10px; color: inherit; min-height: 38px;
 }
-input[readonly], input:disabled, select:disabled { background: var(--sunk); color: #8b867e }
+input[readonly], input:disabled, select:disabled { background: var(--sunk); color: #8a96a8 }
 input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0 }
 input[type=file] { width: 100%; max-width: 450px; font-size: 13px }
 input::file-selector-button {
-  background: var(--surface); border: 1px solid #c9c3b9; border-radius: var(--r-control);
+  background: var(--surface); border: 1px solid #c3d0e0; border-radius: var(--r-control);
   padding: 7px 12px; color: var(--accent); margin-right: 12px; cursor: pointer;
 }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
@@ -91,33 +90,26 @@ p { margin-bottom: 16px }
 
 /* ------------------------------------------------------------------ chrome */
 .topbar {
-  display: flex; align-items: center; gap: 40px; background: var(--surface);
-  border-bottom: 1px solid var(--rule); padding: 0 32px; min-height: 64px;
+  display: flex; align-items: center; gap: 40px; background: var(--nav);
+  padding: 0 32px; min-height: 60px;
 }
 .brand {
-  display: flex; align-items: center; gap: 10px; color: var(--ink);
-  font-size: 17px; font-weight: 700; letter-spacing: .4px; white-space: nowrap;
-}
-.brand small {
-  display: block; font-size: 9px; letter-spacing: 1.6px; color: var(--muted); line-height: 1.4;
-}
-.brand-mark {
-  display: grid; place-items: center; color: var(--surface); background: var(--accent);
-  width: 30px; height: 30px; border-radius: var(--r-tag); font-size: 17px; font-weight: 700;
+  display: flex; align-items: center; gap: 10px; color: #fff;
+  font-size: 20px; font-weight: 800; letter-spacing: .2px; white-space: nowrap;
 }
 .brand:hover { text-decoration: none }
 
 nav { display: flex; align-self: stretch; gap: 28px }
-nav a { display: flex; align-items: center; position: relative; color: var(--muted); font-weight: 600; font-size: 13px }
-nav a:hover { color: var(--ink); text-decoration: none }
-nav a[aria-current=page] { color: var(--ink) }
+nav a { display: flex; align-items: center; position: relative; color: #c3cfe2; font-weight: 600; font-size: 14px; padding: 0 6px; white-space: nowrap }
+nav a:hover { color: #fff; text-decoration: none }
+nav a[aria-current=page] { color: #fff; background: rgba(255,255,255,.08) }
 nav a[aria-current=page]:after {
-  position: absolute; content: ''; height: 2px; background: var(--accent); bottom: -1px; left: 0; right: 0;
+  position: absolute; content: ''; height: 3px; background: #3f8cff; bottom: 0; left: 0; right: 0;
 }
-.version { margin-left: auto; font-size: 10px; color: var(--muted); letter-spacing: 1px }
 
 main { max-width: 1280px; padding: 36px 32px 72px; margin: auto }
-.page-heading { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid var(--ink) }
+.page-heading { margin-bottom: 24px }
+.page-heading h1:after { content: ''; display: block; width: 64px; height: 4px; border-radius: 2px; background: var(--accent); margin-top: 8px }
 .page-heading p { color: var(--muted); max-width: 760px; margin-bottom: 0 }
 
 footer {
@@ -128,10 +120,10 @@ footer {
 .skip-link:focus { top: 8px }
 
 /* ---------------------------------------------------------------- surfaces */
-/* No shadows. A hairline and a warm fill separate a panel from the paper. */
+/* A hairline and a faint shadow lift a panel off the pale-blue ground. */
 .panel {
   border: 1px solid var(--rule); border-radius: var(--r-surface); background: var(--surface);
-  padding: 22px 24px; margin-bottom: 22px; min-width: 0;
+  padding: 22px 24px; margin-bottom: 22px; min-width: 0; box-shadow: 0 1px 3px rgba(20,40,80,.05);
 }
 .panel-heading {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -173,10 +165,10 @@ footer {
   display: inline-flex; white-space: nowrap; border-radius: var(--r-tag); padding: 2px 7px;
   background: var(--sunk); color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: -.1px;
 }
-.status.succeeded, .status.published { background: #e4eee0; color: #3b5f2c }
-.status.running, .status.draft { background: #e5e9f2; color: #3a4b6d }
-.status.failed, .status.invalid { background: #f6e3dd; color: #8f3520 }
-.status.partial, .status.queued { background: #f4ead3; color: #7a5717 }
+.status.succeeded, .status.published, .status.saved { background: #e3f4ea; color: #1d6b3f }
+.status.running, .status.draft, .status.drafting, .status.temporary { background: #e5eefc; color: #234b8f }
+.status.failed, .status.invalid, .status.blocked { background: #fbe6e4; color: #a12d24 }
+.status.partial, .status.queued, .status.cancelled { background: #fbf0d9; color: #7a5717 }
 
 /* ------------------------------------------------------------------ pieces */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--rule); margin-bottom: 22px; overflow: auto }
@@ -186,7 +178,8 @@ footer {
 }
 .tabs button[aria-selected=true] { color: var(--ink); box-shadow: inset 0 -2px var(--accent) }
 
-.upload { padding: 20px; background: var(--sunk); border: 1px dashed #bdb6ab; border-radius: var(--r-surface) }
+.upload { display: block; padding: 20px; background: var(--sunk); border: 1px dashed #a9bfdc; border-radius: var(--r-surface); font-weight: 600 }
+.upload input { display: block; margin-top: 10px }
 .upload p { font-size: 12px; color: var(--muted); margin: 4px 0 14px }
 
 .empty { padding: 22px 10px; text-align: center; color: var(--muted); font-size: 13px; margin: 0 }
@@ -214,11 +207,11 @@ footer {
 
 /* Notices are advisory, not decorative: a left rule, no rounded pill. */
 .notice {
-  border: 1px solid var(--rule); border-left: 2px solid var(--accent); background: var(--surface);
-  border-radius: 0; padding: 13px 16px; font-size: 12px; margin: 16px 0; overflow-wrap: anywhere;
+  border: 1px solid var(--rule); border-left: 3px solid var(--accent); background: var(--accent-soft);
+  border-radius: var(--r-control); padding: 13px 16px; font-size: 12px; margin: 16px 0; overflow-wrap: anywhere;
 }
 .notice ul { margin: 8px 0 0; padding-left: 18px }
-.notice.error { background: #fdf6f4; border-color: #e6cec6; border-left-color: #a8402a; color: #8f3520 }
+.notice.error { background: #fdf3f2; border-color: #f0cfcb; border-left-color: var(--danger); color: #922a22 }
 .notice.error strong, .notice.error small { display: block }
 .notice.error button { margin-top: 10px }
 
@@ -234,6 +227,7 @@ th, td { padding: 9px 12px; border-bottom: 1px solid var(--rule-soft); max-width
 td { font-variant-numeric: tabular-nums }
 tbody tr:last-child td { border-bottom: 0 }
 tbody tr:hover { background: var(--paper) }
+tbody th { font-weight: 600; background: transparent; position: static }
 caption { text-align: left; padding: 9px 12px; color: var(--muted); font-size: 11px; background: var(--surface) }
 
 details { margin: 16px 0; border-top: 1px solid var(--rule-soft); padding-top: 12px }
@@ -304,8 +298,7 @@ progress { width: 100%; height: 8px; margin: 12px 0; accent-color: var(--accent)
 @media (max-width: 1000px) {
   .topbar { padding: 0 20px; gap: 24px }
   nav { gap: 20px }
-  .version { display: none }
-  main { padding: 28px 20px 52px }
+    main { padding: 28px 20px 52px }
   .workspace-grid { grid-template-columns: 1fr }
   .workspace-grid > aside { position: static }
   .two-columns { grid-template-columns: 1fr; margin-bottom: 22px }
@@ -314,8 +307,7 @@ progress { width: 100%; height: 8px; margin: 12px 0; accent-color: var(--accent)
 @media (max-width: 620px) {
   .topbar { flex-wrap: wrap; gap: 0; padding-top: 12px }
   .brand { font-size: 16px }
-  .brand-mark { width: 27px; height: 27px; font-size: 15px }
-  nav { width: 100%; gap: 22px; height: 48px; margin-top: 6px }
+    nav { width: 100%; gap: 14px; height: 48px; margin-top: 6px; overflow-x: auto }
   nav a { font-size: 12px }
   h1 { font-size: 23px }
   .entry-links { grid-template-columns: 1fr; gap: 12px }
@@ -334,3 +326,49 @@ progress { width: 100%; height: 8px; margin: 12px 0; accent-color: var(--accent)
 .layout-picker .form-grid { margin: 0 }
 .c2c-source { display: grid; gap: 8px; border: 1px solid var(--line, #d8d2c4); border-radius: 6px; padding: 10px 12px; margin: 10px 0 }
 .c2c-source legend { padding: 0 6px; font-weight: 600 }
+
+/* ------------------------------------------------------- simulator (06) */
+.fixed-conditions { display: inline-block; background: var(--sunk); border-radius: var(--r-control); padding: 8px 14px; font-weight: 700; color: var(--ink-soft); margin-bottom: 14px }
+/* Cards scroll horizontally inside their own panel; the page itself never scrolls sideways. */
+.card-strip { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x proximity; scrollbar-color: #9db3d3 var(--sunk) }
+.card-strip:focus-visible { outline-offset: 4px }
+.profile-card { flex: 0 0 300px; scroll-snap-align: start; border: 1px solid var(--rule); border-radius: var(--r-surface); background: var(--surface); padding: 16px; display: flex; flex-direction: column }
+.profile-card .field { margin-bottom: 12px }
+.ltm-zone { background: var(--sunk); border-radius: var(--r-control); padding: 12px; margin-bottom: 12px; font-size: 12px }
+.ltm-zone > strong { display: block; color: var(--nav); margin-bottom: 6px; font-size: 13px }
+.ltm-file { display: grid; gap: 4px; margin-bottom: 10px; position: relative }
+.ltm-file > span { font-weight: 600; color: var(--ink-soft) }
+.file-button { justify-self: start; min-height: 30px; padding: 4px 12px; font-size: 12px; color: var(--accent) }
+.visually-hidden { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
+.visually-hidden:focus-visible + .file-button { outline: 2px solid var(--accent); outline-offset: 2px }
+.ltm-file input[type=file] { max-width: 100%; font-size: 12px }
+.file-state { color: var(--muted); overflow-wrap: anywhere }
+.file-state.ok b { color: var(--ok); font-weight: 700 }
+.file-state.ok b:before { content: "\2713  " }
+.card-error { color: var(--danger); background: #fdf3f2; border-radius: var(--r-tag); padding: 8px; margin: 4px 0 0; overflow-wrap: anywhere }
+.card-problems { margin: 0 0 10px; padding-left: 18px; color: #8a5a00; font-size: 12px }
+.danger-link { align-self: flex-end; margin-top: auto; border: 0; background: transparent; color: var(--danger); min-height: 30px; padding: 4px 6px }
+.danger-link:hover { background: #fdf3f2 }
+.add-card { flex: 0 0 220px; min-height: 260px; flex-direction: column; border: 2px dashed #a9c3e8; border-radius: var(--r-surface); background: transparent; color: var(--accent); font-size: 16px }
+.add-card span { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent-soft); font-size: 30px; margin-bottom: 10px }
+.add-card:hover { background: var(--accent-soft) }
+.common-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px }
+.common-row > div { border-left: 1px solid var(--rule); padding-left: 16px }
+.common-row > div:first-child { border-left: 0; padding-left: 0 }
+.run-bar { text-align: center; margin: 8px 0 28px }
+.run-bar .notice { text-align: left }
+button.run { min-width: min(420px, 100%); min-height: 52px; font-size: 17px; border-radius: 8px }
+.chart-scroll { overflow-x: auto; margin: 10px 0 }
+.metric-row { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 14px }
+.metric-row > div { display: grid; gap: 2px }
+.metric-row span { font-size: 11px; color: var(--muted); font-weight: 700 }
+.copy-value { display: inline-flex; align-items: center; gap: 6px }
+.copy-value button { min-height: 26px; padding: 2px 8px; font-size: 11px }
+button.link { border: 0; background: transparent; padding: 0; min-height: 0; display: block; text-align: left; color: inherit; font-weight: inherit }
+.activity-list li.current { background: var(--accent-soft) }
+.subhead { margin-top: 22px }
+@media (max-width: 760px) {
+  .common-row { grid-template-columns: 1fr }
+  .common-row > div { border-left: 0; padding-left: 0 }
+  .profile-card { flex-basis: min(300px, 82vw) }
+}

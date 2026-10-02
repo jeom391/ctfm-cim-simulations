@@ -107,6 +107,9 @@ export function d2dPairDevices(files:{file_id:string;name:string;snapshot_paths?
 // Client-side CSV of exactly the rows shown on screen (UTF-8 BOM for Excel; formula-like text quoted).
 export function toCsv(rows:Record<string,unknown>[]):string{
  const keys=Array.from(new Set(rows.flatMap(r=>Object.keys(r))));
- const cell=(v:unknown)=>{let s=v==null?'':String(v);if(/^[=+\-@]/.test(s)&&typeof v==='string')s="'"+s;return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+ // A plain signed number with an optional % / %p unit (e.g. the "-0.82 %p" accuracy change) cannot be a
+ // formula, so it keeps the value shown on screen instead of getting the formula-guard apostrophe.
+ const plainNumber=/^[+-]?\d+(\.\d+)?( ?%p?)?$/;
+ const cell=(v:unknown)=>{let s=v==null?'':String(v);if(/^[=+\-@]/.test(s)&&typeof v==='string'&&!plainNumber.test(s))s="'"+s;return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
  return '\uFEFF'+[keys.map(cell).join(','),...rows.map(r=>keys.map(k=>cell(r[k])).join(','))].join('\r\n')+'\r\n';
 }

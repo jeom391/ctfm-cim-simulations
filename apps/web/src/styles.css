@@ -380,6 +380,13 @@ button.link { border: 0; background: transparent; padding: 0; min-height: 0; dis
   .common-row > div { border-left: 0; padding-left: 0 }
 }
 @media (max-width: 760px) {
-  .profile-card { flex-basis: min(348px, 86vw) }
+  /* % of the strip, not vw: the strip is ~78px narrower than the viewport (page + panel padding), so
+     86vw made every card wider than the strip and clipped its right edge (delete button) at 375px. */
+  .profile-card { flex-basis: min(348px, calc(100% - 28px)) }
+  /* the narrower card would squeeze the file name to one letter: put the status under the name */
+  .ltm-file { grid-template-columns: 56px minmax(0, 1fr) }
+  .ltm-file .file-ok { grid-column: 2 }
+  .cv-row { grid-template-columns: 1fr 120px }
+  .card-body, .card-head { padding-left: 14px; padding-right: 14px }
   .common-row > div { flex-wrap: wrap }
 }

@@ -36,3 +36,9 @@ test('result CSV keeps the shown values, quotes commas and neutralises formula-l
  assert.ok(csv.includes('"A1, 2",96.12%,-0.5\r\n'));
  assert.ok(csv.includes("'=cmd,,\r\n"));
 });
+
+test('a negative accuracy change keeps its shown value in the CSV while real formula text stays neutralised',()=>{
+ const csv=toCsv([{변화:'-0.82 %p',메모:'-1+2'},{변화:'+0.3 %p',메모:'@SUM(A1)'}]);
+ assert.ok(csv.includes('-0.82 %p,\'-1+2\r\n'));
+ assert.ok(csv.includes("+0.3 %p,'@SUM(A1)\r\n"));
+});

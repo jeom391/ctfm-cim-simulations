@@ -81,10 +81,6 @@ h3 { font-size: 14px; letter-spacing: -.2px; margin-bottom: 12px }
 h4 { font-size: 13px; letter-spacing: -.2px; margin: 0 0 10px }
 p { margin-bottom: 16px }
 
-.eyebrow {
-  display: block; margin-bottom: 8px; font-size: 10px; font-weight: 700;
-  letter-spacing: 1.6px; color: var(--muted); font-feature-settings: "tnum" 1;
-}
 .muted { color: var(--muted); font-size: 12px }
 .mono, code, .code-input, pre { font-family: var(--mono) }
 
@@ -109,7 +105,6 @@ nav a[aria-current=page]:after {
 
 main { max-width: 1280px; padding: 36px 32px 72px; margin: auto }
 .page-heading { margin-bottom: 24px }
-.page-heading h1:after { content: ''; display: block; width: 64px; height: 4px; border-radius: 2px; background: var(--accent); margin-top: 8px }
 .page-heading p { color: var(--muted); max-width: 760px; margin-bottom: 0 }
 
 footer {
@@ -329,35 +324,48 @@ progress { width: 100%; height: 8px; margin: 12px 0; accent-color: var(--accent)
 
 /* ------------------------------------------------------- simulator (06) */
 .fixed-conditions { display: inline-block; background: var(--sunk); border-radius: var(--r-control); padding: 8px 14px; font-weight: 700; color: var(--ink-soft); margin-bottom: 14px }
-/* Cards scroll horizontally inside their own panel; the page itself never scrolls sideways. */
-.card-strip { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x proximity; scrollbar-color: #9db3d3 var(--sunk) }
+/* Cards scroll horizontally inside their own panel; the page itself never scrolls sideways.
+   overflow-x: scroll keeps the native bar (with arrows on Windows) always visible. */
+.card-strip { display: flex; gap: 20px; overflow-x: scroll; padding: 4px 2px 16px; scroll-snap-type: x proximity }
 .card-strip:focus-visible { outline-offset: 4px }
-.profile-card { flex: 0 0 300px; scroll-snap-align: start; border: 1px solid var(--rule); border-radius: var(--r-surface); background: var(--surface); padding: 16px; display: flex; flex-direction: column }
-.profile-card .field { margin-bottom: 12px }
-.ltm-zone { background: var(--sunk); border-radius: var(--r-control); padding: 12px; margin-bottom: 12px; font-size: 12px }
-.ltm-zone > strong { display: block; color: var(--nav); margin-bottom: 6px; font-size: 13px }
-.ltm-file { display: grid; gap: 4px; margin-bottom: 10px; position: relative }
-.ltm-file > span { font-weight: 600; color: var(--ink-soft) }
-.file-button { justify-self: start; min-height: 30px; padding: 4px 12px; font-size: 12px; color: var(--accent) }
+.profile-card { flex: 0 0 348px; scroll-snap-align: start; border: 1px solid var(--rule); border-radius: var(--r-surface); background: var(--surface); display: flex; flex-direction: column; overflow: hidden }
+.card-head { background: #f1f6fc; padding: 18px 20px 14px }
+.card-head .field { margin: 0; gap: 8px }
+.card-head .field > span, .ltm-title { font-size: 14px; font-weight: 700; color: var(--nav) }
+.card-body { flex: 1; display: flex; flex-direction: column; padding: 18px 20px 16px }
+.ltm-title { display: block; margin-bottom: 10px }
+.ltm-file { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 9px; position: relative; font-size: 13px }
+.ltm-file > span:first-of-type { color: var(--ink-soft) }
+.file-button { justify-self: start; max-width: 100%; min-height: 38px; padding: 6px 12px; font-weight: 500; color: var(--ink) }
+.file-button svg { flex-shrink: 0; color: var(--muted) }
+.file-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.file-ok { display: inline-flex; align-items: center; gap: 5px; color: var(--ok); font-size: 12px; font-weight: 600; white-space: nowrap }
 .visually-hidden { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
 .visually-hidden:focus-visible + .file-button { outline: 2px solid var(--accent); outline-offset: 2px }
-.ltm-file input[type=file] { max-width: 100%; font-size: 12px }
-.file-state { color: var(--muted); overflow-wrap: anywhere }
-.file-state.ok b { color: var(--ok); font-weight: 700 }
-.file-state.ok b:before { content: "\2713  " }
-.card-error { color: var(--danger); background: #fdf3f2; border-radius: var(--r-tag); padding: 8px; margin: 4px 0 0; overflow-wrap: anywhere }
+.card-body hr { border: 0; border-top: 1px solid var(--rule-soft); margin: 10px 0 14px; width: 100% }
+.cv-row { display: grid; grid-template-columns: 1fr 160px; align-items: center; gap: 12px; margin-bottom: 9px; font-size: 13px; color: var(--ink-soft) }
+.card-error { color: var(--danger); background: #fdf3f2; border-radius: var(--r-tag); padding: 8px; margin: 4px 0 0; overflow-wrap: anywhere; font-size: 12px }
 .card-problems { margin: 0 0 10px; padding-left: 18px; color: #8a5a00; font-size: 12px }
-.danger-link { align-self: flex-end; margin-top: auto; border: 0; background: transparent; color: var(--danger); min-height: 30px; padding: 4px 6px }
+.danger-link { align-self: flex-end; margin-top: auto; gap: 5px; border: 0; background: transparent; color: var(--danger); min-height: 30px; padding: 4px 6px; font-size: 13px }
 .danger-link:hover { background: #fdf3f2 }
-.add-card { flex: 0 0 220px; min-height: 260px; flex-direction: column; border: 2px dashed #a9c3e8; border-radius: var(--r-surface); background: transparent; color: var(--accent); font-size: 16px }
-.add-card span { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent-soft); font-size: 30px; margin-bottom: 10px }
+.add-card { flex: 0 0 300px; min-height: 380px; flex-direction: column; gap: 14px; border: 1.5px dashed #a9c3e8; border-radius: var(--r-surface); background: transparent; color: var(--accent); font-size: 18px; font-weight: 700 }
+.add-card span { display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: var(--accent-soft); font-size: 40px; font-weight: 400; line-height: 1 }
 .add-card:hover { background: var(--accent-soft) }
-.common-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px }
-.common-row > div { border-left: 1px solid var(--rule); padding-left: 16px }
+
+.sim .panel-heading { border-bottom: 0; padding-bottom: 0; margin-bottom: 20px }
+.sim .panel-heading h2 { font-size: 21px }
+.panel-heading h2 small { margin-left: 12px; font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted) }
+.sim .fixed-conditions { display: flex; align-items: center; gap: 16px; padding: 11px 22px; margin-bottom: 20px; background: #edf3fb; font-size: 17px; color: var(--nav) }
+.common-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px }
+.common-row > div { display: flex; align-items: center; gap: 18px; border-left: 1px solid var(--rule); padding-left: 20px }
 .common-row > div:first-child { border-left: 0; padding-left: 0 }
+.common-row .check { margin: 0; gap: 12px; font-size: 14px; font-weight: 700; white-space: nowrap }
+.common-row input[type=checkbox] { width: 22px; height: 22px }
+.inline-field { flex: 1; display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; min-width: 0 }
 .run-bar { text-align: center; margin: 8px 0 28px }
 .run-bar .notice { text-align: left }
-button.run { min-width: min(420px, 100%); min-height: 52px; font-size: 17px; border-radius: 8px }
+button.run { min-width: min(412px, 100%); min-height: 52px; font-size: 18px; border-radius: 8px; }
+.run-bar > p { margin-top: 12px }
 .chart-scroll { overflow-x: auto; margin: 10px 0 }
 .metric-row { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 14px }
 .metric-row > div { display: grid; gap: 2px }
@@ -367,8 +375,11 @@ button.run { min-width: min(420px, 100%); min-height: 52px; font-size: 17px; bor
 button.link { border: 0; background: transparent; padding: 0; min-height: 0; display: block; text-align: left; color: inherit; font-weight: inherit }
 .activity-list li.current { background: var(--accent-soft) }
 .subhead { margin-top: 22px }
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .common-row { grid-template-columns: 1fr }
   .common-row > div { border-left: 0; padding-left: 0 }
-  .profile-card { flex-basis: min(300px, 82vw) }
+}
+@media (max-width: 760px) {
+  .profile-card { flex-basis: min(348px, 86vw) }
+  .common-row > div { flex-wrap: wrap }
 }

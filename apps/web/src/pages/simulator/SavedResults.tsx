@@ -14,13 +14,13 @@ export function SavedResults(){
  const clone=async()=>{if(!id)return;setBusy(true);setError(null);const operation=cloneOp||crypto.randomUUID();setCloneOp(operation);try{const r=await api.cloneComparison(id,operation);location.href=`/simulator?comparison=${r.comparison_id}`;}catch(e){setError(e);}finally{setBusy(false);}};
  const discard=async(target:string)=>{setBusy(true);setError(null);try{await api.discardComparison(target);temporary.reload();if(id===target)setId(null);}catch(e){setError(e);}finally{setBusy(false);}};
  const open=(r:Comparison)=>{setId(r.comparison_id);history.replaceState(null,'',`/saved-results?comparison=${r.comparison_id}`);};
- return <><Heading eyebrow="SAVED RESULTS" title="저장한 결과">이름 붙여 저장한 시뮬레이션을 다시 열거나 복제합니다. 임시 작업은 저장 전까지 따로 보관됩니다.</Heading><ErrorNotice error={error}/>
+ return <><Heading title="저장한 결과">이름 붙여 저장한 시뮬레이션을 다시 열거나 복제합니다. 임시 작업은 저장 전까지 따로 보관됩니다.</Heading><ErrorNotice error={error}/>
   <div className="two-columns">
    <Panel title="저장한 시뮬레이션" aside={<button onClick={saved.reload}>새로고침</button>}><ErrorNotice error={saved.error} retry={saved.reload}/>
-    {!saved.data?.items.length?<p className="empty">저장한 결과가 없습니다.</p>:<ul className="activity-list">{saved.data.items.map(r=><li key={r.comparison_id} className={r.comparison_id===id?'current':''}><button type="button" className="link" onClick={()=>open(r)}><strong>{r.name}</strong><small>{summary(r)} · {when(r)}</small></button><Status value={r.outcome||r.lifecycle}/></li>)}</ul>}
+    {!saved.data?<p className="empty">{saved.error?'불러오지 못했습니다.':'불러오는 중…'}</p>:!saved.data.items.length?<p className="empty">저장한 결과가 없습니다.</p>:<ul className="activity-list">{saved.data.items.map(r=><li key={r.comparison_id} className={r.comparison_id===id?'current':''}><button type="button" className="link" onClick={()=>open(r)}><strong>{r.name}</strong><small>{summary(r)} · {when(r)}</small></button><Status value={r.outcome||r.lifecycle}/></li>)}</ul>}
    </Panel>
    <Panel title="임시 작업" aside={<button onClick={temporary.reload}>새로고침</button>}><ErrorNotice error={temporary.error} retry={temporary.reload}/>
-    {!temporary.data?.items.length?<p className="empty">임시 작업이 없습니다.</p>:<ul className="activity-list">{temporary.data.items.map(r=><li key={r.comparison_id}><a href={`/simulator?comparison=${r.comparison_id}`}><strong>{r.cards.map(c=>c.display_name).join(', ')||'빈 시뮬레이션'}</strong><small>{summary(r)} · {when(r)}</small></a><span><Status value={r.lifecycle}/> <button disabled={busy} onClick={()=>void discard(r.comparison_id)}>폐기</button></span></li>)}</ul>}
+    {!temporary.data?<p className="empty">{temporary.error?'불러오지 못했습니다.':'불러오는 중…'}</p>:!temporary.data.items.length?<p className="empty">임시 작업이 없습니다.</p>:<ul className="activity-list">{temporary.data.items.map(r=><li key={r.comparison_id}><a href={`/simulator?comparison=${r.comparison_id}`}><strong>{r.cards.map(c=>c.display_name).join(', ')||'빈 시뮬레이션'}</strong><small>{summary(r)} · {when(r)}</small></a><span><Status value={r.lifecycle}/> <button disabled={busy} onClick={()=>void discard(r.comparison_id)}>폐기</button></span></li>)}</ul>}
     <p className="muted">폐기는 그 임시 결과만 지웁니다. 올린 파일과 저장한 결과는 남습니다.</p>
    </Panel>
   </div>

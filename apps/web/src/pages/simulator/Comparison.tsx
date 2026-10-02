@@ -96,25 +96,33 @@ export function ComparisonResults({record}:{record:Comparison}){
  </Panel>;
 }
 
-export function HistoricalExperiment({id}:{id:string}){const result=useResource<Experiment>(`/experiments/${id}`);return <><Heading eyebrow="HISTORICAL RESULT" title="이전 실험 결과">당시 저장된 설정과 PPA를 그대로 표시합니다.</Heading><Panel title="실험 결과"><ErrorNotice error={result.error} retry={result.reload}/>{result.loading&&<p>결과 불러오는 중…</p>}{result.data&&<><p><Status value={result.data.status}/></p><DataTable rows={(result.data.runs||[]).map(r=>rowOf(r))}/><JsonDetails title="당시 요청 · 설정 · 상세 집계" value={{request:result.data.request,summary:result.data.summary,hardware:result.data.hardware,engines:result.data.engines}}/><PpaPanel ppa={result.data.ppa}/><PlotArtifacts items={result.data.artifacts}/><Downloads items={result.data.artifacts}/></>}</Panel></>;}
+export function HistoricalExperiment({id}:{id:string}){const result=useResource<Experiment>(`/experiments/${id}`);return <><Heading title="이전 실험 결과">당시 저장된 설정과 PPA를 그대로 표시합니다.</Heading><Panel title="실험 결과"><ErrorNotice error={result.error} retry={result.reload}/>{result.loading&&<p>결과 불러오는 중…</p>}{result.data&&<><p><Status value={result.data.status}/></p><DataTable rows={(result.data.runs||[]).map(r=>rowOf(r))}/><JsonDetails title="당시 요청 · 설정 · 상세 집계" value={{request:result.data.request,summary:result.data.summary,hardware:result.data.hardware,engines:result.data.engines}}/><PpaPanel ppa={result.data.ppa}/><PlotArtifacts items={result.data.artifacts}/><Downloads items={result.data.artifacts}/></>}</Panel></>;}
+
+const icon={width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round' as const,strokeLinejoin:'round' as const,'aria-hidden':true};
+const DocIcon=()=><svg {...icon}><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h6"/></svg>;
+const CheckIcon=()=><svg {...icon} width={18} height={18}><circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="m7.5 12.5 3 3 6-6.5" stroke="#fff"/></svg>;
+const TrashIcon=()=><svg {...icon}><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>;
+const NetIcon=()=><svg {...icon} width={24} height={24} strokeWidth={1.6}><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="12" cy="3" r="1.5"/><circle cx="12" cy="21" r="1.5"/><path d="M6.5 6.5 10 10M17.5 6.5 14 10M6.5 17.5 10 14M17.5 17.5 14 14M12 4.5v5M12 14.5v5"/></svg>;
 
 function ProfileCard({card,index,upload,problems,form,onName,onFiles,onCv,onRemove}:{card:Card;index:number;upload:CardUpload;problems:string[];form:CommonForm;onName:(v:string)=>void;onFiles:(patch:{ltp?:File|null;ltd?:File|null})=>void;onCv:(key:'manual_c2c_cv_percent'|'manual_d2d_cv_percent',v:number|null)=>void;onRemove:()=>void}){
  const id=card.card_id;
- const file=(dir:'ltp'|'ltd')=>{const picked=upload[dir];const done=upload.names?.[dir];return <div className="ltm-file"><span>{dir.toUpperCase()} 파일</span>
-  {/* Native input kept for keyboard/screen readers, visually replaced by the label button. */}
+ const file=(dir:'ltp'|'ltd')=>{const picked=upload[dir];const done=upload.names?.[dir];const label=picked?.name||done;return <div className="ltm-file"><span>{dir.toUpperCase()} 파일</span>
+  {/* Native input kept for keyboard/screen readers, visually replaced by the label chip. */}
   <input id={`${id}-${dir}`} className="visually-hidden" type="file" accept=".csv,.xlsx" disabled={upload.busy} onChange={e=>{onFiles({[dir]:e.target.files?.[0]||null});e.target.value='';}}/>
-  <label htmlFor={`${id}-${dir}`} className="button file-button">{done||picked?'다른 파일 선택':'파일 선택'}</label>
-  <span className={'file-state'+(done&&!picked?' ok':'')}>{picked?picked.name:done?<>{done} <b>업로드 완료</b></>:'선택 안 됨'}</span></div>;};
+  <label htmlFor={`${id}-${dir}`} className="button file-button" title={label?`${label} · 다른 파일 선택`:undefined}><DocIcon/><span>{label||'파일 선택'}</span></label>
+  {done&&!picked?<span className="file-ok"><CheckIcon/>업로드 완료</span>:picked?<span className="muted">대기</span>:<span/>}</div>;};
  return <section className="profile-card" role="listitem" aria-label={`프로필 ${index+1}: ${card.display_name||'이름 없음'}`}>
-  <Field label="소자 이름"><input id={`name-${id}`} value={card.display_name} maxLength={200} onChange={e=>onName(e.target.value)}/></Field>
-  <div className="ltm-zone"><strong>LTM 파일</strong>{file('ltp')}{file('ltd')}
+  <div className="card-head"><Field label="소자 이름"><input id={`name-${id}`} value={card.display_name} maxLength={200} onChange={e=>onName(e.target.value)}/></Field></div>
+  <div className="card-body">
+   <strong className="ltm-title">LTM 파일</strong>{file('ltp')}{file('ltd')}
    {upload.busy&&<p className="muted" role="status">업로드·인식·분석 중…</p>}
    {upload.error&&<p className="card-error" role="alert">{upload.error}{card.profile_ref?' 이전에 올린 파일은 그대로 유지됩니다.':''}</p>}
+   <hr/>
+   <label className="cv-row"><span>C2C 편차 (%)</span><input type="number" min="0" step="any" inputMode="decimal" value={card.manual_c2c_cv_percent??''} placeholder={form.c2c?'필수':'미사용'} onChange={e=>onCv('manual_c2c_cv_percent',e.target.value===''?null:Number(e.target.value))}/></label>
+   <label className="cv-row"><span>D2D 편차 (%)</span><input type="number" min="0" step="any" inputMode="decimal" value={card.manual_d2d_cv_percent??''} placeholder={form.d2d?'필수':'미사용'} onChange={e=>onCv('manual_d2d_cv_percent',e.target.value===''?null:Number(e.target.value))}/></label>
+   {problems.length>0&&<ul className="card-problems">{problems.map(p=><li key={p}>{p}</li>)}</ul>}
+   <button type="button" className="danger-link" onClick={onRemove}><TrashIcon/>삭제</button>
   </div>
-  <Field label={`C2C 편차 CV (%)${form.c2c?'':' · 공통 설정에서 꺼짐'}`}><input type="number" min="0" step="any" inputMode="decimal" value={card.manual_c2c_cv_percent??''} placeholder={form.c2c?'필수':'미사용'} onChange={e=>onCv('manual_c2c_cv_percent',e.target.value===''?null:Number(e.target.value))}/></Field>
-  <Field label={`D2D 편차 CV (%)${form.d2d?'':' · 공통 설정에서 꺼짐'}`}><input type="number" min="0" step="any" inputMode="decimal" value={card.manual_d2d_cv_percent??''} placeholder={form.d2d?'필수':'미사용'} onChange={e=>onCv('manual_d2d_cv_percent',e.target.value===''?null:Number(e.target.value))}/></Field>
-  {problems.length>0&&<ul className="card-problems">{problems.map(p=><li key={p}>{p}</li>)}</ul>}
-  <button type="button" className="danger-link" onClick={onRemove}>삭제</button>
  </section>;
 }
 
@@ -163,14 +171,13 @@ export function ComparisonPage(){
  const addCard=()=>{const card:Card={card_id:crypto.randomUUID(),display_name:`소자 ${editRef.current.cards.length+1}`,c2c_approved_assumption:false,cross_condition_acknowledged:false};focusCard.current=card.card_id;changed(cs=>({cards:[...cs,card]}));};
  const removeCard=(cardId:string)=>{changed(cs=>({cards:cs.filter(c=>c.card_id!==cardId)}));setUploads(x=>{const{[cardId]:_,...rest}=x;return rest;});};
 
- if(!record||record.lifecycle==='discarded')return <><Heading eyebrow="CIM SIMULATION" title="CIM 시뮬레이션">소자마다 LTP/LTD 파일을 올리고 공통 조건으로 MNIST 정확도를 비교합니다. 측정 분석을 먼저 하지 않아도 됩니다.</Heading>{notice&&<p role="status">{notice}</p>}<ErrorNotice error={error}/><Panel title="시작하기"><button className="primary" disabled={busy} onClick={()=>void create()}>새 시뮬레이션</button>{!!temporary.data?.items.length&&<><h3 className="subhead">이어서 할 임시 작업</h3><ul className="activity-list">{temporary.data.items.map(r=><li key={r.comparison_id}><a href={`/simulator?comparison=${r.comparison_id}`}><strong>{r.name||r.cards.map(c=>c.display_name).join(', ')||'빈 시뮬레이션'}</strong><small>{r.updated_at.slice(0,16).replace('T',' ')}</small></a><Status value={r.lifecycle}/></li>)}</ul></>}</Panel></>;
+ if(!record||record.lifecycle==='discarded')return <><Heading title="CIM 시뮬레이션">소자마다 LTP/LTD 파일을 올리고 공통 조건으로 MNIST 정확도를 비교합니다. 측정 분석을 먼저 하지 않아도 됩니다.</Heading>{notice&&<p role="status">{notice}</p>}<ErrorNotice error={error}/><Panel title="시작하기"><button className="primary" disabled={busy} onClick={()=>void create()}>새 시뮬레이션</button>{!!temporary.data?.items.length&&<><h3 className="subhead">이어서 할 임시 작업</h3><ul className="activity-list">{temporary.data.items.map(r=><li key={r.comparison_id}><a href={`/simulator?comparison=${r.comparison_id}`}><strong>{r.name||r.cards.map(c=>c.display_name).join(', ')||'빈 시뮬레이션'}</strong><small>{r.updated_at.slice(0,16).replace('T',' ')}</small></a><Status value={r.lifecycle}/></li>)}</ul></>}</Panel></>;
 
  const problems=cardProblems(cards,form,uploads);
  const blocking=!cards.length?['프로필을 하나 이상 추가하세요.']:Object.values(problems).flat();
- return <><Heading eyebrow="CIM SIMULATION" title="CIM 시뮬레이션"/>{notice&&<p role="status" aria-live="polite">{notice}</p>}<ErrorNotice error={error}/>
-  {record.lifecycle==='drafting'&&<>
-   <Panel title="디바이스 프로필" aside={<span className="muted">{dirty?'저장 대기 중…':'자동 저장됨'}</span>}>
-    <p className="muted">카드마다 소자 이름과 LTP·LTD 파일 한 쌍을 올리면 자동으로 인식·분석해 프로필을 만듭니다. C2C·D2D 편차는 측정 분석 결과에서 복사해 넣을 수 있습니다.</p>
+ return <><Heading title="CIM 시뮬레이션"/>{notice&&<p role="status" aria-live="polite">{notice}</p>}<ErrorNotice error={error}/>
+  {record.lifecycle==='drafting'&&<div className="sim">
+   <Panel title="디바이스 프로필" sub="시뮬레이션에 사용할 디바이스 프로필을 등록하세요." aside={<span className="muted">{dirty?'저장 대기 중…':'자동 저장됨'}</span>}>
     <div className="card-strip" ref={stripRef} role="list" aria-label="디바이스 프로필 카드 · 가로로 스크롤" tabIndex={0}>
      {cards.map((card,index)=><ProfileCard key={card.card_id} card={card} index={index} upload={uploads[card.card_id]||emptyUpload()} problems={problems[card.card_id]||[]} form={form}
       onName={v=>patchCard(card.card_id,{display_name:v})} onFiles={patch=>pickFiles(card.card_id,patch)}
@@ -178,21 +185,20 @@ export function ComparisonPage(){
      <button type="button" className="add-card" onClick={addCard}><span aria-hidden>+</span>프로필 추가</button>
     </div>
    </Panel>
-   <Panel title="공통 실행 설정">
-    <p className="fixed-conditions">MNIST · MLP 784-128-10 · 64×64 배열 · 입력 8 bit (고정)</p>
+   <Panel title="공통 실행 설정" sub="시뮬레이션의 공통 실행 설정을 지정하세요.">
+    <p className="fixed-conditions" title="MLP 784-128-10 · 입력 8 bit 고정 · 정확도 엔진 AIHWKit · ADC는 두 경로를 각각 변환한 뒤 차감 · checkpoint와 seed는 모든 프로필에 같게 고정 · Retention과 PPA는 다루지 않음"><NetIcon/>MNIST · MLP · 64×64</p>
     <div className="common-row">
-     <div><label className="check"><input type="checkbox" checked={form.adc} onChange={e=>patchForm({adc:e.target.checked})}/>ADC 양자화</label><Field label="ADC 비트"><select disabled={!form.adc} value={form.adcBits} onChange={e=>patchForm({adcBits:Number(e.target.value)})}>{[3,4,5,6,7,8].map(n=><option key={n} value={n}>{n} bit</option>)}</select></Field></div>
-     <div><label className="check"><input type="checkbox" checked={form.d2d} onChange={e=>patchForm({d2d:e.target.checked})}/>D2D 편차 반영</label><Field label="배열 생성 수" hint="서로 다른 D2D 실현(배열) 수"><input type="number" min="1" max="100" disabled={!form.d2d} value={form.d2d?form.arrays:1} onChange={e=>patchForm({arrays:Number(e.target.value)})}/></Field></div>
-     <div><label className="check"><input type="checkbox" checked={form.c2c} onChange={e=>patchForm({c2c:e.target.checked})}/>C2C 편차 반영</label><Field label="재기록 횟수" hint="같은 배열을 다시 기록하는 횟수"><input type="number" min="1" max="100" disabled={!form.c2c} value={form.c2c?form.nReprogram:1} onChange={e=>patchForm({nReprogram:Number(e.target.value)})}/></Field></div>
+     <div><label className="check"><input type="checkbox" checked={form.adc} onChange={e=>patchForm({adc:e.target.checked})}/>ADC 양자화</label><label className="inline-field"><span>ADC 비트</span><select disabled={!form.adc} value={form.adcBits} onChange={e=>patchForm({adcBits:Number(e.target.value)})}>{[3,4,5,6,7,8].map(n=><option key={n} value={n}>{n} bit</option>)}</select></label></div>
+     <div><label className="check"><input type="checkbox" checked={form.d2d} onChange={e=>patchForm({d2d:e.target.checked})}/>D2D 편차 반영</label><label className="inline-field" title="서로 다른 D2D 실현(배열) 수"><span>배열 생성 수</span><input type="number" min="1" max="100" disabled={!form.d2d} value={form.d2d?form.arrays:1} onChange={e=>patchForm({arrays:Number(e.target.value)})}/></label></div>
+     <div><label className="check"><input type="checkbox" checked={form.c2c} onChange={e=>patchForm({c2c:e.target.checked})}/>C2C 편차 반영</label><label className="inline-field" title="같은 배열을 다시 기록하는 횟수"><span>재기록 횟수</span><input type="number" min="1" max="100" disabled={!form.c2c} value={form.c2c?form.nReprogram:1} onChange={e=>patchForm({nReprogram:Number(e.target.value)})}/></label></div>
     </div>
-    <p className="muted">정확도 엔진 AIHWKit · ADC는 두 경로를 각각 변환한 뒤 차감 · checkpoint와 seed는 모든 프로필에 같게 고정됩니다. Retention과 PPA는 이 시뮬레이션에서 다루지 않습니다.</p>
    </Panel>
    <div className="run-bar">
     {blocking.length>0&&<p className="notice" role="status">실행 전에 확인할 항목 {blocking.length}개 · 카드에 표시했습니다.</p>}
     <button className="primary run" disabled={busy||blocking.length>0} onClick={()=>void run()}>{busy?'요청 중…':'시뮬레이션 실행 →'}</button>
-    <p className="muted">실행하면 진행 상황과 결과 화면으로 이동합니다. <button type="button" className="subtle" disabled={busy} onClick={()=>void discard()}>이 임시 작업 폐기</button></p>
+    <p className="muted">실행 후 진행 상황과 결과 화면으로 이동합니다. <button type="button" className="subtle" disabled={busy} onClick={()=>void discard()}>이 임시 작업 폐기</button></p>
    </div>
-  </>}
+  </div>}
   {record.lifecycle==='running'&&<><Panel title="진행 상황"><p className="fixed-conditions">{conditionsLine(record.common_settings||{})}</p><p>{record.cards.filter(c=>c.status!=='blocked').map(c=>c.display_name).join(', ')}</p>{record.cards.some(c=>c.status==='blocked')&&<Notices title="실행에서 빠진 카드" items={record.cards.filter(c=>c.status==='blocked').map(c=>`${c.display_name}: ${c.reason}`)}/>}</Panel><JobProgress id={record.job_id||null} onDone={()=>void reload()}/></>}
   {(record.lifecycle==='temporary'||record.lifecycle==='saved')&&<><ComparisonResults record={record}/>
    <Panel title={record.lifecycle==='saved'?'저장됨':'결과 저장'}>

@@ -25,10 +25,11 @@ def _neurosim_capability():
 
 
 @lru_cache(maxsize=1)
-def engine_capabilities():
+def engine_capabilities(*, include_neurosim=True):
     result = {'torch_reference': {'available': False, 'version': None, 'reason': None},
               'aihwkit_ideal': {'available': False, 'version': None, 'reason': None},
-              'neurosim': _neurosim_capability()}
+              'neurosim': _neurosim_capability() if include_neurosim else
+                          {'available': False, 'version': None, 'reason': 'outside_product_scope'}}
     try:
         import torch
         result['torch_reference'].update(available=True, version=str(torch.__version__))
@@ -61,7 +62,7 @@ def make_linear(weight, engine):
     import torch
     if engine == 'torch_reference':
         return lambda x: torch.nn.functional.linear(x, weight)
-    if engine != 'aihwkit_ideal' or not engine_capabilities()['aihwkit_ideal']['available']:
+    if engine != 'aihwkit_ideal' or not engine_capabilities(include_neurosim=False)['aihwkit_ideal']['available']:
         raise ValueError('Requested accuracy engine is unavailable')
     from aihwkit.nn import AnalogLinear
     from aihwkit.simulator.configs import FloatingPointRPUConfig

@@ -259,7 +259,7 @@ def _crossing_selection(d,result):
 
 
 def _source(d):
-    fields = ('file_id','sha256','filename','sheet','device_id','condition_id','branch','sweep_amplitude_v','direction','source_label','read_vgs_v','vds_v','header_read_vgs_v','current_basis','time_axes','block','selected_columns','skipped_blank_rows')
+    fields = ('file_id','sha256','filename','sheet','device_id','condition_id','branch','sweep_amplitude_v','direction','source_label','read_vgs_v','vds_v','header_read_vgs_v','current_basis','time_axes','block','selected_columns','skipped_blank_rows','start_time_s')
     return {**{k:deepcopy(d.get(k)) for k in fields}, 'columns':deepcopy(d['column_mapping']), 'units':deepcopy(d['units']), 'source_rows':deepcopy(d['source_rows']), 'selection_key':crossing_selection_key(d)}
 
 
@@ -345,7 +345,7 @@ def _pulse(prepared, result):
             if j < 2 or not all(read[j-2:j]) or rows[j]['source_row']-rows[j-2]['source_row'] != 2:
                 _excluded(result,d,'insufficient_preceding_read_samples',transition_row=rows[j]['source_row']); continue
             r=rows[j-2]
-            if r['time_s'] < c['start_time_s']:
+            if r['time_s'] < _finite(d.get('start_time_s', c['start_time_s']), 'start_time_s'):
                 _excluded(result,d,'before_start_time',source_row=r['source_row'],transition_row=rows[j]['source_row']); continue
             extraction_index+=1
             identity=json.dumps([d['sha256'],d.get('sheet'),r['source_row'],PARSER_VERSION],separators=(',',':'),ensure_ascii=False)
@@ -493,7 +493,7 @@ def _d2d(prepared,result):
         table.append(dict(condition_key=key,sweep_amplitude_v=amp,branch=branch,device_values=entries,physical_device_count=2,mean_g_s=avg,std_g_s=std,cv=cv,included=reason is None,reason=reason))
     d2d=dict(status='available' if cvs else 'unavailable',cv=math.sqrt(mean([c*c for c in cvs])) if cvs else None,analysis_id=None,source_kind='iv_proxy',distribution='assumed_lognormal',physical_device_count=2,matched_conditions=len(cvs),assumption_ids=['d2d_lognormal','d2d_state_common'],reason=None if cvs else 'no_valid_matched_conditions')
     result['d2d']=d2d; result['tables']['d2d_conditions']=table; result['summaries']=deepcopy(d2d)
-    result['warnings'].append('D2D lognormal distribution and state-common application are assumptions, not identified by two-device IV data')
+    result['warnings'].append('D2D의 로그정규 분포와 모든 전도도 상태 공통 적용은 가정이며, 두 소자 IV 데이터로 식별된 것이 아닙니다.')
 
 
 def _log_fit(times,currents):
@@ -547,8 +547,46 @@ def _retention(prepared,result):
             fits.append(dict(file_id=d['file_id'],source_row=r['source_row'],direction=direction,time_s=r[tkey],id_a=r[direction+'_id_a'],fit_id_a=pred,residual_a=res,instantaneous_slope_a_per_s=fit['b']/(r[tkey]*math.log(10))))
     output['program_reference_current_a']=output['program_fit']['a']+output['program_fit']['b']
     output['simulation_available']=output['program_reference_current_a']>0
-    if not output['simulation_available']: result['warnings'].append('Program I_fit(10 s) is nonpositive; retention simulation is unavailable')
-    if expected_read != 0: result['warnings'].append('Applying retention to pulse states at VGS=0 V assumes transfer across read bias')
+    if not output['simulation_available']: result['warnings'].append('Program 적합 전류 I_fit(10 s)가 0 이하입니다. 적합 모델이 이 데이터에 유효하지 않을 수 있습니다.')
+    if expected_read != 0: result['warnings'].append('이 Retention은 VGS 0 V가 아닌 읽기 바이어스에서 측정되었습니다. 펄스 상태(VGS 0 V)와 직접 비교하려면 바이어스 간 전이를 가정해야 합니다.')
     if d.get('header_read_vgs_v') is not None and d['header_read_vgs_v'] != expected_read:
-        result['warnings'].append('Original header bias differs; the device-team Retention PPT bias takes precedence')
-    result['retention']=output; result['tables']['retention_fit']=fits; result['summaries']=deepcopy(output)
+        result['warnings'].append('원본 헤더의 바이어스 표기가 다릅니다. 소자팀 Retention PPT의 바이어스를 우선 적용했습니다.')
+    # Kept out of result['retention']: that block is copied verbatim into strict profile manifests.
+    extrapolation,result['tables']['retention_extrapolation']=retention_extrapolation(output)
+    result['retention']=output; result['tables']['retention_fit']=fits; result['summaries']=dict(deepcopy(output),extrapolation=extrapolation)
+
+
+TEN_YEARS_S=10*365.25*86400
+
+
+def retention_extrapolation(output):
+    """Evaluate the measured-interval fits I=a+b*log10(t) out to 10 years. Model output, not measurement.
+
+    A non-positive predicted current is reported as such (model invalid from that time on),
+    never clipped to 0. The window-closing time is where the two fitted lines meet."""
+    fits={d:output[d+'_fit'] for d in ('program','erase')}
+    measured_end=max(f['time_max_s'] for f in fits.values())
+    summary=dict(model='I(t) = a + b*log10(t / 1 s), OLS on measured points with t >= 10 s',horizon_s=TEN_YEARS_S,
+                 measured_end_s=measured_end,note='Extrapolated values depend on the log-linear model; they are not measured lifetime.')
+    def after(exponent,start):
+        # Compared in log10(t): a near-flat fit puts the event at 10**(huge), which is not a time.
+        return 10**exponent if exponent is not None and math.log10(start)<exponent<300 else None
+    for d,f in fits.items():
+        value=f['a']+f['b']*math.log10(TEN_YEARS_S)
+        summary[d]=dict(ten_year_a=value,ten_year_valid=value>0,
+                        zero_crossing_s=after(-f['a']/f['b'] if f['b']<0 else None,f['time_max_s']))
+    db=fits['program']['b']-fits['erase']['b']
+    summary['window_closing_s']=after((fits['erase']['a']-fits['program']['a'])/db if db else None,measured_end)
+    summary['window_closing_note']=('fitted program and erase lines do not meet after the measured interval' if summary['window_closing_s'] is None
+                                    else 'model-dependent time at which the fitted program and erase currents become equal')
+    rows=[]
+    start=min(f['time_min_s'] for f in fits.values())
+    steps=60
+    for k in range(steps+1):
+        t=10**(math.log10(start)+(math.log10(TEN_YEARS_S)-math.log10(start))*k/steps)
+        row=dict(time_s=t,years=t/(365.25*86400),region='measured' if t<=measured_end else 'extrapolated')
+        for d,f in fits.items():
+            value=f['a']+f['b']*math.log10(t)
+            row[d+'_fit_a']=value;row[d+'_valid']=value>0
+        rows.append(row)
+    return summary,rows

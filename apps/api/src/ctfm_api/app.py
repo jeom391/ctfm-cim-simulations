@@ -8,16 +8,17 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, Request, UploadFile, File, Depends, Query
+from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from ctfm_contracts.check_experiment_contract import MAX_REQUESTED_RUNS, SCHEMA, SCHEMA_VERSION, validate_request
+from ctfm_contracts.check_experiment_contract import ContractError, MAX_REQUESTED_RUNS, SCHEMA, SCHEMA_VERSION, validate_request
 from ctfm_contracts.models import ExperimentRequest
+from ctfm_contracts.product_policy import validate_product_scope
 from ctfm.profiles import ProfileManifest
-from .contracts import AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
+from .contracts import D2DPairRequest, D2DRecognitionRequest, RecognitionRequest, RecognitionResult, AnalysisRequest, ProfileCreate, ProfileRevision, ProfilePublish, QueuedAnalysis, QueuedExperiment
 from .models import Capabilities, Capability, ErrorResponse, HardwareControls
 from .results import AnalysisResult, ExperimentResult, JobResult, JobList, FileUploadResult, FileList, FilePreview, AnalysisList, ExperimentList
 from .storage import Store, encode, sha256, now
@@ -38,22 +39,13 @@ def capabilities():
     # Import verifies executable package availability; adapters do not claim fallback.
     try:
         from ctfm.simulation import engine_capabilities
-        engines = engine_capabilities()
+        engines = engine_capabilities(include_neurosim=False)
     except ImportError:
         engines = {name: dict(available=False, version=None, reason="adapter_not_installed") for name in ("torch_reference", "aihwkit_ideal", "neurosim")}
     version("ctfm-core")
     torch_available = engines["torch_reference"]["available"]
     properties = SCHEMA["properties"]
     controls = SCHEMA["allOf"][2]["then"]["properties"]["hardware"]["properties"]
-    ppa_tiles, ppa_unsupported = [], {}
-    if engines["neurosim"]["available"]:
-        from ctfm.adapters.neurosim import engine_topology_support
-        from ctfm.adapters.proxy_preset import proxy_preset
-        from ctfm.simulation import MNIST_MLP_V1_LAYERS
-        for tile in controls["tile_size"]["enum"]:
-            preset = proxy_preset(tile)
-            ok, why = engine_topology_support(MNIST_MLP_V1_LAYERS, tile, -(-preset["synapse_bit"] // preset["cell_bit"]))
-            (ppa_tiles.append(tile) if ok else ppa_unsupported.__setitem__(str(tile), why))
     effect = lambda available, reason: Capability(available=available, version=None, reason=None if available else reason)
     return Capabilities(
         schema_version=SCHEMA_VERSION, profile_schema_version="1.0.0",
@@ -64,26 +56,20 @@ def capabilities():
                  # Manual-assumption C2C (schema_version 1.3.0): a per-profile-revision
                  # relative CV, never a measured CTFM cycle-to-cycle distribution.
                  "c2c": effect(torch_available, "torch_unavailable")},
-        hardware=HardwareControls(tile_sizes=controls["tile_size"]["enum"], adc_bits=controls["adc_bits"]["enum"],
-            adc_orders=controls["adc_order"]["enum"],
+        hardware=HardwareControls(tile_sizes=[64], adc_bits=controls["adc_bits"]["enum"],
+            adc_orders=["adc_then_subtract"],
             range_policies=["validation_max_abs"],
-            # Only engines whose ADC/tile combinations were compared against the
-            # independent NumPy reference are advertised. AIHWKit earns its rows
-            # from scripts/linux/verify_aihwkit_adc_combinations.py (18/18) and
-            # still has to be available in *this* process to be listed.
-            # Both ADC orders are compared against the independent NumPy model in
-            # the same sweep, so the order is part of what is advertised: a caller
-            # must not assume a verified bit/tile pair is verified in both orders.
-            ppa_tile_sizes=ppa_tiles, ppa_unsupported=ppa_unsupported,
+            # Advertise only verified combinations that are also in current scope.
+            ppa_tile_sizes=[], ppa_unsupported={},
             validated_combinations=[{"tile_size": t, "adc_bits": b, "adc_order": o, "engine": name}
                                     for name in ("torch_reference", "aihwkit_ideal") if engines[name]["available"]
-                                    for t in (64,128,256) for b in range(3,9)
-                                    for o in controls["adc_order"]["enum"]] if torch_available else []),
-        limits={"max_profiles": properties["profile_refs"]["maxItems"], "max_arrays": properties["arrays"]["maximum"],
+                                    for t in (64,) for b in range(3,9)
+                                    for o in ("adc_then_subtract",)] if torch_available else []),
+        limits={"max_profiles": MAX_REQUESTED_RUNS, "max_arrays": properties["arrays"]["maximum"],
                 "max_year_points": properties["years"]["maxItems"], "max_years": properties["years"]["items"]["maximum"],
                 "max_n_reprogram": properties["n_reprogram"]["maximum"], "max_requested_runs": MAX_REQUESTED_RUNS},
         supported_file_formats=["csv","xlsx"],
-        warnings=["PPA is an assumed_proxy conditional estimate, never a validated CTFM chip result."])
+        warnings=["PPA is outside the current product scope."])
 
 def create_app(storage_root=None):
     app = FastAPI(title="CTFM measurement and CIM API", version="1.2.0",
@@ -111,6 +97,10 @@ def create_app(storage_root=None):
     @app.exception_handler(APIError)
     async def domain_error(request, error):
         return error_response(error.status, error.code, error.message, error.field, error.details)
+
+    @app.exception_handler(ContractError)
+    async def product_scope_error(request, error):
+        return error_response(422, error.code, str(error), error.field)
 
     @app.exception_handler(HTTPException)
     async def http_error(request, error):
@@ -187,8 +177,25 @@ def create_app(storage_root=None):
             return dict(read_iv_blocks(data, record["name"], sheet), file_id=str(identifier))
         return dict(read_retention_layout(data, record["name"], sheet or "Raw Data"), file_id=str(identifier))
 
+    @app.post("/api/v1/measurements/resolve-d2d", response_model=RecognitionResult)
+    def measurement_d2d_resolution(request: D2DRecognitionRequest, store: Store = Depends(storage)):
+        from .recognition import resolve_d2d
+        return resolve_d2d(store, request)
+
+    @app.post("/api/v1/measurements/resolve-d2d-pair", response_model=RecognitionResult)
+    def measurement_d2d_pair(request: D2DPairRequest, store: Store = Depends(storage)):
+        from .recognition import resolve_d2d_pair
+        return resolve_d2d_pair(store, request)
+
+    @app.post("/api/v1/measurements/recognize", response_model=RecognitionResult)
+    def measurement_recognition(request: RecognitionRequest, store: Store = Depends(storage)):
+        from .recognition import create_recognition
+        return create_recognition(store, request)
+
     @app.post("/api/v1/analyses", status_code=202, response_model=QueuedAnalysis)
     def analyze_request(request: AnalysisRequest, store: Store = Depends(storage)):
+        from .recognition import verify_recognized_request
+        verify_recognized_request(store, request)
         for item in request.inputs:
             store.get_entity("file", str(item.file_id))
         item, job = store.enqueue("analysis", request.model_dump(mode="json", exclude_none=True))
@@ -215,9 +222,69 @@ def create_app(storage_root=None):
         from ctfm.profiles import build_profile
         result = build_profile(request.condition_id, completed_analysis(store, request.state_analysis_id),
             request.selected_state_ids, completed_analysis(store, request.d2d_analysis_id),
-            completed_analysis(store, request.retention_analysis_id), display_name=request.display_name)
+            completed_analysis(store, request.retention_analysis_id), display_name=request.display_name,
+            c2c_analysis=completed_analysis(store, request.c2c_analysis_id))
         store.save_profile(**result)
         return JSONResponse(result["manifest"], status_code=201)
+
+    @app.post("/api/v1/profiles/quick", status_code=201, response_model=ProfileManifest, response_model_exclude_unset=True)
+    async def profile_create_quick(ltp_file: UploadFile = File(...), ltd_file: UploadFile = File(...),
+                                    display_name: str = Form(...), store: Store = Depends(storage)):
+        """Single-step profile creation for the simplified flow: upload LTP+LTD, auto-recognize the
+        pair, auto-run the pulse_states analysis, auto-select every valid (positive-conductance)
+        state and immediately publish -- no separate review/publish UI. Reuses the exact recognition
+        (create_recognition) and profile (build_profile/publish_profile) machinery the multi-step
+        flow already used. The analysis itself runs in-process (the same parse_table+analyze() call
+        apps/worker/src/ctfm_worker/execute.py makes for a pulse_states job) rather than through the
+        async job queue: pulse-state extraction is fast pure-Python/numpy work with no training, so a
+        synchronous call gives the single upload click immediate feedback without depending on a
+        separate worker process being alive and free to pick the job up right now."""
+        from .recognition import create_recognition
+        from ctfm.measurement import parse_table, analyze
+        from ctfm.profiles import build_profile, publish_profile
+        prepared = []
+        for upload in (ltp_file, ltd_file):
+            try:
+                data = await upload.read(MAX_FILE_BYTES + 1)
+                name, media_type = validate_upload(data, upload.filename)
+                prepared.append((data, name, media_type))
+            finally:
+                await upload.close()
+        file_ids = []
+        for data, name, media_type in prepared:
+            identifier = str(uuid4())
+            relative = "uploads/" + identifier + Path(name).suffix.lower()
+            store.managed_path(relative).write_bytes(data)
+            record = dict(file_id=identifier, name=name, sha256=sha256(data), size_bytes=len(data), media_type=media_type, relative_path=relative, created_at=now())
+            store.put_entity("file", identifier, record)
+            file_ids.append(identifier)
+        plan = create_recognition(store, RecognitionRequest(file_ids=[UUID(f) for f in file_ids]))
+        pulse_requests = [r for r in plan["requests"] if r["kind"] == "pulse_states"]
+        if len(pulse_requests) != 1:
+            problems = [dict(file=s["name"], status=s["status"], issues=s.get("issues", [])) for s in plan["sources"] if s["status"] != "ready"]
+            raise APIError(422, "pulse_pair_not_recognized",
+                           "두 파일을 하나의 LTP/LTD 쌍으로 인식하지 못했습니다. 방향이 중복되거나 조건이 다른지, 측정 그룹이 일치하는지 확인하세요.",
+                           "files", {"problems": problems})
+        proposal = pulse_requests[0]
+        datasets = []
+        for meta in proposal["inputs"]:
+            record = store.get_entity("file", meta["file_id"])
+            data = store.managed_path(record["relative_path"]).read_bytes()
+            parsed = parse_table(data, record["name"], meta.get("sheet"))
+            datasets.append(dict(meta, rows=parsed["rows"], source_rows=parsed["source_rows"], filename=record["name"], sha256=record["sha256"]))
+        try:
+            analysis = analyze("pulse_states", datasets, proposal["settings"])
+        except ValueError as exc:
+            raise APIError(422, "analysis_failed", str(exc), None, {})
+        selected_state_ids = [s["state_id"] for s in analysis["states"] if s["selected"]]
+        if len(selected_state_ids) < 2:
+            raise APIError(422, "insufficient_states", "유효한 상태(양의 전도도)가 2개 미만입니다.", None, {"n": len(selected_state_ids)})
+        result = build_profile(analysis["condition_id"], analysis, selected_state_ids, display_name=display_name)
+        store.save_profile(**result)
+        published = publish_profile(**store.get_profile(result["manifest"]["profile_id"], result["manifest"]["revision"]),
+                                     reviewer="system", review_note="Auto-published by the simplified single-step profile upload flow; every recognized valid state was used automatically, with no separate manual review step.")
+        store.save_profile(published, result["states"], replace_draft=True)
+        return JSONResponse(published, status_code=201)
 
     @app.get("/api/v1/profiles")
     def profiles(status: Literal["draft","published"] | None = None, store: Store = Depends(storage)):
@@ -260,11 +327,12 @@ def create_app(storage_root=None):
 
     @app.post("/api/v1/profiles/{identifier}/revisions", status_code=201, response_model=ProfileManifest, response_model_exclude_unset=True)
     def profile_revision(identifier: UUID, request: ProfileRevision, store: Store = Depends(storage)):
-        from ctfm.profiles import revise_profile
-        record = store.get_profile(str(identifier), request.base_revision)
-        result = revise_profile(**record, selected_state_ids=request.selected_state_ids,
-                                revision=store.next_revision(str(identifier)), display_name=request.display_name)
-        store.save_profile(**result)
+        from ctfm.profiles import compose_revision
+        replacements={kind:completed_analysis(store,getattr(request,kind+'_analysis_id'))
+                      for kind in ('state','d2d','retention','c2c') if kind+'_analysis_id' in request.model_fields_set}
+        result=store.create_profile_revision(str(identifier),request.base_revision,
+            lambda manifest,states,revision:compose_revision(manifest,states,revision=revision,replacements=replacements,
+                selected_state_ids=request.selected_state_ids,display_name=request.display_name))
         return JSONResponse(result["manifest"], status_code=201)
 
     @app.post("/api/v1/profiles/{identifier}/revisions/{revision}/publish", response_model=ProfileManifest, response_model_exclude_unset=True)
@@ -329,10 +397,14 @@ def create_app(storage_root=None):
         validate_request(config)
         return config
 
+    from .comparisons import register_comparisons
+    register_comparisons(app, storage, resolve_measured_c2c, capabilities)
+
     @app.post("/api/v1/experiments", status_code=202, response_model=QueuedExperiment)
     def experiment_create(request: ExperimentRequest, store: Store = Depends(storage)):
         from ctfm.profiles import validate_profile
         config = request.root
+        validate_product_scope(config)
         for ref in config["profile_refs"]:
             record = store.get_profile(ref["id"], ref["revision"])
             validate_profile(**record, published_required=True)
@@ -343,18 +415,6 @@ def create_app(storage_root=None):
                 fit = record["manifest"]["retention"]["program_fit"]
                 if fit["a"] + fit["b"] <= 0:
                     raise APIError(422,"unavailable_measurement","Retention reference current must be positive.","effects.retention")
-        if config["engines"]["ppa"] == "assumed_proxy":
-            from ctfm.adapters.neurosim import engine_topology_support
-            from ctfm.simulation import MNIST_MLP_V1_LAYERS
-            neurosim = capabilities().engines["neurosim"]
-            if not neurosim.available:
-                raise APIError(422,"unavailable_engine","The NeuroSim engine is not usable in this environment.","engines.ppa",{"reason":neurosim.reason})
-            from ctfm.adapters.proxy_preset import proxy_preset
-            preset = proxy_preset(config["hardware"]["tile_size"])
-            supported, reason = engine_topology_support(MNIST_MLP_V1_LAYERS, config["hardware"]["tile_size"],
-                                                 -(-preset["synapse_bit"] // preset["cell_bit"]))
-            if not supported:
-                raise APIError(422,"unsupported_ppa_configuration",reason,"hardware.tile_size",{"tile_size":config["hardware"]["tile_size"]})
         engine = config["engines"]["accuracy"]
         capability = capabilities().engines[engine]
         if not capability.available:
@@ -397,7 +457,7 @@ def create_app(storage_root=None):
     web_dist = Path(__file__).resolve().parents[3] / "web/dist"
     if (web_dist / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="web-assets")
-    for route in ("/", "/measurements", "/simulator"):
+    for route in ("/", "/measurements", "/simulator", "/saved-results"):
         def web_page():
             if not (web_dist / "index.html").is_file():
                 raise HTTPException(503,"Build apps/web before opening the UI.")

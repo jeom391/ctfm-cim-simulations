@@ -35,12 +35,16 @@ class AnalysisInput(Strict):
     source_label: str | None = None
     read_vgs_v: float | None = None
     vds_v: float | None = Field(default=None, gt=0)
+    start_time_s: float | None = Field(default=None, ge=0)
     row_start: int | None = Field(default=None, ge=1, strict=True)
     row_end: int | None = Field(default=None, ge=1, strict=True)
 
 class AnalysisRequest(Strict):
-    kind: Literal["iv", "d2d", "retention", "pulse_states", "c2c_detrended"]
-    inputs: list[AnalysisInput] = Field(min_length=1, max_length=40)
+    recognition_id: UUID | None = None
+    kind: Literal["iv", "d2d", "retention", "pulse_states", "c2c_detrended", "c2c_sweep"]
+    # A D2D file pair (team snapshot 2026-10-02) has 15-16 amplitude blocks x 2 branches x
+    # 2 devices = up to 64 inputs; 100 matches the recognition request limit.
+    inputs: list[AnalysisInput] = Field(min_length=1, max_length=100)
     settings: dict = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -50,14 +54,22 @@ class AnalysisRequest(Strict):
         keys = {"iv": {"vgs_v", "id_a"}, "d2d": {"vgs_v", "id_a"},
                 "pulse_states": {"time_s", "id_a", "vgs_v"},
                 "retention": {"time_s", "program_id_a", "erase_id_a"},
-                "c2c_detrended": set()}[self.kind]
-        if self.kind == "c2c_detrended" and len(self.inputs) != 1:
+                "c2c_detrended": set(), "c2c_sweep": set()}[self.kind]
+        if self.kind in ("c2c_detrended", "c2c_sweep") and len(self.inputs) != 1:
             raise ValueError("Measured C2C analyzes exactly one workbook")
         for item in self.inputs:
+            if item.start_time_s is not None and self.kind != "pulse_states":
+                raise ValueError("Per-source start time belongs to pulse analyses only")
+            if self.kind == "d2d" and item.device_id.startswith("measurement-source:"):
+                raise ValueError("D2D requires confirmed physical devices, not opaque measurement-source identities")
             if not item.device_id.strip() or not item.condition_id.strip():
                 raise ValueError("Device and condition IDs must be explicit")
             if item.measurement_conditions is not None and self.kind != "c2c_detrended":
                 raise ValueError("measurement_conditions belongs to measured C2C analyses only")
+            if self.kind == "c2c_sweep":
+                if item.column_mapping or item.units or item.selection is not None or item.row_start or item.row_end:
+                    raise ValueError("Sweep C2C recognizes its columns by header; do not send a column mapping, selection or row range")
+                continue
             if self.kind == "c2c_detrended":
                 if item.column_mapping or item.units or item.selection is not None:
                     raise ValueError("Measured C2C recognizes its columns by header; do not send a column mapping or selection")
@@ -120,6 +132,7 @@ class AnalysisRequest(Strict):
             raise ValueError("This analysis kind has no layout selection")
 
 class ProfileCreate(Strict):
+    c2c_analysis_id: UUID | None = None
     condition_id: str = Field(min_length=1)
     state_analysis_id: UUID
     selected_state_ids: list[str]
@@ -128,6 +141,10 @@ class ProfileCreate(Strict):
     display_name: str | None = None
 
 class ProfileRevision(Strict):
+    state_analysis_id: UUID | None = None
+    d2d_analysis_id: UUID | None = None
+    retention_analysis_id: UUID | None = None
+    c2c_analysis_id: UUID | None = None
     base_revision: int = Field(ge=1, strict=True)
     selected_state_ids: list[str] | None = None
     display_name: str | None = None
@@ -143,3 +160,110 @@ class QueuedAnalysis(Strict):
 class QueuedExperiment(Strict):
     experiment_id: UUID
     job_id: UUID
+
+class RecognitionResolution(Strict):
+    """Only uncertain facts; reason is recorded as user evidence, never file evidence."""
+    file_id: UUID
+    reason: str = Field(min_length=1, max_length=2000)
+    kind: Literal['pulse_states', 'iv', 'retention', 'c2c_detrended', 'c2c_sweep'] | None = None
+    condition_id: str | None = Field(default=None, min_length=1, max_length=200)
+    direction: Literal['ltp', 'ltd'] | None = None
+    sheet: str | None = None
+    column_mapping: dict[str, str] | None = None
+    units: dict[str, str] | None = None
+    measurement_group: str | None = Field(default=None, min_length=1, max_length=200)
+    source_label: str | None = None
+    read_vgs_v: float | None = None
+
+class RecognitionRequest(Strict):
+    file_ids: list[UUID] = Field(min_length=1, max_length=100)
+    resolutions: list[RecognitionResolution] = Field(default_factory=list, max_length=100)
+
+class RecognitionEvidence(Strict):
+    field: str
+    value: object = None
+    scope: Literal['file_header', 'filename', 'snapshot_manifest', 'project_assumption', 'project_source', 'user_confirmed', 'waveform', 'unknown']
+    rule: str
+    detail: str
+
+class RecognitionIssue(Strict):
+    code: str
+    detail: str
+    sheet: str | None = None
+    source_row: int | None = None
+    cell: str | None = None
+    block: int | None = None
+
+class PulseRecognition(Strict):
+    write_onset_time_s: float
+    write_onset_source_row: int
+    preceding_read_time_s: float
+    preceding_read_source_row: int
+    recording_start_time_s: float
+    row_count: int
+    write_transition_count: int
+    sample_offset_rows: Literal[2]
+    read_tolerance_v: float
+    write_threshold_v: float
+    pre_write_read_is_state: Literal[False]
+
+class RecognizedSource(Strict):
+    file_id: UUID
+    sha256: str
+    name: str
+    kind: Literal['pulse_states', 'iv', 'retention', 'c2c_detrended', 'c2c_sweep'] | None
+    condition_id: str | None
+    direction: Literal['ltp', 'ltd'] | None
+    sheet: str | None
+    status: Literal['ready', 'needs_choice', 'invalid', 'unsupported']
+    physical_identity: Literal['unverified', 'user_confirmed']
+    simulation_eligible: Literal[False]
+    evidence: list[RecognitionEvidence]
+    issues: list[RecognitionIssue]
+    warnings: list[str]
+    layout: dict | None
+    pulse: PulseRecognition | None
+    measurement_group: str | None
+    snapshot_paths: list[str]
+
+class PulsePair(Strict):
+    pair_key: str
+    condition_id: str
+    file_ids: list[UUID]
+    status: Literal['ready', 'needs_choice']
+    basis: str
+
+class RecognitionProvenance(Strict):
+    recognition_id: UUID
+    rule: str
+    sources: list[RecognizedSource]
+    pulse_pairs: list[PulsePair]
+class RecognitionResult(RecognitionProvenance):
+    requests: list[AnalysisRequest]
+
+
+class PhysicalDeviceSelection(Strict):
+    file_id: UUID
+    device_id: str = Field(min_length=1, max_length=200)
+    identity_evidence: str = Field(min_length=1, max_length=2000)
+    sheet: str | None = None
+    block: int = Field(ge=0, strict=True)
+    segment: int = Field(ge=0, strict=True)
+    units: dict[str, str]
+
+class D2DRecognitionRequest(Strict):
+    condition_id: str = Field(min_length=1, max_length=200)
+    selections: list[PhysicalDeviceSelection] = Field(min_length=2, max_length=100)
+
+
+class D2DPairDevice(Strict):
+    file_id: UUID
+    device_id: str = Field(min_length=1, max_length=200)
+    identity_evidence: str = Field(min_length=1, max_length=2000)
+    sheet: str | None = None
+
+class D2DPairRequest(Strict):
+    """Two files designated as two physical devices; the server matches every common condition."""
+    condition_id: str = Field(min_length=1, max_length=200)
+    devices: list[D2DPairDevice] = Field(min_length=2, max_length=2)
+    units: dict[str, str] = Field(default_factory=lambda: {"vgs_v": "V", "id_a": "A"})

@@ -1,8 +1,12 @@
+> **최종 상태 (2026-10-02):** [최종 구현·검증 완료 보고](docs/final-completion-2026-10-02.md) · 요구사항 [handoff 06](handoff/06_final-implementation-2026-10-02.md). 시뮬레이터 실행: `bash scripts/linux/serve.sh start` (WSL/Linux, AIHWKit).
+>
+> 이전 구현·검증 범위: [2026-09-29 범위·화면 갱신](docs/scope-ui-refresh-2026-09-29.md). 원래 요구사항은 [인수인계](handoff/04_next-implementation-2026-09-29.md)에 있습니다.
+
 # CTFM-CIM Simulations
 
 CTFM 소자의 측정 데이터 분석과 실측 전도도 상태 기반 CIM 추론 평가를 위한 연구용 프로젝트입니다.
 
-> **최신 구현 상태 (2026-09-27):** [최종 점검·사용 범위](docs/release-readiness-2026-09-27.md), [인수인계](handoff/README.md). 측정·정확도 흐름은 구현됐으며 NeuroSim은 제한적인 부분 비용 평가입니다.
+> **이전 점검 (2026-09-27):** [당시 최종 점검·사용 범위](docs/release-readiness-2026-09-27.md), [인수인계](handoff/README.md). 새 실행의 제품 범위는 위 갱신 문서를 따릅니다.
 
 ## 개발 시작
 
@@ -21,7 +25,7 @@ CTFM 소자의 측정 데이터 분석과 실측 전도도 상태 기반 CIM 추
 ## 통합 웹 구조
 
 ```text
-apps/web          하나의 웹 앱: 홈 / 측정 분석 / CIM 시뮬레이터
+apps/web          하나의 웹 앱: 홈 / 측정 분석 / 시뮬레이션 / 저장한 결과
 apps/api          통합 FastAPI 서버
 apps/worker       장기 분석·시뮬레이션 작업
 packages/ctfm-core  공통 계산 및 엔진 adapter
@@ -56,7 +60,7 @@ uv run --locked python packages/contracts/export_schemas.py --check
 uv run --locked python scripts/smoke_workflow.py
 ```
 
-AIHWKit은 설치와 실제 parity probe를 통과할 때만 노출합니다. 수동/실측 Program C2C를 지원합니다. NeuroSim assumed_proxy는 패치 엔진·64 배열에서 부분 비용만 평가하며 검증된 실제 CTFM 가속기 PPA가 아닙니다.
+AIHWKit은 설치와 실제 parity probe를 통과할 때만 노출합니다. 수동/실측 Program C2C를 지원합니다. 새 정확도 실행에서 PPA와 NeuroSim 비용 평가는 제품 범위 밖입니다. 이전 NeuroSim assumed_proxy 코드와 과거 결과는 연구·읽기용으로 보존하며 검증된 실제 CTFM 가속기 PPA로 해석하지 않습니다.
 
 ### 가속기 엔진 (Linux 전용)
 

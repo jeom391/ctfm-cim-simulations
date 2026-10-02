@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 from ctfm.profiles import ProfileManifest
 from ctfm_api.contracts import AnalysisRequest
+from ctfm_api.comparison_models import ComparisonDraft,ComparisonUpdate,ComparisonResult
 from ctfm_api.results import AnalysisResult,ExperimentResult
 
-MODELS={"device-profile":ProfileManifest,"analysis-request":AnalysisRequest,"analysis-result":AnalysisResult,"experiment-result":ExperimentResult}
+MODELS={"comparison-draft":ComparisonDraft,"comparison-update":ComparisonUpdate,"comparison-result":ComparisonResult,"device-profile":ProfileManifest,"analysis-request":AnalysisRequest,"analysis-result":AnalysisResult,"experiment-result":ExperimentResult}
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument("--check",action="store_true")
     args=parser.parse_args();root=Path(__file__).parent/"schemas";stale=[]

@@ -172,6 +172,19 @@
           "default": null,
           "title": "Source Label"
         },
+        "start_time_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Time S"
+        },
         "sweep_amplitude_v": {
           "anyOf": [
             {
@@ -274,7 +287,7 @@
       "items": {
         "$ref": "#/$defs/AnalysisInput"
       },
-      "maxItems": 40,
+      "maxItems": 100,
       "minItems": 1,
       "title": "Inputs",
       "type": "array"
@@ -285,10 +298,24 @@
         "d2d",
         "retention",
         "pulse_states",
-        "c2c_detrended"
+        "c2c_detrended",
+        "c2c_sweep"
       ],
       "title": "Kind",
       "type": "string"
+    },
+    "recognition_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recognition Id"
     },
     "settings": {
       "additionalProperties": true,

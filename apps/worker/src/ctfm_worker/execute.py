@@ -16,11 +16,20 @@ def execute(job_id):
     progress=lambda stage,completed,total:store.progress(job_id,"parsing" if stage=="download" else stage,completed,total)
     if job["kind"]=="analysis":
         from ctfm.measurement import parse_table, analyze
+        from ctfm_api.contracts import AnalysisRequest
+        from ctfm_api.recognition import verify_recognized_request
+        recognition = verify_recognized_request(store, AnalysisRequest.model_validate(request)) if request.get("recognition_id") else None
         datasets=[]
         for index,meta in enumerate(request["inputs"]):
             record=store.get_entity("file",meta["file_id"])
             data=store.managed_path(record["relative_path"]).read_bytes()
             if sha256(data)!=record["sha256"]:raise ValueError("Source hash mismatch")
+            if request["kind"]=="c2c_sweep":
+                from ctfm.measurement.c2c_sweep import analyze_c2c_sweep
+                result=analyze_c2c_sweep(data,record["name"],condition_id=meta["condition_id"],device_id=meta["device_id"])
+                result["analysis_id"]=item["id"]
+                progress("parsing",1,1)
+                break
             if request["kind"]=="c2c_detrended":
                 from ctfm.measurement.c2c import analyze_c2c_file, to_analysis_record
                 raw=analyze_c2c_file(data,record["name"],sheet=meta.get("sheet"),device_id=meta["device_id"],condition_id=meta["condition_id"],
@@ -45,12 +54,36 @@ def execute(job_id):
             rows,source_rows=zip(*pairs)
             datasets.append(dict(meta,rows=list(rows),source_rows=list(source_rows),filename=record["name"],sha256=record["sha256"]))
             progress("parsing",index+1,len(request["inputs"]))
-        if request["kind"]!="c2c_detrended":
+        if request["kind"] not in ("c2c_detrended","c2c_sweep"):
             result=analyze(request["kind"],datasets,request["settings"])
             result["analysis_id"]=item["id"]
     else:
+        from ctfm_contracts.check_experiment_contract import validate_request
+        from ctfm_contracts.product_policy import validate_product_scope
         from ctfm.simulation import run_experiment
-        profiles=[store.get_profile(r["id"],r["revision"]) for r in request["profile_refs"]]
+        validate_request(request)
+        validate_product_scope(request)
+        comparison=bool(item.get("comparison_id"))
+        profiles=[]
+        snapshot=store.get_entity("comparison",item["comparison_id"])["snapshot"] if comparison else None
+        for ref in request["profile_refs"]:
+            try:
+                profile=store.get_profile(ref["id"],ref["revision"])
+                if comparison:
+                    frozen=next(m for m in snapshot["profiles"] if m["profile_id"]==ref["id"] and m["revision"]==ref["revision"])
+                    if profile["manifest"]["profile_hash"]!=frozen["profile_hash"]: raise ValueError("Published profile differs from the run snapshot")
+                c2c=ref.get("c2c") if request["effects"]["c2c"] else None
+                if c2c and c2c["source"]=="measured_detrended":
+                    from ctfm.measurement.c2c import result_pin
+                    analysis=store.get_entity("analysis",c2c["analysis_id"])
+                    if analysis.get("status")!="succeeded" or result_pin(analysis)!=c2c["provenance"]["analysis_result_sha256"]:
+                        raise ValueError("Measured C2C differs from the pinned analysis")
+            except (ValueError,KeyError) as exc:
+                if not comparison: raise
+                # Keep identity and frozen provenance; core records this profile's reason.
+                frozen=next(m for m in snapshot["profiles"] if m["profile_id"]==ref["id"] and m["revision"]==ref["revision"])
+                profile=dict(manifest=frozen,states=[],comparison_error=str(exc))
+            profiles.append(profile)
         checkpoint_path=None
         if request["checkpoint_id"]:
             record=store.get_entity("checkpoint",str(UUID(request["checkpoint_id"])))
@@ -58,7 +91,7 @@ def execute(job_id):
             if sha256(checkpoint_path.read_bytes())!=record["sha256"]:raise ValueError("Checkpoint hash mismatch")
         # Latest spec07 takes precedence: the requested seed controls splitting.
         result=run_experiment(request,profiles,output,cache_dir=store.root/"cache",
-                              checkpoint_path=checkpoint_path,progress=progress,split_seed=request["seed"])
+                              checkpoint_path=checkpoint_path,progress=progress,split_seed=request["seed"],comparison=comparison)
         result["experiment_id"]=item["id"];result["design_version"]="1.1.0"
         requested=len(request["profile_refs"])*len(request["pools"])*len(request["mappings"])*int(request["arrays"])*int(request["n_reprogram"])*len(request["years"])
         actual=[r for r in result["runs"] if r.get("kind")=="ALL"]
@@ -67,6 +100,8 @@ def execute(job_id):
         skipped=requested-len(actual)
         result["summary"].update(requested=requested,completed=completed,failed=failed,skipped=skipped)
         result["status"]="succeeded" if completed==requested else "partial"
+    if job["kind"] == "analysis" and recognition:
+        result["recognition"] = recognition
     progress("exporting",0,1)
     export_result(result,output)
     (output/"worker-result.json").write_text(encode(result),encoding="utf-8")

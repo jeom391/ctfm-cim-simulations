@@ -288,3 +288,38 @@ class ProfileImportTests(unittest.TestCase):
 
 if __name__=='__main__': unittest.main()
 
+
+
+def test_mixed_source_onsets_survive_profile_publication_and_csv_roundtrip():
+    early=pulse(file_id='early',start_time_s=1.0)
+    for row in early['rows']: row['time_s']-=5
+    late=pulse('ltd',file_id='late',start_time_s=10.0)
+    for row in late['rows']: row['time_s']+=4
+    analysis=analyze('pulse_states',[early,late],{})
+    analysis['analysis_id']='onset-analysis'
+    analysis['recognition']={'recognition_id':'recognition','rule':'test','sources':[{'file_id':'early','evidence':[{'field':'onset'}]},{'file_id':'late','evidence':[]},{'file_id':'unrelated','evidence':[]}],'pulse_pairs':[{'file_ids':['early','late']},{'file_ids':['unrelated','other']}]}
+    profile=build_profile('A1',analysis,[s['state_id'] for s in analysis['states']])
+    profile['manifest']=publish_profile(**profile,reviewer='reviewer',review_note='Explicit adoption')
+    validate_profile(profile['manifest'],parse_states_csv(states_csv(profile['states'])),published_required=True)
+    link=profile['manifest']['analysis_links']['state']
+    assert link['analysis_id']=='onset-analysis'
+    assert {s['file_id'] for s in link['recognition']['sources']}=={'early','late'}
+    assert len(link['recognition']['pulse_pairs'])==1
+    assert min(s['time_s'] for s in profile['states'])==1
+
+
+def test_profile_source_onset_null_omitted_and_explicit_zero():
+    for onset in (None,0):
+        d=pulse(start_time_s=onset)
+        if onset is None: d.pop('start_time_s')
+        if onset==0:
+            for row in d['rows']:row['time_s']-=6
+        a=analyze('pulse_states',[d],{})
+        p=build_profile('A1',a,[s['state_id'] for s in a['states']])
+        validate_profile(**p)
+        if onset is None:
+            del p['manifest']['sources'][0]['start_time_s']
+            from ctfm.profiles import compute_profile_hash
+            p['manifest']['profile_hash']=compute_profile_hash(p['manifest'])
+            validate_profile(**p)
+        else: assert min(s['time_s'] for s in p['states'])==0

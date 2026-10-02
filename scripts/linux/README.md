@@ -24,6 +24,7 @@ Windows workspace(`uv.lock`, torch 2.14.0+cpu)는 이 환경과 분리돼 있으
 | 파일 | 역할 |
 |---|---|
 | `setup_aihwkit.sh` | uv 설치, Python 3.11 venv, torch 2.12 + AIHWKit 1.1.0 |
+| `serve.sh` | `start`/`status`/`stop`: 같은 venv·저장소로 API + worker 실행 (웹 http://127.0.0.1:8000) |
 | `sweep_torch_abi.sh` | AIHWKit이 실제로 동작하는 torch 범위를 round-trip으로 측정 |
 | `probe_aihwkit.py` | 저장소 probe + mnist_mlp_v1 레이어 크기 parity |
 | `verify_aihwkit_adc_combinations.py` | ADC 18조합을 독립 NumPy 기준과 대조 |

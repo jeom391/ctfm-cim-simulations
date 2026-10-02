@@ -52,3 +52,4 @@ build/
 # Agent tooling session state
 .omc/
 docs/superpowers/
+local_report/

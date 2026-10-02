@@ -1,4 +1,5 @@
 """Shared response shapes. Additional scientific diagnostics retain their native keys."""
+from .contracts import RecognitionProvenance
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,6 +10,7 @@ class ScientificResult(BaseModel):
 class Artifact(ScientificResult):
     id: UUID
     kind: str
+    role: Literal["user","internal"] | None=Field(default=None,description="user = result table/graph for download; internal = reproduction/diagnostic file. Absent on artifacts registered before roles existed.")
     filename: str
     media_type: str
     sha256: str=Field(pattern=r"^[0-9a-f]{64}$")
@@ -16,10 +18,11 @@ class Artifact(ScientificResult):
     download_url: str
 
 class AnalysisResult(ScientificResult):
+    recognition: RecognitionProvenance | None = None
     analysis_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","failed","cancelled"]
-    kind: Literal["iv","d2d","retention","pulse_states","c2c_detrended"] | None=None
+    kind: Literal["iv","d2d","retention","pulse_states","c2c_detrended","c2c_sweep"] | None=None
     condition_id: str | None=None
     settings: dict | None=None
     summaries: dict | None=None
@@ -48,7 +51,8 @@ class ExperimentResult(ScientificResult):
     experiment_id: UUID
     job_id: UUID
     status: Literal["queued","running","succeeded","partial","failed","cancelled"]
-    schema_version: Literal["1.2.0","1.3.0","1.4.0"] | None=None
+    # Historical results are read verbatim; the request contract still rejects 1.1.0 execution.
+    schema_version: Literal["1.1.0","1.2.0","1.3.0","1.4.0"] | None=None
     requested_config: dict | None=None
     resolved_config: dict | None=None
     effective_config: dict | None=None

@@ -143,6 +143,7 @@ class ProfileManifest(StrictModel):
     retention: Retention
     assumptions: list[Assumption]
     review: Review
+    analysis_links: dict | None = None
 
 
 def _canonical(value):
@@ -231,7 +232,9 @@ def _unavailable_d2d():
     return dict(status='unavailable',cv=None,analysis_id=None,source_kind='iv_proxy',distribution='assumed_lognormal',physical_device_count=2,matched_conditions=0,assumption_ids=['d2d_lognormal','d2d_state_common'],reason='not_provided')
 
 
-def build_profile(condition_id, state_analysis, selected_state_ids, d2d_analysis=None, retention_analysis=None, profile_id=None, revision=1, display_name=None):
+def build_profile(condition_id, state_analysis, selected_state_ids, d2d_analysis=None, retention_analysis=None, profile_id=None, revision=1, display_name=None, c2c_analysis=None):
+    if c2c_analysis is not None and c2c_analysis.get('kind')!='c2c_detrended':
+        raise ValueError('C2C linkage requires a measured C2C analysis')
     if state_analysis.get('kind')!='pulse_states' or state_analysis.get('condition_id')!=condition_id:
         raise ValueError('State analysis must contain pulse states from the selected condition')
     states=deepcopy(state_analysis.get('states',[]))
@@ -264,6 +267,8 @@ def build_profile(condition_id, state_analysis, selected_state_ids, d2d_analysis
             source['source_type']=kind
             if source not in sources: sources.append(source)
     manifest=dict(schema_version='1.0.0',profile_id=str(profile_id or uuid4()),revision=revision,profile_hash='0'*64,condition_id=condition_id,display_name=display_name or condition_id,status='draft',created_at=_now(),published_at=None,measurement=Measurement().model_dump(),sources=sources,extraction=dict(parser_version=PARSER_VERSION,**deepcopy(state_analysis['settings']),exclusions=deepcopy(state_analysis.get('exclusions',[]))),states_file='states.csv',states_sha256=hashlib.sha256(states_csv(states)).hexdigest(),pools=make_pools(states),d2d=d2d,c2c=dict(status='unavailable',cv=None,reason='not_provided'),retention=retention,assumptions=assumptions,review=Review().model_dump())
+    links={kind: analysis_link(analysis) for kind,analysis in (('state',state_analysis),('d2d',d2d_analysis),('retention',retention_analysis),('c2c',c2c_analysis)) if analysis is not None and (analysis.get('analysis_id') or analysis.get('id'))}
+    if links: manifest['analysis_links']=links
     manifest['profile_hash']=compute_profile_hash(manifest)
     validate_profile(manifest,states)
     return dict(manifest=manifest,states=states)
@@ -316,7 +321,10 @@ def validate_profile(manifest, states, published_required=False):
         if state['state_id']!=hashlib.sha256(identity.encode()).hexdigest(): raise ValueError('State ID does not match immutable source coordinates')
         if not math.isclose(state['conductance_s'],state['id_a']/m['vds_v'],rel_tol=1e-12,abs_tol=1e-18): raise ValueError('State G is inconsistent with ID/VDS')
         if state['direction']!=source.get('direction'): raise ValueError('State direction conflicts with source')
-        if state['time_s']<extraction['start_time_s'] or abs(state['vgs_v'])>extraction['read_tolerance_v']: raise ValueError('State violates extraction read constraints')
+        onset=source.get('start_time_s')
+        onset=extraction['start_time_s'] if onset is None else _number(onset,'source start_time_s')
+        if onset<0: raise ValueError('Source start time must be nonnegative')
+        if state['time_s']<onset or abs(state['vgs_v'])>extraction['read_tolerance_v']: raise ValueError('State violates extraction read constraints')
     if manifest['pools']!=make_pools(states): raise ValueError('Pools and G bounds must be calculated from the selected measured states')
     if manifest['c2c']!=dict(status='unavailable',cv=None,reason='not_provided'): raise ValueError('C2C is unavailable; do not fabricate a CV')
     d=manifest['d2d']
@@ -400,3 +408,50 @@ def revise_profile(manifest, states, selected_state_ids=None, revision=None, dis
 
 
 
+
+
+def analysis_link(analysis):
+    """Hash scientific contents, excluding queue progress and artifact registration."""
+    projection={k:deepcopy(analysis[k]) for k in ('kind','condition_id','settings','provenance','states','d2d','retention','program','erase','method','measurement_conditions','exclusions','analysis_version','warnings','recognition') if k in analysis}
+    recognition=projection.get('recognition')
+    if recognition:
+        provenance=analysis.get('provenance',[])
+        file_ids={s.get('file_id') for s in provenance} if isinstance(provenance,list) else {provenance.get('file_id')}
+        file_ids.update(i['file_id'] for i in analysis.get('request',{}).get('inputs',[]))
+        recognition['sources']=[s for s in recognition['sources'] if s['file_id'] in file_ids]
+        recognition['pulse_pairs']=[pair for pair in recognition.get('pulse_pairs',[]) if set(pair['file_ids'])<=file_ids]
+    return dict(analysis_id=analysis.get('analysis_id') or analysis.get('id'),
+                analysis_version=analysis.get('analysis_version') or analysis.get('settings',{}).get('parser_version') or PARSER_VERSION,
+                scientific_sha256=hashlib.sha256(_canonical(projection)).hexdigest(),
+                analysis_result_sha256=analysis.get('analysis_result_sha256'),
+                provenance=projection.get('provenance'),recognition=recognition)
+
+
+def compose_revision(manifest, states, *, revision, replacements, selected_state_ids=None, display_name=None):
+    """An explicit replacement creates a reviewed-again draft, never edits its base."""
+    # Replacement IDs belong to the new analysis, not the immutable base table.
+    result=revise_profile(manifest,states,selected_state_ids=None if 'state' in replacements else selected_state_ids,revision=revision,display_name=display_name)
+    links=deepcopy(manifest.get('analysis_links') or {})
+    if any(kind in replacements for kind in ('state','d2d','retention')):
+        extraction=manifest['extraction']
+        state=dict(kind='pulse_states',condition_id=manifest['condition_id'],states=states,
+                   provenance=[s for s in manifest['sources'] if s.get('source_type','pulse_states')=='pulse_states'],
+                   settings={k:v for k,v in extraction.items() if k not in ('parser_version','exclusions','import_origin')},
+                   exclusions=extraction['exclusions'])
+        if 'state' in replacements:
+            state=replacements['state']
+            if state is None or selected_state_ids is None: raise ValueError('Replacing state analysis requires explicit selected_state_ids')
+        selected=selected_state_ids if selected_state_ids is not None else [s['state_id'] for s in states if s['selected']]
+        effects={kind:replacements.get(kind,dict(kind=kind,condition_id=manifest['condition_id'],**{kind:manifest[kind]},provenance=[s for s in manifest['sources'] if s.get('source_type')==kind])) for kind in ('d2d','retention')}
+        result=build_profile(manifest['condition_id'],state,selected,effects['d2d'],effects['retention'],profile_id=manifest['profile_id'],revision=revision,display_name=display_name or manifest['display_name'])
+    for kind,analysis in replacements.items():
+        if analysis is None: links.pop(kind,None)
+        else:
+            expected='pulse_states' if kind=='state' else 'c2c_detrended' if kind=='c2c' else kind
+            if analysis.get('kind')!=expected: raise ValueError('Wrong analysis kind for '+kind)
+            links[kind]=analysis_link(analysis)
+    links['origin']=dict(profile_id=manifest['profile_id'],revision=manifest['revision'],profile_hash=manifest['profile_hash'],changed_links=list(replacements))
+    result['manifest']['analysis_links']=links
+    result['manifest']['profile_hash']=compute_profile_hash(result['manifest'])
+    validate_profile(**result)
+    return result

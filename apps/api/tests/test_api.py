@@ -52,10 +52,26 @@ async def test_capabilities_never_advertise_unimplemented_execution(client):
     assert payload["effects"]["c2c"]["available"] == payload["engines"]["torch_reference"]["available"]
     assert payload["effects"]["adc"]["available"] == payload["engines"]["torch_reference"]["available"]
     assert payload["hardware"]["adc_bits"] == [3, 4, 5, 6, 7, 8]
-    assert payload["hardware"]["tile_sizes"] == [64, 128, 256]
-    assert payload["hardware"]["adc_orders"] == ["subtract_then_adc", "adc_then_subtract"]
+    assert payload["hardware"]["tile_sizes"] == [64]
+    assert payload["hardware"]["adc_orders"] == ["adc_then_subtract"]
+    assert payload["hardware"]["ppa_tile_sizes"] == []
+    assert not payload["engines"]["neurosim"]["available"]
+    assert all(row["tile_size"] == 64 and row["adc_order"] == "adc_then_subtract"
+               for row in payload["hardware"]["validated_combinations"])
     assert payload["limits"]["max_requested_runs"] == 2000
     assert payload["limits"]["max_n_reprogram"] == 100
+
+
+async def test_capabilities_do_not_probe_out_of_scope_neurosim(client, monkeypatch):
+    import ctfm.adapters
+
+    def unexpected_probe():
+        raise AssertionError("NeuroSim was probed for product capabilities")
+
+    monkeypatch.setattr(ctfm.adapters, "_neurosim_capability", unexpected_probe)
+    response = await client.get("/api/v1/capabilities")
+    assert response.status_code == 200, response.text
+    assert response.json()["engines"]["neurosim"]["reason"] == "outside_product_scope"
 
 
 async def test_valid_request_cannot_create_a_fake_job(client):
@@ -63,6 +79,24 @@ async def test_valid_request_cannot_create_a_fake_job(client):
     assert_error(response, 404, "not_found")
     assert "job_id" not in response.json()
     assert "accuracy" not in response.json()
+
+
+@pytest.mark.parametrize("field,value", [
+    ("hardware.tile_size", 128), ("hardware.tile_size", 256),
+    ("hardware.adc_order", "subtract_then_adc"),
+    ("engines.ppa", "assumed_proxy"),
+])
+async def test_out_of_scope_request_is_rejected_before_profile_lookup(client, field, value):
+    request = baseline()
+    request["schema_version"] = "1.4.0"
+    request["effects"]["adc"] = True
+    request["hardware"].update(adc_bits=5, adc_order="adc_then_subtract",
+                               range_policy="validation_max_abs")
+    section, key = field.split(".")
+    request[section][key] = value
+    error = assert_error(await client.post("/api/v1/experiments", json=request), 422,
+                         "outside_product_scope")
+    assert error["field"] == field
 
 
 @pytest.mark.parametrize("changes", [

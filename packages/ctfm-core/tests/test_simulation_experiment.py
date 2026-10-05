@@ -76,14 +76,12 @@ class ExperimentIntegrationTests(unittest.TestCase):
             self.assertEqual(r['runs'][2]['profile_ref'],config['profile_refs'][0])
             self.assertIsNone(r['runs'][2]['ppa'])
             self.assertIsNone(r['runs'][0]['ppa'])
-            self.assertEqual(r['runs'][3]['ppa']['status'],'unsupported')
-            # The refusal must come from the adapter, carrying why it refused and
-            # how the two models differ, with no number standing in for absence.
+            self.assertEqual(r['runs'][3]['ppa']['status'],'not_evaluated')
+            # PPA off records absence without probing the cost adapter.
             ppa=r['runs'][3]['ppa']
             self.assertTrue(ppa['reason'])
-            self.assertTrue(ppa['reasons'] if 'reasons' in ppa else ppa['model_mismatches'])
-            self.assertIn('nonuniform_states',{m['id'] for m in ppa['model_mismatches']})
-            self.assertEqual(ppa['preset']['status'],'unsupported')
+            self.assertIsNone(ppa['preset'])
+            self.assertEqual(ppa['model_mismatches'],[])
             for key in ('area_m2','energy_j_per_inference','latency_s_per_inference','raw_output'):
                 self.assertIsNone(ppa[key])
             self.assertTrue(r['runs'][2]['mapping_errors'])
@@ -287,3 +285,87 @@ class C2CIntegrationTests(unittest.TestCase):
             download.assert_not_called()
 
 if __name__=='__main__':unittest.main()
+
+
+def test_comparison_isolates_mapping_failure_and_preserves_shared_checkpoint(tmp_path,monkeypatch):
+    import ctfm.simulation as simulation
+    p,q=synthetic_profile(),synthetic_profile()
+    cfg=configuration(p,False);cfg['pools']=['combined'];cfg['profile_refs'].append(dict(id=q['manifest']['profile_id'],revision=1))
+    trained=[]
+    def train(*args): trained.append(1);return create_model(),[]
+    monkeypatch.setattr(simulation,'load_mnist',lambda *a:synthetic_data())
+    monkeypatch.setattr(simulation,'train_model',train)
+    original=simulation.map_weights; calls=[]
+    def mapping(*args):
+        calls.append(1)
+        if len(calls)==1: raise ValueError('synthetic first profile mapping failure')
+        return original(*args)
+    monkeypatch.setattr(simulation,'map_weights',mapping)
+    r=run_experiment(cfg,[p,q],tmp_path/'comparison',cache_dir=tmp_path/'cache',comparison=True)
+    assert trained==[1]
+    assert r['summary']['requested']==2 and r['summary']['failed']==1 and r['summary']['completed']==1
+    failed=[x for x in r['runs'] if x['kind']=='ALL' and x['profile_id']==p['manifest']['profile_id']]
+    peer=[x for x in r['runs'] if x['kind']=='ALL' and x['profile_id']==q['manifest']['profile_id']]
+    assert failed[0]['status']=='failed' and failed[0]['accuracy'] is None
+    assert peer[0]['status']=='succeeded' and peer[0]['accuracy'] is not None
+    partial=json.loads((tmp_path/'comparison'/'comparison-partial.json').read_text())
+    assert partial['checkpoint_id']==r['checkpoint_id']
+    assert partial['provenance']['checkpoint']['sha256']==r['provenance']['checkpoint']['sha256']
+    assert {x['profile_id'] for x in partial['runs'] if x['kind']=='ALL'}=={p['manifest']['profile_id'],q['manifest']['profile_id']}
+    calls.clear()
+    with __import__('pytest').raises(ValueError,match='synthetic first profile'):
+        run_experiment(cfg,[p,q],tmp_path/'strict',cache_dir=tmp_path/'cache')
+
+
+def test_comparison_profile_validation_does_not_block_peer(tmp_path,monkeypatch):
+    import ctfm.simulation as simulation
+    p,q=synthetic_profile(),synthetic_profile()
+    p['manifest']['profile_hash']='0'*64
+    cfg=configuration(p,False);cfg['pools']=['combined'];cfg['profile_refs'].append(dict(id=q['manifest']['profile_id'],revision=1))
+    monkeypatch.setattr(simulation,'load_mnist',lambda *a:synthetic_data())
+    monkeypatch.setattr(simulation,'train_model',lambda *a:(create_model(),[]))
+    result=run_experiment(cfg,[p,q],tmp_path/'comparison',cache_dir=tmp_path/'cache',comparison=True)
+    assert result['summary']['failed']==1 and result['summary']['completed']==1
+    assert any('hash mismatch' in r.get('reason','').lower() for r in result['runs'])
+
+
+def synthetic_profile_without_d2d():
+    """Same as synthetic_profile() but with no D2D analysis linked, so manifest.d2d stays
+    unavailable -- isolates the request-time manual D2D override (profile_refs[].d2d, mirroring the
+    existing manual C2C path) from the profile's own measured D2D, which synthetic_profile() always
+    carries."""
+    sha='a'*64
+    source=dict(file_id='synthetic-pulse',sha256=sha,filename='synthetic.csv',sheet=None,device_id='fixture-device',condition_id='SYNTHETIC',columns={'time_s':'t','vgs_v':'v','id_a':'i'},units={'time_s':'s','vgs_v':'V','id_a':'A'},read_vgs_v=0,vds_v=.1,direction='ltp',source_rows=list(range(1,12)))
+    states=[]
+    for i,g in enumerate([1e-5,2e-5,4e-5,5e-5]):
+        row=i+3
+        sid=hashlib.sha256(json.dumps([sha,None,row,PARSER_VERSION],separators=(',',':')).encode()).hexdigest()
+        states.append(dict(state_id=sid,source_id='synthetic-pulse',source_row=row,transition_row=row+2,time_s=6.+i,direction='ltp',pulse_step=None,extraction_index=i+1,id_a=g*.1,vgs_v=0.,conductance_s=g,selected=True,exclusion_reason=None))
+    analysis=dict(kind='pulse_states',condition_id='SYNTHETIC',states=states,provenance=[source],settings=dict(DEFAULTS))
+    p=build_profile('SYNTHETIC',analysis,[s['state_id'] for s in states],display_name='SYNTHETIC ONLY NO D2D')
+    p['manifest']=publish_profile(p['manifest'],p['states'],'synthetic test','Synthetic numerical validation only; no device measurement')
+    return p
+
+
+def test_manual_d2d_cv_runs_without_a_measured_d2d_analysis(tmp_path,monkeypatch):
+    """D2D used to require a measured analysis baked into the profile manifest (manifest.d2d.cv).
+    A request-time manual CV on profile_refs[].d2d -- mirroring the existing manual C2C path -- must
+    now also make D2D runnable, and D2D must still fail clearly with neither source."""
+    import ctfm.simulation as simulation
+    p=synthetic_profile_without_d2d()
+    assert p['manifest']['d2d']['status']=='unavailable'
+    monkeypatch.setattr(simulation,'load_mnist',lambda *a:synthetic_data())
+    monkeypatch.setattr(simulation,'train_model',lambda *a:(create_model(),[]))
+    base=dict(schema_version='1.2.0',model_id='mnist_mlp_v1',checkpoint_id=None,pools=['combined'],mappings=['fixed_reference'],
+              effects=dict(d2d=True,retention=False,adc=False,c2c=False),arrays=2,n_reprogram=1,years=[0],seed=20260917,
+              hardware=dict(tile_size=64,adc_bits=None,adc_order=None,range_policy=None,preset_id=None),
+              engines=dict(accuracy='torch_reference',ppa='off'))
+    no_cv=dict(base,profile_refs=[dict(id=p['manifest']['profile_id'],revision=1)])
+    with __import__('pytest').raises(ValueError,match='D2D requires'):
+        run_experiment(no_cv,[p],tmp_path/'no-cv',cache_dir=tmp_path/'cache')
+    manual=dict(base,profile_refs=[dict(id=p['manifest']['profile_id'],revision=1,d2d=dict(source='manual_assumption',cv_percent=10))])
+    r=run_experiment(manual,[p],tmp_path/'manual',cache_dir=tmp_path/'cache')
+    all_runs=[x for x in r['runs'] if x['kind']=='ALL']
+    assert len(all_runs)==2
+    assert all(x['status']=='succeeded' for x in all_runs)
+    assert r['effective_config']['candidates'][0]['d2d']==dict(cv_percent=10,cv_ratio=.1,source='manual_assumption')

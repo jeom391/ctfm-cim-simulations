@@ -205,6 +205,18 @@
             ],
             "title": "Source Label"
           },
+          "start_time_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time S"
+          },
           "sweep_amplitude_v": {
             "anyOf": [
               {
@@ -269,7 +281,7 @@
             "items": {
               "$ref": "#/components/schemas/AnalysisInput"
             },
-            "maxItems": 40,
+            "maxItems": 100,
             "minItems": 1,
             "title": "Inputs",
             "type": "array"
@@ -280,10 +292,23 @@
               "d2d",
               "retention",
               "pulse_states",
-              "c2c_detrended"
+              "c2c_detrended",
+              "c2c_sweep"
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "recognition_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognition Id"
           },
           "settings": {
             "additionalProperties": true,
@@ -352,7 +377,8 @@
                   "d2d",
                   "retention",
                   "pulse_states",
-                  "c2c_detrended"
+                  "c2c_detrended",
+                  "c2c_sweep"
                 ],
                 "type": "string"
               },
@@ -361,6 +387,16 @@
               }
             ],
             "title": "Kind"
+          },
+          "recognition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "settings": {
             "anyOf": [
@@ -463,6 +499,22 @@
             "title": "Media Type",
             "type": "string"
           },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "internal"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "user = result table/graph for download; internal = reproduction/diagnostic file. Absent on artifacts registered before roles existed.",
+            "title": "Role"
+          },
           "sha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Sha256",
@@ -525,6 +577,31 @@
           "source_ref"
         ],
         "title": "Assumption",
+        "type": "object"
+      },
+      "Body_profile_create_quick_api_v1_profiles_quick_post": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "ltd_file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Ltd File",
+            "type": "string"
+          },
+          "ltp_file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Ltp File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ltp_file",
+          "ltd_file",
+          "display_name"
+        ],
+        "title": "Body_profile_create_quick_api_v1_profiles_quick_post",
         "type": "object"
       },
       "Body_profile_import_api_v1_profiles_import_post": {
@@ -715,6 +792,695 @@
         "title": "Capability",
         "type": "object"
       },
+      "ComparisonCard": {
+        "additionalProperties": false,
+        "properties": {
+          "base_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "c2c_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Analysis Id"
+          },
+          "c2c_approved_assumption": {
+            "default": false,
+            "title": "C2C Approved Assumption",
+            "type": "boolean"
+          },
+          "card_id": {
+            "format": "uuid",
+            "title": "Card Id",
+            "type": "string"
+          },
+          "condition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Id"
+          },
+          "cross_condition_acknowledged": {
+            "default": false,
+            "title": "Cross Condition Acknowledged",
+            "type": "boolean"
+          },
+          "d2d_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D2D Analysis Id"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "manual_c2c_cv_percent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual C2C Cv Percent"
+          },
+          "manual_d2d_cv_percent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual D2D Cv Percent"
+          },
+          "profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retention_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Analysis Id"
+          },
+          "selected_state_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected State Ids"
+          },
+          "state_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Analysis Id"
+          }
+        },
+        "required": [
+          "card_id",
+          "display_name"
+        ],
+        "title": "ComparisonCard",
+        "type": "object"
+      },
+      "ComparisonCardResult": {
+        "additionalProperties": false,
+        "properties": {
+          "base_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "c2c_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Analysis Id"
+          },
+          "c2c_approved_assumption": {
+            "default": false,
+            "title": "C2C Approved Assumption",
+            "type": "boolean"
+          },
+          "candidate_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidate Ids",
+            "type": "array"
+          },
+          "card_id": {
+            "format": "uuid",
+            "title": "Card Id",
+            "type": "string"
+          },
+          "condition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Id"
+          },
+          "cross_condition_acknowledged": {
+            "default": false,
+            "title": "Cross Condition Acknowledged",
+            "type": "boolean"
+          },
+          "d2d_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D2D Analysis Id"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "manual_c2c_cv_percent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual C2C Cv Percent"
+          },
+          "manual_d2d_cv_percent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual D2D Cv Percent"
+          },
+          "profile_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Hash"
+          },
+          "profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "retention_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Analysis Id"
+          },
+          "runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "selected_state_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected State Ids"
+          },
+          "state_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Analysis Id"
+          },
+          "status": {
+            "default": "draft",
+            "enum": [
+              "draft",
+              "blocked",
+              "queued",
+              "running",
+              "succeeded",
+              "partial",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "display_name"
+        ],
+        "title": "ComparisonCardResult",
+        "type": "object"
+      },
+      "ComparisonClone": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id"
+        ],
+        "title": "ComparisonClone",
+        "type": "object"
+      },
+      "ComparisonDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonCard"
+            },
+            "maxItems": 2000,
+            "title": "Cards",
+            "type": "array"
+          },
+          "common_settings": {
+            "additionalProperties": true,
+            "description": "ExperimentRequest fields except profile_refs. Incomplete settings may be persisted; run validates the authoritative contract.",
+            "title": "Common Settings",
+            "type": "object"
+          }
+        },
+        "title": "ComparisonDraft",
+        "type": "object"
+      },
+      "ComparisonList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonResult"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ComparisonList",
+        "type": "object"
+      },
+      "ComparisonProfileRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision"
+        ],
+        "title": "ComparisonProfileRef",
+        "type": "object"
+      },
+      "ComparisonResult": {
+        "additionalProperties": false,
+        "properties": {
+          "c2c_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "overall",
+                  "detrended",
+                  "assumed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Basis"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonCardResult"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
+          "clone_operation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clone Operation Id"
+          },
+          "common_settings": {
+            "additionalProperties": true,
+            "title": "Common Settings",
+            "type": "object"
+          },
+          "comparison_id": {
+            "format": "uuid",
+            "title": "Comparison Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "discard_requested": {
+            "default": false,
+            "title": "Discard Requested",
+            "type": "boolean"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "lifecycle": {
+            "enum": [
+              "drafting",
+              "running",
+              "temporary",
+              "saved",
+              "discarded"
+            ],
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "origin_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Id"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "succeeded",
+                  "partial",
+                  "failed",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "comparison_id",
+          "version",
+          "lifecycle",
+          "common_settings",
+          "cards",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ComparisonResult",
+        "type": "object"
+      },
+      "ComparisonRun": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version"
+        ],
+        "title": "ComparisonRun",
+        "type": "object"
+      },
+      "ComparisonSave": {
+        "additionalProperties": false,
+        "properties": {
+          "c2c_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "overall",
+                  "detrended",
+                  "assumed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Basis"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ComparisonSave",
+        "type": "object"
+      },
+      "ComparisonUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonCard"
+            },
+            "maxItems": 2000,
+            "title": "Cards",
+            "type": "array"
+          },
+          "common_settings": {
+            "additionalProperties": true,
+            "description": "ExperimentRequest fields except profile_refs. Incomplete settings may be persisted; run validates the authoritative contract.",
+            "title": "Common Settings",
+            "type": "object"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version"
+        ],
+        "title": "ComparisonUpdate",
+        "type": "object"
+      },
       "D2D": {
         "additionalProperties": false,
         "properties": {
@@ -798,6 +1564,106 @@
           "assumption_ids"
         ],
         "title": "D2D",
+        "type": "object"
+      },
+      "D2DPairDevice": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Device Id",
+            "type": "string"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "identity_evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Identity Evidence",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          }
+        },
+        "required": [
+          "file_id",
+          "device_id",
+          "identity_evidence"
+        ],
+        "title": "D2DPairDevice",
+        "type": "object"
+      },
+      "D2DPairRequest": {
+        "additionalProperties": false,
+        "description": "Two files designated as two physical devices; the server matches every common condition.",
+        "properties": {
+          "condition_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Condition Id",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/D2DPairDevice"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Devices",
+            "type": "array"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "condition_id",
+          "devices"
+        ],
+        "title": "D2DPairRequest",
+        "type": "object"
+      },
+      "D2DRecognitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "condition_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Condition Id",
+            "type": "string"
+          },
+          "selections": {
+            "items": {
+              "$ref": "#/components/schemas/PhysicalDeviceSelection"
+            },
+            "maxItems": 100,
+            "minItems": 2,
+            "title": "Selections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "condition_id",
+          "selections"
+        ],
+        "title": "D2DRecognitionRequest",
         "type": "object"
       },
       "ErrorResponse": {
@@ -1331,6 +2197,24 @@
                     }
                   ]
                 },
+                "d2d": {
+                  "additionalProperties": false,
+                  "description": "Manual engineering assumption (not a measured CTFM distribution): relative CV as a percent, converted to a ratio exactly once at this boundary (ctfm.simulation.math.c2c_relative_cv_percent_to_ratio, reused for D2D). Optional -- absent means fall back to the profile's own measured D2D (if any).",
+                  "properties": {
+                    "cv_percent": {
+                      "minimum": 0.0,
+                      "type": "number"
+                    },
+                    "source": {
+                      "const": "manual_assumption"
+                    }
+                  },
+                  "required": [
+                    "cv_percent",
+                    "source"
+                  ],
+                  "type": "object"
+                },
                 "id": {
                   "format": "uuid",
                   "type": "string"
@@ -1346,7 +2230,6 @@
               ],
               "type": "object"
             },
-            "maxItems": 5,
             "minItems": 1,
             "type": "array",
             "uniqueItems": true
@@ -1497,6 +2380,7 @@
             "anyOf": [
               {
                 "enum": [
+                  "1.1.0",
                   "1.2.0",
                   "1.3.0",
                   "1.4.0"
@@ -2097,6 +2981,66 @@
         "title": "Measurement",
         "type": "object"
       },
+      "PhysicalDeviceSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "minimum": 0.0,
+            "title": "Block",
+            "type": "integer"
+          },
+          "device_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Device Id",
+            "type": "string"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "identity_evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Identity Evidence",
+            "type": "string"
+          },
+          "segment": {
+            "minimum": 0.0,
+            "title": "Segment",
+            "type": "integer"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "file_id",
+          "device_id",
+          "identity_evidence",
+          "block",
+          "segment",
+          "units"
+        ],
+        "title": "PhysicalDeviceSelection",
+        "type": "object"
+      },
       "Pool": {
         "additionalProperties": false,
         "properties": {
@@ -2180,6 +3124,18 @@
       "ProfileCreate": {
         "additionalProperties": false,
         "properties": {
+          "c2c_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Analysis Id"
+          },
           "condition_id": {
             "minLength": 1,
             "title": "Condition Id",
@@ -2244,6 +3200,18 @@
       "ProfileManifest": {
         "additionalProperties": false,
         "properties": {
+          "analysis_links": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Links"
+          },
           "assumptions": {
             "items": {
               "$ref": "#/components/schemas/Assumption"
@@ -2404,6 +3372,30 @@
             "title": "Base Revision",
             "type": "integer"
           },
+          "c2c_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "C2C Analysis Id"
+          },
+          "d2d_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D2D Analysis Id"
+          },
           "display_name": {
             "anyOf": [
               {
@@ -2414,6 +3406,18 @@
               }
             ],
             "title": "Display Name"
+          },
+          "retention_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Analysis Id"
           },
           "selected_state_ids": {
             "anyOf": [
@@ -2428,12 +3432,132 @@
               }
             ],
             "title": "Selected State Ids"
+          },
+          "state_analysis_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Analysis Id"
           }
         },
         "required": [
           "base_revision"
         ],
         "title": "ProfileRevision",
+        "type": "object"
+      },
+      "PulsePair": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "condition_id": {
+            "title": "Condition Id",
+            "type": "string"
+          },
+          "file_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "File Ids",
+            "type": "array"
+          },
+          "pair_key": {
+            "title": "Pair Key",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "needs_choice"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pair_key",
+          "condition_id",
+          "file_ids",
+          "status",
+          "basis"
+        ],
+        "title": "PulsePair",
+        "type": "object"
+      },
+      "PulseRecognition": {
+        "additionalProperties": false,
+        "properties": {
+          "pre_write_read_is_state": {
+            "const": false,
+            "title": "Pre Write Read Is State",
+            "type": "boolean"
+          },
+          "preceding_read_source_row": {
+            "title": "Preceding Read Source Row",
+            "type": "integer"
+          },
+          "preceding_read_time_s": {
+            "title": "Preceding Read Time S",
+            "type": "number"
+          },
+          "read_tolerance_v": {
+            "title": "Read Tolerance V",
+            "type": "number"
+          },
+          "recording_start_time_s": {
+            "title": "Recording Start Time S",
+            "type": "number"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "sample_offset_rows": {
+            "const": 2,
+            "title": "Sample Offset Rows",
+            "type": "integer"
+          },
+          "write_onset_source_row": {
+            "title": "Write Onset Source Row",
+            "type": "integer"
+          },
+          "write_onset_time_s": {
+            "title": "Write Onset Time S",
+            "type": "number"
+          },
+          "write_threshold_v": {
+            "title": "Write Threshold V",
+            "type": "number"
+          },
+          "write_transition_count": {
+            "title": "Write Transition Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "write_onset_time_s",
+          "write_onset_source_row",
+          "preceding_read_time_s",
+          "preceding_read_source_row",
+          "recording_start_time_s",
+          "row_count",
+          "write_transition_count",
+          "sample_offset_rows",
+          "read_tolerance_v",
+          "write_threshold_v",
+          "pre_write_read_is_state"
+        ],
+        "title": "PulseRecognition",
         "type": "object"
       },
       "QueuedAnalysis": {
@@ -2476,6 +3600,540 @@
           "job_id"
         ],
         "title": "QueuedExperiment",
+        "type": "object"
+      },
+      "RecognitionEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "file_header",
+              "filename",
+              "snapshot_manifest",
+              "project_assumption",
+              "project_source",
+              "user_confirmed",
+              "waveform",
+              "unknown"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "field",
+          "scope",
+          "rule",
+          "detail"
+        ],
+        "title": "RecognitionEvidence",
+        "type": "object"
+      },
+      "RecognitionIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block"
+          },
+          "cell": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cell"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "source_row": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "RecognitionIssue",
+        "type": "object"
+      },
+      "RecognitionProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "pulse_pairs": {
+            "items": {
+              "$ref": "#/components/schemas/PulsePair"
+            },
+            "title": "Pulse Pairs",
+            "type": "array"
+          },
+          "recognition_id": {
+            "format": "uuid",
+            "title": "Recognition Id",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/RecognizedSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recognition_id",
+          "rule",
+          "sources",
+          "pulse_pairs"
+        ],
+        "title": "RecognitionProvenance",
+        "type": "object"
+      },
+      "RecognitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "file_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "File Ids",
+            "type": "array"
+          },
+          "resolutions": {
+            "items": {
+              "$ref": "#/components/schemas/RecognitionResolution"
+            },
+            "maxItems": 100,
+            "title": "Resolutions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "file_ids"
+        ],
+        "title": "RecognitionRequest",
+        "type": "object"
+      },
+      "RecognitionResolution": {
+        "additionalProperties": false,
+        "description": "Only uncertain facts; reason is recorded as user evidence, never file evidence.",
+        "properties": {
+          "column_mapping": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Mapping"
+          },
+          "condition_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Id"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ltp",
+                  "ltd"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pulse_states",
+                  "iv",
+                  "retention",
+                  "c2c_detrended",
+                  "c2c_sweep"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "measurement_group": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Group"
+          },
+          "read_vgs_v": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Vgs V"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "source_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Label"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          }
+        },
+        "required": [
+          "file_id",
+          "reason"
+        ],
+        "title": "RecognitionResolution",
+        "type": "object"
+      },
+      "RecognitionResult": {
+        "additionalProperties": false,
+        "properties": {
+          "pulse_pairs": {
+            "items": {
+              "$ref": "#/components/schemas/PulsePair"
+            },
+            "title": "Pulse Pairs",
+            "type": "array"
+          },
+          "recognition_id": {
+            "format": "uuid",
+            "title": "Recognition Id",
+            "type": "string"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisRequest"
+            },
+            "title": "Requests",
+            "type": "array"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/RecognizedSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recognition_id",
+          "rule",
+          "sources",
+          "pulse_pairs",
+          "requests"
+        ],
+        "title": "RecognitionResult",
+        "type": "object"
+      },
+      "RecognizedSource": {
+        "additionalProperties": false,
+        "properties": {
+          "condition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Id"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ltp",
+                  "ltd"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/RecognitionEvidence"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/RecognitionIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pulse_states",
+                  "iv",
+                  "retention",
+                  "c2c_detrended",
+                  "c2c_sweep"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout"
+          },
+          "measurement_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Group"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "physical_identity": {
+            "enum": [
+              "unverified",
+              "user_confirmed"
+            ],
+            "title": "Physical Identity",
+            "type": "string"
+          },
+          "pulse": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PulseRecognition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "simulation_eligible": {
+            "const": false,
+            "title": "Simulation Eligible",
+            "type": "boolean"
+          },
+          "snapshot_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Snapshot Paths",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "needs_choice",
+              "invalid",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "file_id",
+          "sha256",
+          "name",
+          "kind",
+          "condition_id",
+          "direction",
+          "sheet",
+          "status",
+          "physical_identity",
+          "simulation_eligible",
+          "evidence",
+          "issues",
+          "warnings",
+          "layout",
+          "pulse",
+          "measurement_group",
+          "snapshot_paths"
+        ],
+        "title": "RecognizedSource",
         "type": "object"
       },
       "Retention": {
@@ -3235,6 +4893,527 @@
         "summary": "Capabilities"
       }
     },
+    "/api/v1/comparisons": {
+      "get": {
+        "operationId": "listing_api_v1_comparisons_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "saved",
+              "enum": [
+                "saved",
+                "temporary",
+                "all"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Listing"
+      },
+      "post": {
+        "operationId": "new_api_v1_comparisons_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComparisonDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "New"
+      }
+    },
+    "/api/v1/comparisons/{identifier}": {
+      "get": {
+        "operationId": "get_api_v1_comparisons__identifier__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get"
+      }
+    },
+    "/api/v1/comparisons/{identifier}/clone": {
+      "post": {
+        "operationId": "clone_api_v1_comparisons__identifier__clone_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComparisonClone"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Clone"
+      }
+    },
+    "/api/v1/comparisons/{identifier}/discard": {
+      "post": {
+        "operationId": "discard_api_v1_comparisons__identifier__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Discard"
+      }
+    },
+    "/api/v1/comparisons/{identifier}/draft": {
+      "put": {
+        "operationId": "update_api_v1_comparisons__identifier__draft_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComparisonUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Update"
+      }
+    },
+    "/api/v1/comparisons/{identifier}/run": {
+      "post": {
+        "operationId": "run_api_v1_comparisons__identifier__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComparisonRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Run"
+      }
+    },
+    "/api/v1/comparisons/{identifier}/save": {
+      "post": {
+        "operationId": "save_api_v1_comparisons__identifier__save_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComparisonSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save"
+      }
+    },
     "/api/v1/experiments": {
       "get": {
         "operationId": "experiments_api_v1_experiments_get",
@@ -3835,6 +6014,180 @@
         "summary": "Cancel"
       }
     },
+    "/api/v1/measurements/recognize": {
+      "post": {
+        "operationId": "measurement_recognition_api_v1_measurements_recognize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Measurement Recognition"
+      }
+    },
+    "/api/v1/measurements/resolve-d2d": {
+      "post": {
+        "operationId": "measurement_d2d_resolution_api_v1_measurements_resolve_d2d_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/D2DRecognitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Measurement D2D Resolution"
+      }
+    },
+    "/api/v1/measurements/resolve-d2d-pair": {
+      "post": {
+        "operationId": "measurement_d2d_pair_api_v1_measurements_resolve_d2d_pair_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/D2DPairRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Measurement D2D Pair"
+      }
+    },
     "/api/v1/profiles": {
       "get": {
         "operationId": "profiles_api_v1_profiles_get",
@@ -4015,6 +6368,65 @@
           }
         },
         "summary": "Profile Import"
+      }
+    },
+    "/api/v1/profiles/quick": {
+      "post": {
+        "description": "Single-step profile creation for the simplified flow: upload LTP+LTD, auto-recognize the\npair, auto-run the pulse_states analysis, auto-select every valid (positive-conductance)\nstate and immediately publish -- no separate review/publish UI. Reuses the exact recognition\n(create_recognition) and profile (build_profile/publish_profile) machinery the multi-step\nflow already used. The analysis itself runs in-process (the same parse_table+analyze() call\napps/worker/src/ctfm_worker/execute.py makes for a pulse_states job) rather than through the\nasync job queue: pulse-state extraction is fast pure-Python/numpy work with no training, so a\nsynchronous call gives the single upload click immediate feedback without depending on a\nseparate worker process being alive and free to pick the job up right now.",
+        "operationId": "profile_create_quick_api_v1_profiles_quick_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_profile_create_quick_api_v1_profiles_quick_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileManifest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Profile Create Quick"
       }
     },
     "/api/v1/profiles/{identifier}/revisions": {

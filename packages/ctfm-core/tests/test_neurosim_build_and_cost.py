@@ -7,6 +7,7 @@ scripts/linux/verify_neurosim_adapter.py.
 """
 import json
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -54,7 +55,7 @@ Param::Param() {
 
 # A build command that just creates the expected binary, so the cache logic is
 # what is under test rather than a compiler.
-FAKE_BUILD = ("python", "-c",
+FAKE_BUILD = (sys.executable, "-c",
               "import pathlib;p=pathlib.Path('Inference_pytorch/NeuroSIM/main');"
               "p.parent.mkdir(parents=True,exist_ok=True);p.write_text('binary')")
 
@@ -185,7 +186,7 @@ class BuildCacheTests(unittest.TestCase):
             cache = Path(directory)/"cache"
             with self.assertRaises(RuntimeError):
                 neurosim_build.build(root, config(), cache_root=cache, upstream_commit="abc123",
-                                     build_command=("python", "-c", "raise SystemExit(3)"))
+                                     build_command=(sys.executable, "-c", "raise SystemExit(3)"))
             self.assertEqual([p for p in cache.iterdir() if p.is_dir()], [])
 
     def test_a_build_that_produces_no_binary_is_a_failure_not_an_empty_entry(self):
@@ -194,7 +195,7 @@ class BuildCacheTests(unittest.TestCase):
             cache = Path(directory)/"cache"
             with self.assertRaises(RuntimeError):
                 neurosim_build.build(root, config(), cache_root=cache, upstream_commit="abc123",
-                                     build_command=("python", "-c", "pass"))
+                                     build_command=(sys.executable, "-c", "pass"))
             self.assertEqual([p for p in cache.iterdir() if p.is_dir()], [])
 
     def test_a_source_that_does_not_take_the_patch_fails_loudly(self):
@@ -278,6 +279,7 @@ class BuildWiringTests(unittest.TestCase):
             binary = root/neurosim_build.BINARY_RELPATH
             binary.parent.mkdir(parents=True, exist_ok=True)
             binary.write_text("not a real engine")
+            binary.chmod(binary.stat().st_mode | 0o111)
             # No Param.cpp next to it, so the cache has nothing to patch.
             result = neurosim.ppa_result([(1024, 128)], preset=VALID_PRESET, root=root,
                                          inputs={"network_csv": "n.csv", "trace_args": [],

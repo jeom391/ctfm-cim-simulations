@@ -62,16 +62,46 @@ def test_experiment_summary_accounts_for_the_reprogram_multiplier(tmp_path, monk
     import numpy as np
     train = np.zeros((60000, 784), dtype=np.uint8); test = np.zeros((10000, 784), dtype=np.uint8)
     data = (train, np.zeros(60000, dtype=np.uint8), test, np.zeros(10000, dtype=np.uint8), [{"synthetic": True}])
-    with patch("ctfm.simulation.load_mnist", return_value=data), patch("ctfm.simulation.train_model", return_value=(create_model(), [])):
+    with patch("ctfm.simulation.load_mnist", return_value=data), patch("ctfm.simulation.train_model", return_value=(create_model(), [])), \
+         patch("ctfm.adapters._neurosim_capability", side_effect=AssertionError("NeuroSim capability probed while off")), \
+         patch("ctfm.adapters.neurosim.ppa_result", side_effect=AssertionError("PPA evaluation called while off")), \
+         patch("ctfm.adapters.neurosim.build_engine_inputs", side_effect=AssertionError("NeuroSim inputs built while off")):
         execute(job["id"])
     # execute() writes worker-result.json but does not itself call store.finish
     # (runner.run_once does that after the real subprocess exits); read the
     # file directly, exactly what execute() actually produced.
-    summary = json.loads((store.job_dir(job["id"]) / "worker-result.json").read_text(encoding="utf-8"))["summary"]
+    result = json.loads((store.job_dir(job["id"]) / "worker-result.json").read_text(encoding="utf-8"))
+    summary = result["summary"]
     # 1 profile * 1 pool * 1 mapping * 1 array * 2 reprogram * 1 year = 2.
     assert summary["requested"] == 2, summary
     assert summary["completed"] == 2, summary
     assert summary["skipped"] == 0, summary
+    assert result["effective_config"]["input_encoding"]["bits"] == 8
+    assert result["resolved_config"]["hardware"]["adc_order"] is None
+    assert result["ppa"]["status"] == "not_evaluated"
+    assert result["ppa"]["area_m2"] is None
+    assert result["ppa"]["energy_j_per_inference"] is None
+    assert result["ppa"]["latency_s_per_inference"] is None
+
+
+def test_worker_rejects_queued_ppa_request_without_api(tmp_path, monkeypatch):
+    import json
+    import pytest
+    from ctfm_contracts.check_experiment_contract import ContractError
+    from ctfm_worker.execute import execute
+
+    monkeypatch.setenv("CTFM_STORAGE_ROOT", str(tmp_path))
+    store = Store(tmp_path)
+    fixture = Path(__file__).resolve().parents[3] / "packages/contracts/fixtures/experiment-effects.request.json"
+    request = json.loads(fixture.read_text(encoding="utf-8"))
+    request["schema_version"] = "1.4.0"
+    request["hardware"].update(tile_size=64, adc_bits=5, adc_order="adc_then_subtract")
+    request["engines"]["ppa"] = "assumed_proxy"
+    _, job = store.enqueue("experiment", request)
+    store.claim()
+    with pytest.raises(ContractError, match="PPA") as error:
+        execute(job["id"])
+    assert error.value.field == "engines.ppa"
 
 
 def test_analysis_job_executes_in_subprocess_and_exports(tmp_path):
@@ -127,6 +157,145 @@ def test_second_worker_cannot_acquire_same_storage(tmp_path):
         with pytest.raises(RuntimeError,match="Another worker"):
             with worker_lock(store):pass
 
+def test_run_once_survives_a_locked_claim_and_polls_again(tmp_path,monkeypatch):
+    """A transient 'database is locked' while claiming the next job (e.g. a slow /comparisons/run
+    request holding the writer lock) must not crash the worker process; run_once should report
+    no work done this cycle so the caller's normal poll loop just tries again."""
+    import sqlite3
+    store=Store(tmp_path)
+    def always_locked():
+        raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(store,"claim",always_locked)
+    assert run_once(store) is False
+    # the worker is still usable afterwards -- this was not a fatal condition
+    monkeypatch.undo()
+    item,job=store.enqueue("analysis",{"kind":"iv"})
+    assert store.claim()["id"]==job["id"]
+
+def test_run_once_reraises_the_original_failure_even_if_finish_is_also_locked(tmp_path,monkeypatch):
+    """If the job itself fails for a real reason while the DB happens to also be locked when
+    run_once tries to record that failure, the original failure must still surface (never hidden
+    behind the incidental lock), and run_once itself must not raise a second, different error."""
+    import pytest
+    import sqlite3
+    import ctfm_worker.runner as runner
+    store=Store(tmp_path)
+    item,job=store.enqueue("analysis",{"kind":"iv"})
+    def boom(*args,**kwargs):raise RuntimeError("subprocess could not start")
+    monkeypatch.setattr(runner.subprocess,"Popen",boom)
+    def locked_finish(*args,**kwargs):raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(store,"finish",locked_finish)
+    with pytest.raises(RuntimeError,match="subprocess could not start"):
+        run_once(store)
+
+def test_main_once_survives_a_locked_claim_without_crashing(tmp_path,monkeypatch):
+    """The --once entry point (what a supervisor actually runs) must return normally instead of
+    exiting with an unhandled exception when the database is transiently locked."""
+    import sqlite3,sys
+    import ctfm_worker.runner as runner
+    store=Store(tmp_path)
+    monkeypatch.setattr(runner,"Store",lambda *a,**k:store)
+    def boom(s):raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(runner,"run_once",boom)
+    monkeypatch.setattr(sys,"argv",["ctfm_worker","--once"])
+    runner.main()
+
+def test_completed_job_outcome_survives_a_lock_that_outlives_the_retry_budget(tmp_path,monkeypatch):
+    """A job that actually finishes (subprocess succeeds) but whose finish() write hits a lock
+    past Store's own retry budget must not be lost, marked failed, or recomputed: the outcome is
+    deferred to disk, stays 'running' until then, and a later poll iteration -- once the lock has
+    cleared -- commits the SAME outcome without running the subprocess again."""
+    import sqlite3
+    from ctfm_worker.runner import _flush_pending_finishes
+    store=Store(tmp_path)
+    data=b"time,id,gate\n5,0.000001,0\n6,0.000001,0\n6.1,0.000001,0\n6.2,0.000001,-10\n6.3,0.000001,0\n7,0.000002,0\n7.1,0.000002,0\n7.2,0.000002,-10\n7.3,0.000002,0\n"
+    import uuid
+    fid=str(uuid.uuid4());relative="uploads/"+fid+".csv"
+    store.managed_path(relative).write_bytes(data)
+    store.put_entity("file",fid,dict(file_id=fid,name="synthetic.csv",sha256=sha256(data),relative_path=relative))
+    request=dict(kind="pulse_states",inputs=[dict(file_id=fid,column_mapping=dict(time_s="time",id_a="id",vgs_v="gate"),units=dict(time_s="s",id_a="A",vgs_v="V"),device_id="synthetic-only",condition_id="A1",direction="ltp",read_vgs_v=0,vds_v=.1)],settings={})
+    item,job=store.enqueue("analysis",request)
+    real_finish=store.finish;calls=[]
+    def flaky_finish(job_id,**kwargs):
+        calls.append(kwargs.get("state"))
+        if len(calls)==1:raise sqlite3.OperationalError("database is locked")
+        return real_finish(job_id,**kwargs)
+    monkeypatch.setattr(store,"finish",flaky_finish)
+    assert run_once(store) is True  # subprocess ran to completion; finish() deferred (locked)
+    stuck=store.get_job(job["id"])
+    assert stuck["state"]=="running",stuck  # not yet committed -- still recoverable, not failed
+    pending=list((store.root/"artifacts").glob("*/pending-finish.json"))
+    assert len(pending)==1
+    assert run_once(store) is False  # nothing new queued; a normal poll iteration flushes the deferred outcome
+    finished=store.get_job(job["id"])
+    assert finished["state"]=="succeeded",finished
+    assert not pending[0].exists()
+    result=store.get_entity("analysis",item["id"])
+    assert len(result["states"])==2  # the real, once-computed result -- not recomputed, not discarded
+    assert calls==["succeeded","succeeded"]  # attempted twice for the SAME outcome; never re-run, never re-decided
+    # a second call to the flush helper directly is a safe no-op once nothing is pending
+    _flush_pending_finishes(store)
+    assert store.get_job(job["id"])["state"]=="succeeded"
+
+def test_pending_finish_survives_a_restart_whose_first_flush_is_also_locked(tmp_path,monkeypatch):
+    """Reproduces the restart race: a job's outcome was deferred to pending-finish.json by a prior
+    worker process. On restart the startup sequence is flush-then-recover_interrupted(); if that
+    first flush attempt is ALSO locked, recover_interrupted() must not sweep the still-'running'
+    job into 'failed' -- a pending outcome is authoritative, not an interruption. Once the lock
+    genuinely clears, a later flush must still recover the real, once-computed result."""
+    import sqlite3
+    from ctfm_worker.runner import _flush_pending_finishes
+    store=Store(tmp_path)
+    data=b"time,id,gate\n5,0.000001,0\n6,0.000001,0\n6.1,0.000001,0\n6.2,0.000001,-10\n6.3,0.000001,0\n7,0.000002,0\n7.1,0.000002,0\n7.2,0.000002,-10\n7.3,0.000002,0\n"
+    import uuid
+    fid=str(uuid.uuid4());relative="uploads/"+fid+".csv"
+    store.managed_path(relative).write_bytes(data)
+    store.put_entity("file",fid,dict(file_id=fid,name="synthetic.csv",sha256=sha256(data),relative_path=relative))
+    request=dict(kind="pulse_states",inputs=[dict(file_id=fid,column_mapping=dict(time_s="time",id_a="id",vgs_v="gate"),units=dict(time_s="s",id_a="A",vgs_v="V"),device_id="synthetic-only",condition_id="A1",direction="ltp",read_vgs_v=0,vds_v=.1)],settings={})
+    item,job=store.enqueue("analysis",request)
+    real_finish=store.finish;calls=[]
+    def flaky_finish(job_id,**kwargs):
+        calls.append(kwargs.get("state"))
+        if len(calls)<=2:raise sqlite3.OperationalError("database is locked")
+        return real_finish(job_id,**kwargs)
+    monkeypatch.setattr(store,"finish",flaky_finish)
+    assert run_once(store) is True  # subprocess completes; finish() (call 1) deferred to disk
+    assert store.get_job(job["id"])["state"]=="running"
+    pending=list((store.root/"artifacts").glob("*/pending-finish.json"))
+    assert len(pending)==1
+    # Simulate a worker restart: main()'s own startup order is flush, then recover_interrupted().
+    _flush_pending_finishes(store)  # call 2: also locked; still deferred
+    assert store.get_job(job["id"])["state"]=="running"
+    assert pending[0].exists()
+    recovered=store.recover_interrupted()
+    assert recovered==0  # must NOT have been swept into "interrupted"
+    assert store.get_job(job["id"])["state"]=="running"
+    # The lock finally clears (call 3).
+    _flush_pending_finishes(store)
+    finished=store.get_job(job["id"])
+    assert finished["state"]=="succeeded",finished
+    assert not pending[0].exists()
+    result=store.get_entity("analysis",item["id"])
+    assert len(result["states"])==2  # the real, once-computed result -- never recomputed
+    assert calls==["succeeded","succeeded","succeeded"]  # same decision every attempt
+
+def test_flush_pending_finish_never_discards_an_outcome_that_was_not_actually_applied(tmp_path,monkeypatch):
+    """If finish() returns False (job already terminal) for a reason OTHER than this exact pending
+    outcome having already been committed, the pending file must be kept, not silently deleted."""
+    import sqlite3
+    from ctfm_worker.runner import _flush_pending_finishes
+    store=Store(tmp_path)
+    item,job=store.enqueue("analysis",{"kind":"iv"})
+    store.claim()
+    output=store.job_dir(job["id"]);output.mkdir(parents=True)
+    (output/"pending-finish.json").write_text('{"state":"succeeded","result":{"ok":true}}',encoding="utf-8")
+    # The job was cancelled by a racing request before the deferred outcome could be flushed.
+    store.cancel(job["id"]);store.finish(job["id"],state="cancelled")
+    assert store.get_job(job["id"])["state"]=="cancelled"
+    _flush_pending_finishes(store)
+    assert (output/"pending-finish.json").exists()  # kept: 'succeeded' was never actually applied
+    assert store.get_job(job["id"])["state"]=="cancelled"  # the real, already-committed outcome stands
+
 def test_spreadsheet_exports_keep_untrusted_strings_as_text(tmp_path):
     from ctfm_worker.exports import export_result
     from openpyxl import load_workbook
@@ -148,3 +317,31 @@ def test_spreadsheet_export_scales_to_measured_table_size(tmp_path):
     started=time.monotonic()
     export_result({"tables":{"raw":rows}},tmp_path)
     assert time.monotonic()-started<60
+
+
+def test_failed_comparison_subprocess_retains_partial_rows_and_checkpoint(tmp_path,monkeypatch):
+    import json,subprocess,sys
+    from uuid import uuid4
+    import ctfm_worker.runner as runner
+    from ctfm_api.comparisons import create,write
+    from ctfm_api.storage import encode
+    store=Store(tmp_path);pid=str(uuid4());cpid=str(uuid4())
+    card=dict(card_id=str(uuid4()),display_name='synthetic',profile_ref=dict(id=pid,revision=1),status='queued')
+    with store.connection() as db:
+        comparison=create(db,dict(common_settings={},cards=[]))
+    item,job=store.enqueue('experiment',{})
+    item['comparison_id']=comparison['comparison_id'];store.put_entity('experiment',item['id'],item,replace=True)
+    comparison.update(lifecycle='running',experiment_id=item['id'],job_id=job['id'],cards=[card])
+    with store.connection() as db:write(db,comparison)
+    row=dict(profile_id=pid,profile_revision=1,candidate_id='candidate-1',kind='ALL',status='succeeded',accuracy=.75)
+    partial=dict(checkpoint_id=cpid,checkpoint_filename='checkpoint.pt',runs=[row])
+    script="from pathlib import Path;import sys;p=Path("+repr(str(store.job_dir(job['id'])))+");(p/'checkpoint.pt').write_bytes(b'completed training');(p/'comparison-partial.json').write_text("+repr(json.dumps(partial))+");sys.exit(1)"
+    original=subprocess.Popen
+    monkeypatch.setattr(runner.subprocess,'Popen',lambda command,**kwargs:original([sys.executable,'-c',script],**kwargs))
+    assert run_once(store)
+    result=store.get_entity('comparison',comparison['comparison_id'])
+    assert result['lifecycle']=='temporary' and result['outcome']=='partial'
+    assert result['cards'][0]['runs']==[row]
+    checkpoint=store.get_entity('checkpoint',cpid)
+    assert store.managed_path(checkpoint['relative_path']).read_bytes()==b'completed training'
+    assert store.get_job(job['id'])['state']=='failed'

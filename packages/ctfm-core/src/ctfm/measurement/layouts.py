@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import re
+from functools import lru_cache
 
 from . import _load_raw
 
@@ -36,11 +37,18 @@ def _header_cells(row):
     return cells
 
 
+@lru_cache(maxsize=4)
+def _cached_raw(data, filename, sheet):
+    # A D2D pair reads the same two workbooks for every block/segment input (up to 64 times);
+    # callers here only read the rows, so sharing the parsed cells is safe.
+    return _load_raw(data, filename, sheet)
+
+
 def _select_sheet(data, filename, sheet):
-    raw, sheets, warnings, selected = _load_raw(data, filename, sheet)
+    raw, sheets, warnings, selected = _cached_raw(data, filename, sheet)
     if not raw:
         raise ValueError('Select a worksheet explicitly: ' + ', '.join(sheets))
-    return raw, sheets, warnings, selected
+    return raw, list(sheets), list(warnings), selected
 
 
 def _segments(vg, first_source_row):

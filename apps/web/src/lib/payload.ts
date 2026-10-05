@@ -1,6 +1,6 @@
 import {profileKey,analysisId,analysisCondition} from './api/index.ts';
 import type {Analysis,Capabilities,Dataset,Kind,Profile,SimulationForm,ExperimentRequest} from './api/index.ts';
-export const canonicalKeys:Record<Kind,string[]>={iv:['vgs_v','id_a'],d2d:['vgs_v','id_a'],retention:['time_s','program_id_a','erase_id_a'],pulse_states:['time_s','id_a','vgs_v'],c2c_detrended:[]};
+export const canonicalKeys:Record<Kind,string[]>={iv:['vgs_v','id_a'],d2d:['vgs_v','id_a'],retention:['time_s','program_id_a','erase_id_a'],pulse_states:['time_s','id_a','vgs_v'],c2c_detrended:[],c2c_sweep:[]};
 export const unitOptions=(key:string)=>key==='time_s'?['s','ms']:key==='vgs_v'?['V','mV']:['A','mA','uA','nA'];
 // Instrument exports name their columns the same way every run, so the first
 // guess is worth prefilling. Nothing here skips a check: every dataset still
@@ -38,7 +38,7 @@ export const available=(value:unknown)=>value===true||(typeof value==='object'&&
 const check=(ok:unknown,message:string)=>{if(!ok)throw new Error(message);};
 const integer=(n:number,min:number,max:number)=>Number.isInteger(n)&&n>=min&&n<=max;
 export function buildExperiment(f:SimulationForm,profiles:Profile[],caps:Capabilities,analyses:Analysis[]=[]):ExperimentRequest{
- check(f.profileKeys.length>=1&&f.profileKeys.length<=5,'발행 프로파일을 1~5개 선택하세요.');
+ check(f.profileKeys.length>=1,'발행 프로파일을 하나 이상 선택하세요.');
  const selected=f.profileKeys.map(key=>profiles.find(p=>`${p.profile_id}:${p.revision}`===key));
  check(selected.every(p=>p?.status==='published'),'발행된 프로파일 revision만 실행할 수 있습니다.');
  const chosen=selected as Profile[];

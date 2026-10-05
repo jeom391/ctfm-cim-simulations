@@ -1,0 +1,428 @@
+{
+  "date": "2026-10-02",
+  "source": "관련 자료",
+  "count": 84,
+  "total_bytes": 20841707,
+  "files": [
+    {
+      "path": "C2C/A2_C2C_50Cycles.xlsx",
+      "bytes": 155631,
+      "sha256": "49959edc4e089eec8f823a14effba9f1765a262642ed0051c022452ee77e52d9"
+    },
+    {
+      "path": "D2D/A1/_26CTFM_A1_vgid_sweep_200_15V.xlsx",
+      "bytes": 197910,
+      "sha256": "8ce8daf8939d20691e9d051538f378b0e64b9eea4ff944b94635c449c62d3e79"
+    },
+    {
+      "path": "D2D/A1/_26CTFM_A1_vgid_sweep_201_15V.xlsx",
+      "bytes": 197569,
+      "sha256": "d8ed4107b1ca696debaac7f0da8112573f5470c5b8e9474854f254383de6705a"
+    },
+    {
+      "path": "D2D/A2/_26CTFM_A2_IdVg_sweep_233_15V.xlsx",
+      "bytes": 152136,
+      "sha256": "c1825d96603b1e1858b571049b41291c7a647e6f53818632bd5091d3b8285c31"
+    },
+    {
+      "path": "D2D/A2/_26CTFM_A2_IdVg_sweep_234_15V.xlsx",
+      "bytes": 152032,
+      "sha256": "d592b928b6d283f4a38bbfa4e565ff6b8e96067c33484eef98fbf536989f2527"
+    },
+    {
+      "path": "D2D/A3/_26CTFM_A3_vgid_sweep_245_15V.xlsx",
+      "bytes": 121392,
+      "sha256": "28e46b459f25479d7205beac68d4923a3709cf0079adf25a2c8e89c378027c24"
+    },
+    {
+      "path": "D2D/A3/_26CTFM_A3_vgid_sweep_246_15V.xlsx",
+      "bytes": 121287,
+      "sha256": "0ccb3253e85bfb711ce10a600b1bcb1fac1a9400b48c58b0a0289711f134720d"
+    },
+    {
+      "path": "D2D/A4/_26CTFM_A4_IdVg_sweep_232_15V_.xlsx",
+      "bytes": 199869,
+      "sha256": "c06ef8bb07a0c40288e8a410c8dfcb78f951382677ebd8db513c1054f8b35a8f"
+    },
+    {
+      "path": "D2D/A4/_26CTFM_A4_IdVg_sweep_233_15V.xlsx",
+      "bytes": 201146,
+      "sha256": "9897e33875d61a416d9d008a5624b1e9b52b497b72664387e6a556ad944bf3ce"
+    },
+    {
+      "path": "D2D/A5/_26CTFM_A5_IdVg_sweep_223_15V_.xlsx",
+      "bytes": 200309,
+      "sha256": "660e1708125dedbc563686685862185c33eb646b506e515fc6b5d3cbd31a2425"
+    },
+    {
+      "path": "D2D/A5/_26CTFM_A5_IdVg_sweep_224_15V.xlsx",
+      "bytes": 210924,
+      "sha256": "dd8cdcc3d73965592ec36f4d911e267cdd7a8cc0bba946e16345055de7e72ae2"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_IdVg_sweep_120_15V_.xlsx",
+      "bytes": 199163,
+      "sha256": "67b6eac408551cf63332f1ad09ab8d67d1ddb310f96e6df4cc51df1784b16f8d"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_IdVg_sweep_121_15V.xlsx",
+      "bytes": 199161,
+      "sha256": "29501035ef71e28a581710f57d04e8e02ba8ecb2dab07c4926583456ad129ba0"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_IdVg_sweep_124_15V.xlsx",
+      "bytes": 195908,
+      "sha256": "89b335f729cea2057447cabdea5a0e7f7cd8fd28ac53a97a9da438727e57a78d"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_IdVg_sweep_125_15V.xlsx",
+      "bytes": 197302,
+      "sha256": "f56ea52724a48f110bed74c8ff3733d63f5c619fc43cc273543695543b238231"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_IdVg_sweep_136_15V.xlsx",
+      "bytes": 198422,
+      "sha256": "c3ed81989c7d4a8a801c77bc714a1ad6e54cd864cc77972a26b741d84b0b141b"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_115_15V.xlsx",
+      "bytes": 146714,
+      "sha256": "c3f3c84f30f3d8c8834bd4d3325f93cad7a37dd50266a862d203cfab0d0155be"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_117_15V.xlsx",
+      "bytes": 119318,
+      "sha256": "0d2ca373e3c32a022df2de08caf38b4d4cfa4c811c1c2e2bbe9c7f79d22cf132"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_118_15V.xlsx",
+      "bytes": 117549,
+      "sha256": "0450792b27969e8b1d0f1929634943cb4f9fe932fce53b182600dde193a54769"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_138_15V.xlsx",
+      "bytes": 117672,
+      "sha256": "b3d3677fde3bfd0ad0102bc49d3ba804e6ad5e1c4cc32d09ab34c5048fe8da8a"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_200_15V.xlsx",
+      "bytes": 197910,
+      "sha256": "8ce8daf8939d20691e9d051538f378b0e64b9eea4ff944b94635c449c62d3e79"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_201_15V.xlsx",
+      "bytes": 197569,
+      "sha256": "d8ed4107b1ca696debaac7f0da8112573f5470c5b8e9474854f254383de6705a"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_203_15V.xlsx",
+      "bytes": 204011,
+      "sha256": "3c4a21541cbce1bafbc920c36c1a57c398d0b96b54c0335b5b19c826e8fa4d9e"
+    },
+    {
+      "path": "IV Sweep/A1/_26CTFM_A1_vgid_sweep_230_15V.xlsx",
+      "bytes": 118332,
+      "sha256": "1ff4d5aef0d006cb90b0a0ce5e19eb4c832fa592db5ee699d038f0351f699314"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A2_IdVg_sweep_233_15V.xlsx",
+      "bytes": 152136,
+      "sha256": "c1825d96603b1e1858b571049b41291c7a647e6f53818632bd5091d3b8285c31"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A2_IdVg_sweep_234_15V.xlsx",
+      "bytes": 152032,
+      "sha256": "d592b928b6d283f4a38bbfa4e565ff6b8e96067c33484eef98fbf536989f2527"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A2_IdVg_sweep_235_15V.xlsx",
+      "bytes": 151229,
+      "sha256": "5d94420fe6eec85a0d59f48c574271549be95207141afffe1d068e0529e40cfc"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A2_IdVg_sweep_236_15V.xlsx",
+      "bytes": 151334,
+      "sha256": "6beeb6535362c86316e0bf598cb29c6cf3df882a4cf5034cfe5535c5be7d3192"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A2_IdVg_sweep_238_15V.xlsx",
+      "bytes": 150862,
+      "sha256": "f08e2a62e47b2656776571a9c8cfb6b408deaede5995972e2ce145b5fea17043"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A2_IdVg_sweep_239_15V.xlsx",
+      "bytes": 150263,
+      "sha256": "29d1ec9be2aabfdcea073e31d23aaebd724ce153d330fd0ca89a87a8e9e58d61"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A2_vgid_sweep_129_15V.xlsx",
+      "bytes": 199772,
+      "sha256": "04a91bad0191297e8a783f2b6b9e47ce62ead79aeabd87c800ee772205994324"
+    },
+    {
+      "path": "IV Sweep/A2/_26CTFM_A_vgid_sweep_230_15V.xlsx",
+      "bytes": 151234,
+      "sha256": "b7c840bae56a0318d73f93ccffc40e67f09f1599e29d5e290a568698d8b98aa6"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_119_15V.xlsx",
+      "bytes": 198604,
+      "sha256": "e471d987a89b52d9d1eeb957345e1a16cca7a22b25d29606c9eab813929f5d68"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_227_15V.xlsx",
+      "bytes": 201076,
+      "sha256": "c350d9b19a84a645acd5531d0fbb91ba07ae924659d53b21866c29c3a845a2cd"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_228_15V.xlsx",
+      "bytes": 198027,
+      "sha256": "24ec3aef8051a8a84275eb1c80aa659260b53a64d388ebbe69da7c79377db66d"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_229_15V.xlsx",
+      "bytes": 198789,
+      "sha256": "cef292add97eb73ce46f955af7e92362eb95ee6291d5769b540bd41b8a0a68eb"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_238_15V.xlsx",
+      "bytes": 198737,
+      "sha256": "44a4f06382b9a7a38b9081f1927191074e4f104edc8c8f5098985d56cf5ca979"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_244_15V.xlsx",
+      "bytes": 121303,
+      "sha256": "a0207ae53df5e76f05d12757a2d5e05f27618feb420d86299d14e7f179d33a87"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_245_15V.xlsx",
+      "bytes": 121392,
+      "sha256": "28e46b459f25479d7205beac68d4923a3709cf0079adf25a2c8e89c378027c24"
+    },
+    {
+      "path": "IV Sweep/A3/_26CTFM_A3_vgid_sweep_250_15V.xlsx",
+      "bytes": 121033,
+      "sha256": "bc5e98f92c1a04e90384fabec76380b04f9c04474077151ad38e7244f10183cf"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_IdVg_sweep_232_15V_.xlsx",
+      "bytes": 199869,
+      "sha256": "c06ef8bb07a0c40288e8a410c8dfcb78f951382677ebd8db513c1054f8b35a8f"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_IdVg_sweep_233_15V.xlsx",
+      "bytes": 201146,
+      "sha256": "9897e33875d61a416d9d008a5624b1e9b52b497b72664387e6a556ad944bf3ce"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_IdVg_sweep_234_15V_.xlsx",
+      "bytes": 199082,
+      "sha256": "d14091a7fba424c2393d48871c24d195b35e57964966d7e112bc88aec966c5df"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_IdVg_sweep_237_15V.xlsx",
+      "bytes": 199398,
+      "sha256": "9b255bc33409a6c41e808299e91097b2b98a81a46d4b6b6b4543c8046ea5d614"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_IdVg_sweep_238_15V.xlsx",
+      "bytes": 186925,
+      "sha256": "8484cf797171596981c5f103bf7eac2d36f5f316263fe9ee3b0472a54cd6e5d1"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_IdVg_sweep_239_15V.xlsx",
+      "bytes": 211530,
+      "sha256": "3e12d4cffafd7660bdd9ff59890d057e6e8689a2dca423422b02cdd144eb81f4"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_IdVg_sweep_241_15V.xlsx",
+      "bytes": 201304,
+      "sha256": "08bc6065ea3aaa23203484c671945464c35f314c371f2fe7de619b45498d1182"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_vgid_sweep_216_15V.xlsx",
+      "bytes": 199701,
+      "sha256": "3dfb5c2732fddceec669a7ac305f26c745049263042284d798d156eb92a8a7ed"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_vgid_sweep_226_15V.xlsx",
+      "bytes": 208743,
+      "sha256": "a83eb069764e5904b410523130ec58428987b32891724a69909b0b533ac4b480"
+    },
+    {
+      "path": "IV Sweep/A4/_26CTFM_A4_vgid_sweep_228_15V.xlsx",
+      "bytes": 121336,
+      "sha256": "6e427953249ca1ebbe75cc1f3917bbcac97bf7a61e4277d60c9390cfb102936a"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_220_15V.xlsx",
+      "bytes": 186959,
+      "sha256": "b1a03acb7629d778eb46f414ab49ceeb99a81b72e82b82de61bb6264779e00b5"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_221_15V_.xlsx",
+      "bytes": 199800,
+      "sha256": "aab0df589eaeb20ce9931a347614e5d018118981f89616ee421ca10941ac860f"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_223_15V_.xlsx",
+      "bytes": 200309,
+      "sha256": "660e1708125dedbc563686685862185c33eb646b506e515fc6b5d3cbd31a2425"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_224_15V.xlsx",
+      "bytes": 210924,
+      "sha256": "dd8cdcc3d73965592ec36f4d911e267cdd7a8cc0bba946e16345055de7e72ae2"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_226_15V.xlsx",
+      "bytes": 186811,
+      "sha256": "3f2d5565e51f61ec19d7599c83f4e3f4e56ec17e8bc4c8af34586c55af180177"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_228_15V.xlsx",
+      "bytes": 201151,
+      "sha256": "9a3edff5aef948790cc865dc5714ed4c29cc22ad6cad4d5a8d2bf4e0cbabe790"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_229_15V.xlsx",
+      "bytes": 200656,
+      "sha256": "36afe33dfd8645317340aa462cf5bcdd62d83a6ca605af72bbd1dd5e7203f3f4"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_IdVg_sweep_235_15V.xlsx",
+      "bytes": 151635,
+      "sha256": "59fef97553fcd76140e089d2b7a8544c370be62dbb76624317094fa5f918df73"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_vgid_sweep_225_15V.xlsx",
+      "bytes": 183074,
+      "sha256": "9c1a85f1e16c6b0d69d919091d4c9e2f386cc5bdbaba1a46a2516eb2c3ab66a5"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_vgid_sweep_234_15V.xlsx",
+      "bytes": 151417,
+      "sha256": "7c1aa66ae58810fe03ce370d191291917718ceb9836a9b741e270767751e747a"
+    },
+    {
+      "path": "IV Sweep/A5/_26CTFM_A5_vgid_sweep_238_15V.xlsx",
+      "bytes": 207769,
+      "sha256": "03c7a261dc27b70030478b8af8fc8a7756cf5e43b68784786a86b1b27e266426"
+    },
+    {
+      "path": "LTD,LTP/A1/A1_LTD.csv",
+      "bytes": 413696,
+      "sha256": "505609d2d81312e5f8988fe4dd4da84324e0c4e95f7a21954e4c8d1c91cb50bb"
+    },
+    {
+      "path": "LTD,LTP/A1/A1_LTP.csv",
+      "bytes": 544214,
+      "sha256": "345c6ce04223ce66bed2488fe5c660b63b7c375bebe74a27570c27c7cde2b71e"
+    },
+    {
+      "path": "LTD,LTP/A2/A2_LTD.csv",
+      "bytes": 753720,
+      "sha256": "247a937fce2649dba2673abd43e4be3542dc1e31db2ffb0ffafd9f1b45766dce"
+    },
+    {
+      "path": "LTD,LTP/A2/A2_LTP.csv",
+      "bytes": 760080,
+      "sha256": "5e029618aaf10b5b70afa7c5852675c39c95bf63457cc60de65f27366e8a3a2d"
+    },
+    {
+      "path": "LTD,LTP/A3/LTD_512_A3_228.csv",
+      "bytes": 570555,
+      "sha256": "5f6e1ac52fd6c3618598756e9a9b26e7a8b2bcf1170ef70db7324688e2d83985"
+    },
+    {
+      "path": "LTD,LTP/A3/LTP_512_A3_228.csv",
+      "bytes": 711045,
+      "sha256": "c161f29269d12ce2a0a349f0fa19a6aee71fff2872df4213a125905fc108d70e"
+    },
+    {
+      "path": "LTD,LTP/A4/LTD_512_A4_229.csv",
+      "bytes": 722836,
+      "sha256": "cd8e450d23cf66362d9364fb916d6f07c37ab6960cdbf1da766c5d080cf0cce7"
+    },
+    {
+      "path": "LTD,LTP/A4/LTP_512_A4_229.csv",
+      "bytes": 714207,
+      "sha256": "99b25ae3742b4ed6ad1c99e999614522660a385a14c6403a7ad283ab8f53a870"
+    },
+    {
+      "path": "LTD,LTP/A5/index.html",
+      "bytes": 1064,
+      "sha256": "6a30ae61a8077055be685913e5667fea9d1049020f120bd11d549858dba95f00"
+    },
+    {
+      "path": "LTD,LTP/A5/index.txt",
+      "bytes": 363,
+      "sha256": "0f7977cdbb8412491613b142f7b5771544713129561f9086e0d612f823cc591a"
+    },
+    {
+      "path": "LTD,LTP/A5/LTD_512_A5_234.csv",
+      "bytes": 571392,
+      "sha256": "cf7c2805c23075b5ef910c3e6f1b5fe91f6ed3c61d7446d3539cea6e730c306b"
+    },
+    {
+      "path": "LTD,LTP/A5/LTP_512_A5_234.csv",
+      "bytes": 714498,
+      "sha256": "d82d373e344182ecd841f82cc494cca405c19f2a1a67430d20ba0a1eec331408"
+    },
+    {
+      "path": "Retention/_26CMFM_A1_Retention.xlsx",
+      "bytes": 17472,
+      "sha256": "10d8a283d3c7c3fc44c7d50f00d8dd9444a2aea5c34fca5e549f73fe1e609d8d"
+    },
+    {
+      "path": "Retention/_26CMFM_A2_Retention.xlsx",
+      "bytes": 17728,
+      "sha256": "fe0ed5ce2005aad240553b017c448ed55f8e6c1992c4f56d7b4a55f35b4313d1"
+    },
+    {
+      "path": "Retention/_26CMFM_A3_Retention.xlsx",
+      "bytes": 17653,
+      "sha256": "08dd6f79b23eda061b84cf526a2822a671ad4a9856788bfea6d01f5862cef88e"
+    },
+    {
+      "path": "Retention/_26CMFM_A4_Retention.xlsx",
+      "bytes": 17766,
+      "sha256": "d54d2570195ea7086d484c885c39deafdf416cf581da24a4634c04b16154dff8"
+    },
+    {
+      "path": "Retention/_26CMFM_A5_Retention.xlsx",
+      "bytes": 17387,
+      "sha256": "6acac59ed89c141e90fc38f2c2d30d55832abe891b34e7296b3b143aaeb54a2a"
+    },
+    {
+      "path": "Retention/Fiting PPT.pptx",
+      "bytes": 838011,
+      "sha256": "878c0d2050a70e48c814a73b1666a4c82ac7a29f6b953678354ccae4003b8c1d"
+    },
+    {
+      "path": "Retention Plot.pptx",
+      "bytes": 688936,
+      "sha256": "9989c05a1a2560cbbb9f59288ccc9d23171758016c1173a08b5812678725a585"
+    },
+    {
+      "path": "Vth_CCM/All Device Vth_CCM.xlsx",
+      "bytes": 13907,
+      "sha256": "064f20f2cddf2207abf9cb5f245a79011561acc74570d6735abb9503fbdf559a"
+    },
+    {
+      "path": "Vth_CCM/Vth_CCM 계산기.xlsx",
+      "bytes": 8013,
+      "sha256": "a02d03e6b865506607a5a43804f99585c90ad63d6f59065ce807540d47d82d1a"
+    },
+    {
+      "path": "Vth_CCM/Vth_CCM 설명.pptx",
+      "bytes": 566713,
+      "sha256": "dbb21f40f498e47ae834a5a04f93e276c3bfa85f12e19bc8885e825ac46e0c1a"
+    },
+    {
+      "path": "엑셀 데이터에 대한 간단 설명.pptx",
+      "bytes": 1413853,
+      "sha256": "87421824d747d29174e96c80623da1aa449cc36710251cbbe838395d4ec1b503"
+    }
+  ]
+}

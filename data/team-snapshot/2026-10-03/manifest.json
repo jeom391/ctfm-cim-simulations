@@ -1,0 +1,33 @@
+{
+ "date": "2026-10-03",
+ "source": "관련 자료/C2C (supplement to 2026-10-02; C2C only)",
+ "count": 5,
+ "total_bytes": 789695,
+ "files": [
+  {
+   "path": "C2C/A1_C2C_50Cycles.xlsx",
+   "bytes": 159555,
+   "sha256": "6584b65443c4b71a5c90498b9520d120f151a2d4a2f4792fdea64d91ae7e5291"
+  },
+  {
+   "path": "C2C/A2_C2C_50Cycles.xlsx",
+   "bytes": 155631,
+   "sha256": "49959edc4e089eec8f823a14effba9f1765a262642ed0051c022452ee77e52d9"
+  },
+  {
+   "path": "C2C/A3_C2C_50Cycles.xlsx",
+   "bytes": 160397,
+   "sha256": "de005b006807997e703e00757c1e0660c871f319e2ce677a333aadc7c2e6834a"
+  },
+  {
+   "path": "C2C/A4_C2C_50Cycles.xlsx",
+   "bytes": 157267,
+   "sha256": "a7aeb3b4a10a74b8ddd7366a050eb4c9817c51b4dd0e23be7453b952e184dc15"
+  },
+  {
+   "path": "C2C/A5_C2C_50Cycles.xlsx",
+   "bytes": 156845,
+   "sha256": "4fa800c9bca5d499b2238abd7d7f0bb82ecdb75a2e716c3001694015c468653a"
+  }
+ ]
+}

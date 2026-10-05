@@ -39,6 +39,36 @@ def test_a2_snapshot_matches_handoff_table_and_independent_residual():
     assert points['descending_0v']['cv_residual_percent'] == pytest.approx(2.492470, abs=1e-6)
 
 
+SUPPLEMENT = Path(__file__).resolve().parents[3] / 'data/team-snapshot/2026-10-03/files'
+# (overall CV %, linear-trend relative-residual SD %) for initial / ascending / descending 0 V, recomputed independently
+# from the raw workbooks (local_report/33-evidence/recompute_c2c_all.py); nothing excluded, A4/A5 outliers included.
+LATEST_C2C = {
+    'A1': ((8.962230, 3.171725), (7.929512, 2.787384), (11.869619, 4.568632)),
+    'A2': ((3.581349, 2.337826), (6.075524, 2.917903), (2.510084, 2.492470)),
+    'A3': ((9.734714, 1.898242), (12.840609, 3.463368), (35.100133, 16.531713)),
+    'A4': ((10.625534, 2.939228), (12.465748, 3.701655), (14.613091, 14.955397)),
+    'A5': ((16.081324, 6.491459), (20.970215, 14.440904), (15.618871, 12.397612)),
+}
+
+
+@pytest.mark.parametrize('condition', sorted(LATEST_C2C))
+def test_latest_c2c_files_match_independent_values_without_excluding_anything(condition):
+    path = SUPPLEMENT / f'C2C/{condition}_C2C_50Cycles.xlsx'
+    result = analyze_c2c_sweep(path.read_bytes(), path.name, condition_id=condition)
+    assert result['exclusions'] == []
+    for p, (overall, residual) in zip(result['summaries']['points'], LATEST_C2C[condition]):
+        assert p['status'] == 'ok' and p['n'] == 50
+        assert p['cv_overall_percent'] == pytest.approx(overall, abs=5e-7)
+        assert p['cv_residual_percent'] == pytest.approx(residual, abs=5e-7)
+    gaps = result['provenance']['unused_empty_cells']
+    if condition == 'A5':
+        # cycle 11 is missing the last four samples of its descending sweep; the analysed 0 V rows are intact
+        assert gaps == [dict(cycle=11, source_rows='499-502', count=4)]
+        assert any('Cycle_11' in w and '499-502' in w for w in result['warnings'])
+    else:
+        assert gaps == []
+
+
 def _workbook(rows_by_cycle, labels=None):
     """Tiny synthetic sweep: 0 -> -1 -> +1 -> -1 V in 0.5 V steps."""
     vg = [0, -.5, -1, -.5, 0, .5, 1, .5, 0, -.5, -1]

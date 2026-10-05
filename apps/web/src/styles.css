@@ -60,12 +60,12 @@ button.primary:hover { background: #185bc0 }
 button.subtle { border-color: transparent; background: transparent; color: var(--muted) }
 button.danger { color: #9d3520; margin-left: 16px }
 
-input:not([type=checkbox]):not([type=file]), select, textarea {
+input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea {
   width: 100%; border: 1px solid #c3d0e0; border-radius: var(--r-control);
   background: var(--surface); padding: 8px 10px; color: inherit; min-height: 38px;
 }
 input[readonly], input:disabled, select:disabled { background: var(--sunk); color: #8a96a8 }
-input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0 }
+input[type=checkbox], input[type=radio] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0 }
 input[type=file] { width: 100%; max-width: 450px; font-size: 13px }
 input::file-selector-button {
   background: var(--surface); border: 1px solid #c3d0e0; border-radius: var(--r-control);

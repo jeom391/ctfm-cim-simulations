@@ -189,6 +189,18 @@ def analyze_c2c_sweep(data: bytes, filename: str, *, condition_id=None, device_i
             r[f'{key}_current_a'] = float(values[i])
             r[f'{key}_trend_a'] = residual['trend'][i]
             r[f'{key}_relative_residual'] = None if residual['relative_residual'] is None else residual['relative_residual'][i]
+    # Empty cells elsewhere in the sweep (e.g. the tail of one cycle) are reported with their location. They do not
+    # touch the three analysed 0 V rows (an empty cell there makes that point 'invalid' above), and nothing is repaired.
+    analysed_rows = {p['source_row'] for p in points if p.get('source_row')}
+    gaps = {}
+    for r in range(1, len(raw)):
+        for n, col in cycles:
+            if r + 1 not in analysed_rows and _number(raw[r][col] if col < len(raw[r]) else None) is None:
+                gaps.setdefault(n, []).append(r + 1)
+    unused_empty = [dict(cycle=n, source_rows=f'{min(rs)}-{max(rs)}', count=len(rs)) for n, rs in sorted(gaps.items())]
+    for g in unused_empty:
+        warnings.append(f"Cycle_{g['cycle']:02d}: 원본 행 {g['source_rows']}의 {g['count']}칸이 비어 있습니다. 분석 대상 0 V 행이 아니어서 "
+                        '세 구간의 계산에는 쓰이지 않았고, 값을 채우거나 사이클을 제외하지 않았습니다.')
     for p in points:
         lag1 = p.get('residual_lag1_correlation')
         if lag1 is not None:
@@ -209,7 +221,8 @@ def analyze_c2c_sweep(data: bytes, filename: str, *, condition_id=None, device_i
                          'and it differs from the regression residual SD sqrt(sum(r^2)/(N-p))/mean.'),
         provenance=dict(filename=filename, sha256=hashlib.sha256(data).hexdigest(), sheet=SHEET, device_id=device_id,
                         unit=unit, unit_scale_to_ampere=scale, cycle_count=len(cycles),
-                        cycle_columns=f'{_column_letter(first_col)}..{_column_letter(last_col)}', segments=segments),
+                        cycle_columns=f'{_column_letter(first_col)}..{_column_letter(last_col)}', segments=segments,
+                        unused_empty_cells=unused_empty),
         summaries=dict(points=points, cycles=len(cycles)),
         tables=dict(c2c_points=[{k: v for k, v in p.items() if k != 'issues'} for p in points], cycles=rows),
         exclusions=[dict(point=p['point'], reason=p['reason'], issues=p.get('issues', [])) for p in points if p['status'] != 'ok'],

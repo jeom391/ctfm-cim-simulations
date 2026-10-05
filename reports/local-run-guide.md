@@ -28,6 +28,8 @@ Notion 사용 안내서를 만들 때는 1~3장(매일 쓰는 절차)을 앞에 
 | 저장 데이터 폴더 (`CTFM_SERVE_ROOT`) | `/home/jmhwang/ctfm-engines/serve` (실제 데이터는 그 안의 `storage/`) |
 | Windows 탐색기에서 데이터 폴더 열기 | `\\wsl.localhost\Ubuntu\home\jmhwang\ctfm-engines\serve\storage` |
 
+> `git` 명령(커밋 확인 등)은 **Windows(PowerShell 또는 Git Bash)** 에서 실행하세요. 이 저장소 폴더는 Windows의 git 작업 폴더라 Ubuntu 터미널의 `git`은 `not a git repository` 오류를 냅니다(확인함). 서버 실행(`serve.sh`)과 `npm`은 Ubuntu 터미널에서 합니다.
+
 > 주의: 엔진 가상환경에는 프로젝트 코드가 **위 Windows 저장소 폴더를 가리키는 "편집 가능 설치"** 로 연결돼 있습니다. 저장소 폴더를 다른 곳으로 옮기거나 이름을 바꾸면 서버가 켜지지 않습니다(옮긴 뒤에는 4장의 B2를 다시 실행).
 
 ## 2. 매일 쓰는 방법 (일상 실행)
